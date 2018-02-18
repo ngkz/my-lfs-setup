@@ -27,7 +27,8 @@ export MAKEFLAGS=-j$(($(nproc) + 1))
 
 if ! bash '/tmp/$(basename "$script")'; then
     echo "build failed. dropping to a shell." >&2
-    PS1='\\u@\\h:\\w\\\$ ' exec bash --norc
+    PS1='\\u@\\h:\\w\\\$ ' bash --norc
+    exit 1
 fi
 EOH
 
