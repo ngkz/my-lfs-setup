@@ -1,19 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
-exec 11<<EOH
+mkdir -p "$(dirname "$0")/lfs-tmp-sys/tools"
+
+for script in "$(dirname "$0")/build-lfs-tmp-sys.d/"*; do
+    exec 11<<EOH
 lfs:x:$(id -u):$(id -g):lfs,,,:/tmp:/bin/bash
 nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
 EOH
 
-exec 12<<EOH
+    exec 12<<EOH
 lfs:x:$(id -g):
 nogroup:x:65534:
 EOH
 
-mkdir -p "$(dirname "$0")/lfs-tmp-sys/tools"
-
-for script in "$(dirname "$0")/build-lfs-tmp-sys.d/"*; do
     exec 13<<EOH
 #!/bin/bash
 umask 022
