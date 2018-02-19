@@ -41,6 +41,7 @@ EOH
           --dev /dev \
           --ro-bind /etc/resolv.conf /etc/resolv.conf \
           --ro-bind /etc/ssl /etc/ssl \
+          --ro-bind /etc/alternatives /etc/alternatives \
           --bind /lib /lib \
           --bind /lib64 /lib64 \
           --bind /bin /bin \
