@@ -51,7 +51,6 @@ EOH
           --chdir /tmp \
           --file 11 /etc/passwd \
           --file 12 /etc/group \
-          --dir /mnt \
           --bind "$(dirname "$0")/lfs-sources" /sources \
           --bind "$(dirname "$0")/lfs-tmp-sys" /mnt/lfs \
           --symlink mnt/lfs/tools /tools \
