@@ -40,6 +40,7 @@ EOH
           --proc /proc \
           --dev /dev \
           --ro-bind /etc/resolv.conf /etc/resolv.conf \
+          --ro-bind /etc/ssl /etc/ssl \
           --bind /lib /lib \
           --bind /lib64 /lib64 \
           --bind /bin /bin \
