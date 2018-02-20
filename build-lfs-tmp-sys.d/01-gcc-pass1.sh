@@ -31,7 +31,7 @@ fi
 
 #download MPC
 if [[ ! -f /sources/mpc-1.0.3.tar.gz ]]; then
-    wget -O/sources/mpc-1.0.3.tar.gz http://www.multiprecision.org/mpc/download/mpc-1.0.3.tar.gz
+    wget -O/sources/mpc-1.0.3.tar.gz https://ftp.gnu.org/gnu/mpc/mpc-1.0.3.tar.gz
 fi
 
 if ! md5sum /sources/mpc-1.0.3.tar.gz | grep d6a1d5f8ddea3abd2cc3e98f58352d26 >/dev/null; then
