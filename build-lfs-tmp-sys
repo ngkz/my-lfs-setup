@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
+mkdir -p "$(dirname "$0")/lfs-sources"
 mkdir -p "$(dirname "$0")/lfs-tmp-sys/tools"
 
 for script in "$(dirname "$0")/build-lfs-tmp-sys.d/"*; do
