@@ -11,7 +11,7 @@ fi
 
 #Download the source code
 if [[ ! -f /sources/gettext-0.19.8.1.tar.xz ]]; then
-    wget -O/sources/gettext-0.19.8.1.tar.xz http://ftp.gnu.org/gnu/gawk/gettext-0.19.8.1.tar.xz
+    wget -O/sources/gettext-0.19.8.1.tar.xz http://ftp.gnu.org/gnu/gettext/gettext-0.19.8.1.tar.xz
 fi
 
 if ! md5sum /sources/gettext-0.19.8.1.tar.xz | grep df3f5690eaa30fd228537b00cb7b7590 >/dev/null; then
