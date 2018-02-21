@@ -104,7 +104,8 @@ RANLIB=$LFS_TGT-ranlib                             \
     --disable-libstdcxx-pch                        \
     --disable-multilib                             \
     --disable-bootstrap                            \
-    --disable-libgomp
+    --disable-libgomp                              \
+    --enable-default-pie
 
 #Compile the package
 make
