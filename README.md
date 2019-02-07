@@ -1621,3 +1621,14 @@ make INSTALL_HDR_PATH=dest headers_install
 find dest/include \( -name .install -o -name ..install.cmd \) -delete
 cp -rv dest/include/* /usr/include
 ```
+
+### Man-pages-4.16
+
+Install Man-pages by running:
+
+```sh
+cd /var/tmp
+tar -xf /sources/man-pages-4.16.tar.xz
+cd man-pages-4.16
+make install
+```
