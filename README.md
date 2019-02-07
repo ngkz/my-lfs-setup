@@ -1598,3 +1598,26 @@ The /var/log/wtmp file records all logins and logouts. The /var/log/lastlog file
 
 Note:
 The /run/utmp file records the users that are currently logged in. This file is created dynamically in the boot scripts.
+
+### Linux-4.20.7
+The Linux kernel needs to expose an Application Programming Interface (API) for the system's C library (Glibc in LFS) to use. This is done by way of sanitizing various C header files that are shipped in the Linux kernel source tarball.
+
+```sh
+cd /var/tmp
+tar -xf /sources/linux-4.20.7.tar.xz
+cd linux-4.20.7
+```
+
+Make sure there are no stale files and dependencies lying around from previous activity:
+
+```sh
+make mrproper
+```
+
+Now extract the user-visible kernel headers from the source. They are placed in an intermediate local directory and copied to the needed location because the extraction process removes any existing files in the target directory. There are also some hidden files used by the kernel developers and not needed by LFS that are removed from the intermediate directory.
+
+```sh
+make INSTALL_HDR_PATH=dest headers_install
+find dest/include \( -name .install -o -name ..install.cmd \) -delete
+cp -rv dest/include/* /usr/include
+```
