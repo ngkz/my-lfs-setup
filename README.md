@@ -398,7 +398,7 @@ readelf -l a.out | grep ': /tools'
 
 Note that the Tcl package used here is a minimal version needed to run the LFS tests. For the full package, see the BLFS Tcl procedures.
 
-Prepare Tcl for compilation: 
+Prepare Tcl for compilation:
 ```sh
 cd /tmp
 tar -xf /sources/tcl8.6.8-src.tar.gz
@@ -467,7 +467,7 @@ make SCRIPTS="" install
 
 ### DejaGNU-1.6.1
 
- Prepare DejaGNU for compilation: 
+ Prepare DejaGNU for compilation:
 
 ```sh
 cd /tmp
@@ -558,7 +558,7 @@ sed -i s/mawk// configure
 
     This switch causes wide-character libraries (e.g., libncursesw.so.6.1) to be built instead of normal ones (e.g., libncurses.so.6.1). These wide-character libraries are usable in both multibyte and traditional 8-bit locales, while normal libraries work properly only in 8-bit locales. Wide-character and normal libraries are source-compatible, but not binary-compatible.
 
-Compile the package: 
+Compile the package:
 
 ```sh
 make
@@ -572,7 +572,7 @@ make install
 
 ### bash-4.4.18
 
-Prepare Bash for compilation: 
+Prepare Bash for compilation:
 
 ```sh
 cd /tmp
@@ -810,7 +810,7 @@ Prepare Gettext for compilation:
 
 ```sh
 cd /tmp
-tar -xf /sources/gettext-0.19.8.1.tar.xz 
+tar -xf /sources/gettext-0.19.8.1.tar.xz
 cd gettext-0.19.8.1/gettext-tools
 EMACS="no" ./configure --prefix=/tools --disable-shared
 ```
@@ -847,7 +847,7 @@ Prepare Grep for compilation:
 
 ```sh
 cd /tmp
-tar -xf /sources/grep-3.1.tar.xz 
+tar -xf /sources/grep-3.1.tar.xz
 cd grep-3.1
 ./configure --prefix=/tools
 ```
@@ -954,7 +954,7 @@ Prepare Patch for compilation:
 
 ```sh
 cd /tmp
-tar -xf /sources/patch-2.7.6.tar.xz 
+tar -xf /sources/patch-2.7.6.tar.xz
 cd patch-2.7.6
 ./configure --prefix=/tools
 ```
@@ -983,7 +983,7 @@ Prepare Perl for compilation:
 
 ```sh
 cd /tmp
-tar -xf /sources/perl-5.28.0.tar.xz 
+tar -xf /sources/perl-5.28.0.tar.xz
 cd perl-5.28.0/
 sh Configure -des -Dprefix=/tools -Dlibs=-lm -Uloclibpth -Ulocincpth
 ```
@@ -1075,7 +1075,7 @@ Prepare Texinfo for compilation:
 
 ```sh
 cd /tmp
-tar -xf /sources/texinfo-6.5.tar.xz 
+tar -xf /sources/texinfo-6.5.tar.xz
 cd texinfo-6.5
 ./configure --prefix=/tools
 ```
@@ -1099,7 +1099,7 @@ make install
 ```
 
 ### Util-linux-2.32.1
-Prepare Util-linux for compilation: 
+Prepare Util-linux for compilation:
 
 ```sh
 cd /tmp
@@ -1234,7 +1234,7 @@ The commands in the remainder of this book must be performed while logged in as 
 
 Currently, the $LFS/tools directory is owned by the user lfs, a user that exists only on the host system. If the $LFS/tools directory is kept as is, the files are owned by a user ID without a corresponding account. This is dangerous because a user account created later could get this same user ID and would own the $LFS/tools directory and all the files therein, thus exposing these files to possible malicious manipulation.
 
-To avoid this issue, you could add the lfs user to the new LFS system later when creating the /etc/passwd file, taking care to assign it the same user and group IDs as on the host system. Better yet, change the ownership of the $LFS/tools directory to user root by running the following command: 
+To avoid this issue, you could add the lfs user to the new LFS system later when creating the /etc/passwd file, taking care to assign it the same user and group IDs as on the host system. Better yet, change the ownership of the $LFS/tools directory to user root by running the following command:
 
 ```sh
 sudo chown -R root:root $LFS/tools
