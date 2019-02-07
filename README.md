@@ -1239,3 +1239,362 @@ To avoid this issue, you could add the lfs user to the new LFS system later when
 ```sh
 sudo chown -R root:root $LFS/tools
 ```
+
+## Installing Basic System Software
+### Creating Directories
+
+- https://refspecs.linuxfoundation.org/FHS_3.0/fhs-3.0.html
+- https://jlk.fjfi.cvut.cz/arch/manpages/man/file-hierarchy.7
+
+| Mode | Directory                | Description                                            |
+|------|--------------------------|--------------------------------------------------------|
+|      | /bin -> usr/bin          | Legacy location of essential command binaries          |
+| 0700 | /boot                    | Static files of the boot loader                        |
+|      | /dev                     | Device files                                           |
+|      | /etc                     | Host-specific system configuration                     |
+|      | /etc/opt                 | Configuration for /opt                                 |
+|      | /home                    | User home directories                                  |
+|      | /lib -> usr/lib          | Legacy location of shared libraries and kernel modules |
+|      | /lib32 -> usr/lib32      | Legacy location of 32-bit shared libraries             |
+|      | /lib64 -> usr/lib        | Legacy location of 64-bit shared libraries             |
+|      | /media                   | Mount point for removable media                        |
+|      | /mnt                     | Mount point for mounting a filesystem temporarily      |
+|      | /opt                     | Add-on application software packages                   |
+| 0555 | /proc                    | Kernel and process information virtual filesystem      |
+| 0700 | /root                    | Home directory for the root user                       |
+|      | /run                     | Data relevant to running processes (tmpfs)             |
+| 1777 | /run/lock                | lock files                                             |
+| 1777 | /run/shm                 | Temporary files                                        |
+|      | /sbin -> usr/bin         | Legacy location of essential system binaries           |
+|      | /srv                     | Data for services provided by this system              |
+| 0555 | /sys                     | Kernel and system information virtual filesystem       |
+| 1777 | /tmp                     | Temporary files (tmpfs)                                |
+|      | /usr                     | Operating System Resources                             |
+|      | /usr/bin                 | Binaries                                               |
+|      | /usr/include             | Header files included by C programs                    |
+|      | /usr/lib                 | 64-bit libraries and kernel modules                    |
+|      | /usr/lib32               | 32-bit libraries                                       |
+|      | /usr/local               | Local hierarchy                                        |
+|      | /usr/local/bin           | Local binaries                                         |
+|      | /usr/local/etc           | Host-specific system configuration for local binaries  |
+|      | /usr/local/games         | Local game binaries                                    |
+|      | /usr/local/include       | Local C header files                                   |
+|      | /usr/local/lib           | 64-bit local libraries                                 |
+|      | /usr/local/lib32         | 32-bit local libraries                                 |
+|      | /usr/local/man           | Local online manuals                                   |
+|      | /usr/local/sbin          | Local system binaries                                  |
+|      | /usr/local/share         | Local architecture-independent hierarchy               |
+|      | /usr/local/share/man     | Local online manuals                                   |
+|      | /usr/local/share/misc    | Local miscellaneous architecture-independent data      |
+|      | /usr/local/src           | Local source code                                      |
+|      | /usr/pkg                 | Packages                                               |
+|      | /usr/sbin -> bin         | Legacy location of non-vital system binaries           |
+|      | /usr/share               | Architecture-independent data                          |
+|      | /usr/share/man           | Online manuals                                         |
+|      | /usr/share/misc          | Miscellaneous architecture-independent data            |
+|      | /var                     | Variable data                                          |
+|      | /var/cache               | Application cache data                                 |
+|      | /var/lib                 | Variable state information                             |
+|      | /var/lib/misc            | Miscellaneous state data                               |
+|      | /var/local               | Variable data for /usr/local                           |
+|      | /var/lock -> ../run/lock | Legacy location of lock files                          |
+|      | /var/log                 | Log files and directories                              |
+|      | /var/opt                 | Variable data for /opt                                 |
+|      | /var/run -> ../run       | Legacy location of data relevant to running processes  |
+|      | /var/spool               | Application spool data                                 |
+|      | /var/spool/cron          | cron and at jobs                                       |
+| 1777 | /var/tmp                 | Temporary files preserved between system reboots       |
+
+- I'll use `/usr/lib/<package-name>` instead of `/usr/libexec`.
+- If a C preprocessor is installed, /lib/cpp must be a reference to it, for historical reasons.
+
+```sh
+sudo mkdir -pv $LFS/{dev,etc/opt,home,media,mnt,opt,run,srv}
+sudo mkdir -pv $LFS/usr/{,local/}{bin,include,lib,lib32,share/{man,misc}}
+sudo mkdir -pv $LFS/usr/pkg
+sudo mkdir -pv $LFS/usr/local/{etc,games,man,sbin,src}
+sudo mkdir -pv $LFS/var/{cache,lib/misc,local,log,opt,spool/cron}
+sudo install -dv -m 0700 $LFS/{boot,root}
+sudo install -dv -m 0555 $LFS/{proc,sys}
+sudo install -dv -m 1777 $LFS/tmp $LFS/var/tmp
+sudo ln -sv usr/bin $LFS/bin
+sudo ln -sv usr/lib $LFS/lib
+sudo ln -sv usr/lib32 $LFS/lib32
+sudo ln -sv usr/lib $LFS/lib64
+sudo ln -sv usr/bin $LFS/sbin
+sudo ln -sv bin $LFS/usr/sbin
+sudo ln -sv ../run/lock $LFS/var/lock
+sudo ln -sv ../run $LFS/var/run
+```
+
+### Creating Initial Device Nodes
+```sh
+sudo mknod -m 666 $LFS/dev/null c 1 3
+sudo mknod -m 666 $LFS/dev/zero c 1 5
+sudo mknod -m 666 $LFS/dev/full c 1 7
+sudo mknod -m 666 $LFS/dev/random c 1 8
+sudo mknod -m 666 $LFS/dev/urandom c 1 9
+sudo mknod -m 666 $LFS/dev/tty c 5 0
+#root:tty
+sudo chown -v 0:5 $LFS/dev/tty
+sudo ln -sv /proc/self/fd/0 $LFS/dev/stdin
+sudo ln -sv /proc/self/fd/1 $LFS/dev/stdout
+sudo ln -sv /proc/self/fd/2 $LFS/dev/stderr
+sudo ln -sv /proc/kcore $LFS/dev/core
+sudo mkdir -v $LFS/dev/pts
+sudo ln -sv ../run/shm $LFS/dev/shm
+sudo ln -sv pts/ptmx $LFS/dev/ptmx
+sudo mknod -m 600 $LFS/dev/console c 5 1
+```
+
+### Mounting Virtual Kernel File Systems
+```sh
+sudo mount -vt proc proc $LFS/proc
+sudo mount -vt sysfs sysfs $LFS/sys
+sudo mount -vt tmpfs -o nodev,nosuid,noexec,mode=0755 tmpfs $LFS/run
+sudo install -dv -m 1777 $LFS/run/shm
+sudo install -dv -m 1777 $LFS/run/lock
+sudo mount -vt tmpfs -o nodev,nosuid none $LFS/tmp
+sudo mount -vt devpts devpts $LFS/dev/pts -o gid=5,mode=620
+```
+
+**The meaning of the mount options for devpts:**
+
+gid=5
+
+    This ensures that all devpts-created device nodes are owned by group ID 5. This is the ID we will use later on for the tty group. We use the group ID instead of a name, since the host system might use a different ID for its tty group.
+
+mode=0620
+
+    This ensures that all devpts-created device nodes have mode 0620 (user readable and writable, group writable). Together with the option above, this ensures that devpts will create device nodes that meet the requirements of grantpt(), meaning the Glibc pt_chown helper binary (which is not installed by default) is not necessary.
+
+### Entering the Chroot Environment
+
+```sh
+#export LFS=...
+#umask 022
+CFLAGS="-O2 -g -march=native -pipe -Werror=format-security -fstack-protector-strong -fstack-clash-protection -fno-plt -fexceptions -grecord-gcc-switches -fasynchronous-unwind-tables"
+sudo chroot "$LFS" /tools/bin/env -i \
+    HOME=/root                  \
+    TERM="$TERM"                \
+    PS1='(lfs chroot) \u:\w\$ ' \
+    PATH=/bin:/usr/bin:/sbin:/usr/sbin:/tools/bin \
+    MAKEFLAGS="-j$(nproc)"      \
+    CPPFLAGS="-D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS" \
+    CFLAGS="$CFLAGS" \
+    CXXFLAGS="$CFLAGS" \
+    LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now" \
+    /tools/bin/bash --login +h
+```
+
+The meaning of CFLAGS:
+
+- https://wiki.gentoo.org/wiki/GCC_optimization
+- https://src.fedoraproject.org/rpms/redhat-rpm-config/blob/master/f/buildflags.md
+- https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html
+- https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html
+
+| Flag                         | Effect                                                                                                            |
+|------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| -O2                          | Turn on optimizations. Using -O3 is not recommended because it can slow down a system and break several packages. |
+| -g                           | Generate debugging information                                                                                    |
+| -march=native                | Tunes the generated code for the machine running the compiler. Generated code may not run on older CPU.           |
+| -pipe                        | Run compiler and assembler in parallel.  This can improve compilation performance.                                |
+| -Werror=format-security      | Turn on warnings about insecure format functions usage and treat them as errors.                                  |
+| -fstack-protector-strong     | Enable stack buffer overflow checks.                                                                              |
+| -fstack-clash-protection     | Generate code to prevent stack clash style attacks.                                                               |
+| -fno-plt                     | Generate more efficient code by eliminating PLT stubs and exposing GOT loads to optimizations.                    |
+| -fexceptions                 | Provide exception unwinding support for C programs. This also hardens cancellation handling in C programs.        |
+| -grecord-gcc-switches        | Include select GCC command line switches in the DWARF debugging information.                                      |
+| -fasynchronous-unwind-tables | Required for support of asynchronous cancellation and proper unwinding from signal handlers.                      |
+
+<!--
+TODO:
+| Flag            | Effect                                                                                                              |
+|-----------------|---------------------------------------------------------------------------------------------------------------------|
+| -fcf-protection | Generate Intel CET-compatible code to guard against ROP attacks. No CPUs in the market support this technology yet. |
+-->
+
+The meaning of CPPFLAGS:
+
+| Flag                  | Effect                                                                                                                       |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------------|
+| -D_FORTIFY_SOURCE=2   | Enable buffer overflow detection in various functions.                                                                       |
+| -D_GLIBCXX_ASSERTIONS | Enable lightweight assertions in the C++ standard library, such as bounds checking for the subscription operator on vectors. |
+
+The meaning of LDFLAGS:
+
+- https://lwn.net/Articles/192624/
+- https://wiki.debian.org/Hardening
+
+| Flag          | Effect                                                                                                                                                                    |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -O1           | Optimize a hash table of symbols                                                                                                                                          |
+| --sort-common | Sort the common symbols by alignment. This is to prevent gaps between symbols due to alignment constraints.                                                               |
+| --as-needed   | Eliminate unneeded dependencies.                                                                                                                                          |
+| -z relro      | Turn several sections read-only before turning over control to the program. This prevents some GOT (and .dtors) overwrite attacks.                                        |
+| -z now        | During program load, all dynamic symbols are resolved, allowing for the complete GOT to be marked read-only (due to -z relro above). This prevents GOT overwrite attacks. |
+
+### Creating Essential Files ans Symlinks
+Some programs use hard-wired paths to programs which do not exist yet. In order to satisfy these programs, create a number of symbolic links which will be replaced by real files throughout the course of this chapter after the software has been installed:
+
+```sh
+ln -sv /tools/bin/{bash,cat,dd,echo,ln,pwd,rm,stty} /bin
+ln -sv /tools/bin/{env,install,perl} /usr/bin
+ln -sv /tools/lib/libgcc_s.so{,.1} /usr/lib
+ln -sv /tools/lib/libstdc++.{a,so{,.6}} /usr/lib
+for lib in blkid lzma mount uuid
+do
+    ln -sv /tools/lib/lib$lib.so* /usr/lib
+done
+ln -svf /tools/include/blkid    /usr/include
+ln -svf /tools/include/libmount /usr/include
+ln -svf /tools/include/uuid     /usr/include
+install -vdm755 /usr/lib/pkgconfig
+for pc in blkid mount uuid
+do
+    sed 's@tools@usr@g' /tools/lib/pkgconfig/${pc}.pc \
+        > /usr/lib/pkgconfig/${pc}.pc
+done
+ln -sv bash /bin/sh
+```
+
+The purpose of each link:
+
+/bin/bash
+
+    Many bash scripts specify /bin/bash.
+/bin/cat
+
+    This pathname is hard-coded into Glibc's configure script.
+/bin/dd
+
+    The path to dd will be hard-coded into the /usr/bin/libtool utility.
+/bin/echo
+
+    This is to satisfy one of the tests in Glibc's test suite, which expects /bin/echo.
+/usr/bin/install
+
+    The path to install will be hard-coded into the /usr/lib/bash/Makefile.inc file.
+/bin/ln
+
+    The path to ln will be hard-coded into the /usr/lib/perl5/5.28.0/<target-triplet>/Config_heavy.pl file.
+/bin/pwd
+
+    Some configure scripts, particularly Glibc's, have this pathname hard-coded.
+/bin/rm
+
+    The path to rm will be hard-coded into the /usr/lib/perl5/5.28.0/<target-triplet>/Config_heavy.pl file.
+/bin/stty
+
+    This pathname is hard-coded into Expect, therefore it is needed for Binutils and GCC test suites to pass.
+/usr/bin/perl
+
+    Many Perl scripts hard-code this path to the perl program.
+/usr/lib/libgcc_s.so{,.1}
+
+    Glibc needs this for the pthreads library to work.
+/usr/lib/libstdc++{,.6}
+
+    This is needed by several tests in Glibc's test suite, as well as for C++ support in GMP.
+/usr/lib/lib{blkid,lzma,mount,uuid}.{a,la,so*}
+
+    These links prevent utilities from acquiring an unnecessary reference to the /tools directory.
+/bin/sh
+
+    Many shell scripts hard-code /bin/sh.
+
+
+Historically, Linux maintains a list of the mounted file systems in the file /etc/mtab. Modern kernels maintain this list internally and exposes it to the user via the /proc filesystem. To satisfy utilities that expect the presence of /etc/mtab, create the following symbolic link:
+
+```sh
+ln -sv /proc/self/mounts /etc/mtab
+```
+ In order for user root to be able to login and for the name “root” to be recognized, there must be relevant entries in the /etc/passwd and /etc/group files.
+
+Create the /etc/passwd file by running the following command:
+
+```sh
+cat >/etc/passwd <<'EOS'
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:Legacy User:/dev/null:/bin/false
+daemon:x:2:2:Legacy User:/dev/null:/bin/false
+nobody:x:65534:65534:Unprivileged User:/dev/null:/bin/false
+EOS
+```
+
+The actual password for root (the “x” used here is just a placeholder) will be set later.
+
+- http://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/usernames.html
+
+The purpose of each user:
+
+| User   | Purpose                                                   |
+|--------|-----------------------------------------------------------|
+| root   | Administrative user with all appropriate privileges       |
+| bin    | Legacy User ID (LSB requires)                             |
+| daemon | Legacy User ID (LSB requires)                             |
+| nobody | Unprivileged User, NFS anonymous UID, Kernel overflow UID |
+
+Create the /etc/group file by running the following command:
+
+```sh
+cat >/etc/group <<'EOS'
+root:x:0:
+bin:x:1:
+daemon:x:2:
+kmem:x:3:
+tape:x:4:
+tty:x:5:
+disk:x:6:
+lp:x:7:
+dialout:x:8:
+audio:x:9:
+video:x:10:
+cdrom:x:11:
+input:x:12:
+kvm:x:13:
+utmp:x:14:
+nobody:x:65534:
+EOS
+```
+
+The purpose of each group:
+
+| Group   | Purpose                                                                 |
+|---------|-------------------------------------------------------------------------|
+| root    | Administrative user with all appropriate privileges                     |
+| bin     | Legacy Group (LSB)                                                      |
+| daemon  | Legacy Group (LSB)                                                      |
+| kmem    | /dev/mem, /dev/kmem, /dev/port (eudev)                                  |
+| tape    | Tape devices (eudev)                                                    |
+| tty     | TTY devices (eudev, devpts)                                             |
+| disk    | Other block devices (eudev)                                             |
+| lp      | Parallel port devices (eudev)                                           |
+| dialout | Serial port devices (eudev)                                             |
+| audio   | Sound card group (eudev)                                                |
+| video   | Video devices (eudev)                                                   |
+| cdrom   | Optical disk drives (eudev)                                             |
+| input   | Video capture devices, 2D/3D hardware acceleration, framebuffer (eudev) |
+| kvm     | KVM virtual machine (eudev)                                             |
+| utmp    | Login logs (/run/utmp, /var/log/lastlog, /var/log/wtmp, /var/log/btmp)  |
+| nobody  | Unprivileged Group / NFS anonymous GID / Kernel overflow GID            |
+
+To remove the “I have no name!” prompt, start a new shell. Since a full Glibc was installed in Chapter 5 and the /etc/passwd and /etc/group files have been created, user name and group name resolution will now work:
+
+```sh
+exec /tools/bin/bash --login +h
+```
+ The login, agetty, and init programs (and others) use a number of log files to record information such as who was logged into the system and when. However, these programs will not write to the log files if they do not already exist. Initialize the log files and give them proper permissions:
+
+```sh
+touch /var/log/{btmp,lastlog,faillog,wtmp}
+chgrp -v utmp /var/log/lastlog
+chmod -v 664  /var/log/lastlog
+chmod -v 600  /var/log/btmp
+```
+
+The /var/log/wtmp file records all logins and logouts. The /var/log/lastlog file records when each user last logged in. The /var/log/faillog file records failed login attempts. The /var/log/btmp file records the bad login attempts.
+
+Note:
+The /run/utmp file records the users that are currently logged in. This file is created dynamically in the boot scripts.
