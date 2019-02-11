@@ -1340,6 +1340,7 @@ sudo chown -v 0:5 $LFS/dev/tty
 sudo ln -sv /proc/self/fd/0 $LFS/dev/stdin
 sudo ln -sv /proc/self/fd/1 $LFS/dev/stdout
 sudo ln -sv /proc/self/fd/2 $LFS/dev/stderr
+sudo ln -sv /proc/self/fd $LFS/dev/fd
 sudo ln -sv /proc/kcore $LFS/dev/core
 sudo mkdir -v $LFS/dev/pts
 sudo ln -sv ../run/shm $LFS/dev/shm
