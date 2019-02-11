@@ -1374,7 +1374,7 @@ mode=0620
 ```sh
 #export LFS=...
 #umask 022
-CFLAGS="-O2 -g -march=native -pipe -Werror=format-security -fstack-protector-strong -fstack-clash-protection -fno-plt -fexceptions -grecord-gcc-switches -fasynchronous-unwind-tables"
+CFLAGS="-O2 -g -march=native -pipe -Wformat -Werror=format-security -fstack-protector-strong -fstack-clash-protection -fno-plt -fexceptions -grecord-gcc-switches -fasynchronous-unwind-tables"
 sudo chroot "$LFS" /tools/bin/env -i \
     HOME=/root                  \
     TERM="$TERM"                \
