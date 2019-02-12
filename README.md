@@ -1620,16 +1620,28 @@ Now extract the user-visible kernel headers from the source. They are placed in 
 ```sh
 make INSTALL_HDR_PATH=dest headers_install
 find dest/include \( -name .install -o -name ..install.cmd \) -delete
-cp -rv dest/include/* /usr/include
+mkdir -pv /usr/pkg/linux-api-headers-4.20.7/usr/include
+cp -rv dest/include/* /usr/pkg/linux-api-headers-4.20.7/usr/include
+```
+
+Install the package:
+
+```sh
+cp -rsv /usr/pkg/linux-api-headers-4.20.7/* /
 ```
 
 ### Man-pages-4.16
 
-Install Man-pages by running:
+Package Man-pages by running:
 
 ```sh
 cd /var/tmp
 tar -xf /sources/man-pages-4.16.tar.xz
 cd man-pages-4.16
-make install
+make DESTDIR=/usr/pkg/man-pages-4.16 install
+```
+Install the package:
+
+```sh
+cp -rsv /usr/pkg/man-pages-4.16/* /
 ```
