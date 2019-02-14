@@ -1374,7 +1374,7 @@ mode=0620
 ```sh
 #export LFS=...
 #umask 022
-CFLAGS="-O2 -g -march=native -pipe -Wformat -Werror=format-security -fstack-protector-strong -fstack-clash-protection -fno-plt -fexceptions -grecord-gcc-switches -fasynchronous-unwind-tables"
+CFLAGS="-O2 -g -march=native -pipe -Wformat -Werror=format-security -fstack-protector-strong -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables"
 sudo chroot "$LFS" /tools/bin/env -i \
     HOME=/root                  \
     TERM="$TERM"                \
@@ -1406,7 +1406,6 @@ The meaning of CFLAGS:
 | -fstack-clash-protection     | Generate code to prevent stack clash style attacks.                                                               |
 | -fno-plt                     | Generate more efficient code by eliminating PLT stubs and exposing GOT loads to optimizations.                    |
 | -fexceptions                 | Provide exception unwinding support for C programs. This also hardens cancellation handling in C programs.        |
-| -grecord-gcc-switches        | Include select GCC command line switches in the DWARF debugging information.                                      |
 | -fasynchronous-unwind-tables | Required for support of asynchronous cancellation and proper unwinding from signal handlers.                      |
 
 <!--
