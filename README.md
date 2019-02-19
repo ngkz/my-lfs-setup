@@ -323,7 +323,8 @@ RANLIB=$LFS_TGT-ranlib         \
     --disable-nls              \
     --disable-werror           \
     --with-lib-path=/tools/lib:/tools/lib32 \
-    --with-sysroot
+    --with-sysroot             \
+    --enable-relro
 make
 ld/ld-new --verbose | grep SEARCH_DIR | tr -s ' ;' \\012
 ld/ld-new -melf_i386 --verbose | grep SEARCH_DIR | tr -s ' ;' \\012
@@ -1383,7 +1384,7 @@ sudo chroot "$LFS" /tools/bin/env -i \
     CPPFLAGS="-D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS" \
     CFLAGS="$CFLAGS" \
     CXXFLAGS="$CFLAGS" \
-    LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,relro,-z,now,--build-id" \
+    LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,now,--build-id" \
     /tools/bin/bash --login +h
 ```
 
