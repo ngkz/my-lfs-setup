@@ -335,7 +335,7 @@ Now prepare the linker for the “Re-adjusting” phase in the next chapter:
 
 ```sh
 make -C ld clean
-make -C ld LIB_PATH=/usr/lib:/usr/lib32:/lib:/lib32
+make -C ld LIB_PATH=/usr/lib:/usr/lib32
 cp -v ld/ld-new /tools/bin
 ```
 
