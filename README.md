@@ -366,9 +366,10 @@ RANLIB=$LFS_TGT-ranlib                             \
     --with-native-system-header-dir=/tools/include \
     --enable-languages=c,c++                       \
     --disable-libstdcxx-pch                        \
-    --disable-multilib                             \
     --disable-bootstrap                            \
-    --disable-libgomp
+    --disable-libgomp                              \
+    --enable-multilib                              \
+    --with-multilib-list=m32,m64
 make
 make install
 ```
@@ -385,12 +386,15 @@ ln -sv gcc /tools/bin/cc
 echo 'int main(){}' > dummy.c
 cc dummy.c
 readelf -l a.out | grep ': /tools'
+cc -m32 dummy.c
+readelf -l a.out | grep ': /tools'
 ```
 
  If everything is working correctly, there should be no errors, and the output of the last command will be of the form:
 
 ```
 [Requesting program interpreter: /tools/lib64/ld-linux-x86-64.so.2]
+[Requesting program interpreter: /tools/lib/ld-linux.so.2]
 ```
 
 ### Tcl-8.6.8
