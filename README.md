@@ -52,7 +52,6 @@ if [[ -e /lib64 ]]; then
     sudo mount -v --rbind /lib64 $LFS/lib64
 fi
 sudo mount -v --rbind /sbin $LFS/sbin
-sudo mount -v --rbind /usr $LFS/usr
 sudo chmod -v 1777 $LFS/tmp
 sudo chmod -v 1777 $LFS/var/tmp
 if [[ -e /etc/alternatives ]]; then
