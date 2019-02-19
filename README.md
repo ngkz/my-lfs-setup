@@ -1208,29 +1208,29 @@ At this point, you should have at least 3 GB of free space in $LFS that can be u
 
 ### Unbind host system
 ```sh
-sudo umount -l $LFS/dev/pts $LFS/dev $LFS/proc $LFS/bin $LFS/sbin $LFS/usr $LFS/lib
-rmdir $LFS/dev/pts $LFS/dev $LFS/proc $LFS/bin $LFS/sbin $LFS/usr $LFS/lib
+sudo umount $LFS/dev/pts $LFS/dev $LFS/proc $LFS/bin $LFS/sbin $LFS/usr $LFS/lib
+sudo rmdir $LFS/dev $LFS/proc $LFS/bin $LFS/sbin $LFS/usr $LFS/lib
 if [[ -e /lib32 ]]; then
     sudo umount -l $LFS/lib32
-    rmdir $LFS/lib32
+    sudo rmdir $LFS/lib32
 fi
 if [[ -e /libx32 ]]; then
     sudo umount -l $LFS/libx32
-    rmdir $LFS/libx32
+    sudo rmdir $LFS/libx32
 fi
 if [[ -e /lib64 ]]; then
     sudo umount -l $LFS/lib64
-    rmdir $LFS/lib64
+    sudo rmdir $LFS/lib64
 fi
-rm -rf $LFS/tmp $LFS/var/tmp
-rmdir $LFS/var
+sudo rm -rf $LFS/tmp $LFS/var/tmp
+sudo rmdir $LFS/var
 if [[ -e /etc/alternatives ]]; then
   sudo umount -l $LFS/etc/alternatives
-  rmdir $LFS/etc/alternatives
+  sudo rmdir $LFS/etc/alternatives
 fi
-rm $LFS/etc/passwd
-rm $LFS/etc/group
-rmdir $LFS/etc
+sudo rm $LFS/etc/passwd
+sudo rm $LFS/etc/group
+sudo rmdir $LFS/etc
 ```
 
 ### Changing ownership
