@@ -368,6 +368,9 @@ RANLIB=$LFS_TGT-ranlib                             \
     --disable-libstdcxx-pch                        \
     --disable-bootstrap                            \
     --disable-libgomp                              \
+    --enable-default-pie                           \
+    --enable-default-ssp                           \
+    --enable-linker-build-id                       \
     --enable-multilib                              \
     --with-multilib-list=m32,m64
 make
@@ -1378,7 +1381,7 @@ mode=0620
 ```sh
 #export LFS=...
 #umask 022
-CFLAGS="-O2 -g -march=native -pipe -Wformat -Werror=format-security -fstack-protector-strong -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables"
+CFLAGS="-O2 -g -march=native -pipe -Wformat -Werror=format-security -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables"
 sudo chroot "$LFS" /tools/bin/env -i \
     HOME=/root                  \
     TERM="$TERM"                \
@@ -1388,7 +1391,7 @@ sudo chroot "$LFS" /tools/bin/env -i \
     CPPFLAGS="-D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS" \
     CFLAGS="$CFLAGS" \
     CXXFLAGS="$CFLAGS" \
-    LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,now,--build-id" \
+    LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,now" \
     /tools/bin/bash --login +h
 ```
 
