@@ -1750,6 +1750,13 @@ tar -xf /sources/man-pages-4.16.tar.xz
 cd man-pages-4.16
 make DESTDIR=/usr/pkg/man-pages-4.16 install
 ```
+
+Compress man and info pages:
+
+```sh
+/sources/zipman.sh /usr/pkg/man-pages-4.16
+```
+
 Install the package:
 
 ```sh
