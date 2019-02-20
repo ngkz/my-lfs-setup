@@ -1607,6 +1607,109 @@ The /var/log/wtmp file records all logins and logouts. The /var/log/lastlog file
 Note:
 The /run/utmp file records the users that are currently logged in. This file is created dynamically in the boot scripts.
 
+### Install Packaging Helper
+Install debugging information file creation script:
+
+```sh
+cat <<'EOS' >/sources/create_dbginfo_file.sh
+#!/bin/bash
+# This code is licensed under CC0.
+# https://creativecommons.org/publicdomain/zero/1.0/deed
+
+set -euo pipefail
+shopt -s failglob
+
+if (( $# != 2 )); then
+    echo "Usage: $0 <ELF file> <DESTDIR>" >&2
+    exit 1
+fi
+
+# If there are multiple build IDs, we'll use the first one.
+if ! build_id=$(readelf -n "$1" 2>/dev/null | sed -n 's/^[[:space:]]*Build ID:[[:space:]]*\([0-9a-f]\+\)[[:space:]]*$/\1/p' | head -n1); then
+    echo "$1: not an ELF file"
+    exit 0
+fi
+
+if [[ -z $build_id ]]; then
+    echo "warning: $1 doesn't have a build ID" >&2
+    exit 0
+fi
+
+if ! readelf -S "$1" | grep "\.debug_info" >/dev/null; then
+    echo "warning: $1 doesn't have debugging information" >&2
+    exit 0
+fi
+
+# https://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
+debuginfo="$2/usr/lib/debug/.build-id/${build_id:0:2}/${build_id:2}.debug"
+echo "$1 -> $debuginfo"
+mkdir -p "${debuginfo%/*}"
+objcopy --only-keep-debug "$1" "$debuginfo"
+EOS
+chmod +x /sources/create_dbginfo_file.sh
+```
+
+Install man and info pages compression script
+```sh
+cat <<'EOS' > /sources/zipman.sh
+#!/bin/bash
+# This file contains code fragments from Pacman:
+#
+#   Copyright (c) 2011-2018 Pacman Development Team <pacman-dev@archlinux.org>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+set -euo pipefail
+
+if (( $# != 1 )); then
+    echo "Usage: $0 <DESTDIR>" >&2
+    exit 1
+fi
+
+cd "$1"
+
+MAN_DIRS=({usr{,/local}{,/share},opt/*}/{man,info})
+
+declare -A files
+while read -rd ' ' inode; do
+    read file
+    (find ${MAN_DIRS[@]} -type l 2>/dev/null || true) |
+    while read -r link ; do
+        if [[ "${file}" -ef "${link}" ]] ; then
+            rm -f "$link" "${link}.gz"
+            if [[ ${file%/*} = ${link%/*} ]]; then
+                ln -s -- "${file##*/}.gz" "${link}.gz"
+            else
+                ln -s -- "/${file}.gz" "${link}.gz"
+            fi
+        fi
+    done
+    if [[ ! -v files[$inode] ]]; then
+        files[$inode]=$file
+        gzip -9 -n -f "$file"
+    else
+        rm -f "$file"
+        ln "${files[$inode]}.gz" "${file}.gz"
+        chmod 644 "${file}.gz"
+    fi
+done < <(find ${MAN_DIRS[@]} -type f \! -name "*.gz" \! -name "*.bz2" \
+    -exec stat -c '%i %n' '{}' + 2>/dev/null)
+EOS
+chmod +x /sources/zipman.sh
+```
+
 ### Linux-4.20.7 API Headers
 The Linux kernel needs to expose an Application Programming Interface (API) for the system's C library (Glibc in LFS) to use. This is done by way of sanitizing various C header files that are shipped in the Linux kernel source tarball.
 
