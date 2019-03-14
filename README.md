@@ -1603,52 +1603,135 @@ Note:
 The /run/utmp file records the users that are currently logged in. This file is created dynamically in the boot scripts.
 
 ### Install Packaging Helper
-Install debugging information file creation script:
+Package stripping script:
 
 ```sh
-cat <<'EOS' >/sources/create_dbginfo_file.sh
+install -D /dev/stdin /usr/pkg/packaging-helpers-0.0.1/usr/bin/strip-pkg <<'EOS'
 #!/bin/bash
-# This code is licensed under CC0.
-# https://creativecommons.org/publicdomain/zero/1.0/deed
+# This file contains code from Pacman:
+#
+#   Copyright (c) 2011-2018 Pacman Development Team <pacman-dev@archlinux.org>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
 set -euo pipefail
-shopt -s failglob
 
-if (( $# != 2 )); then
-    echo "Usage: $0 <ELF file> <DESTDIR>" >&2
+#-- Options to be used when stripping binaries. See `man strip' for details.
+STRIP_BINARIES="--strip-all"
+#-- Options to be used when stripping shared libraries. See `man strip' for details.
+STRIP_SHARED="--strip-unneeded"
+#-- Options to be used when stripping static libraries. See `man strip' for details.
+STRIP_STATIC="--strip-debug"
+
+usage() {
+    echo "Usage: $0 [OPTION]... PACKAGE_ROOT"
+    echo "Strip debugging information from the package."
+    echo
+    echo "  -k, --keep-debug=PATTERN Keep the debugging symbols for files matching PATTERN in separate files"
+    echo "      --help               Show this message and exit"
+}
+
+opt="$(getopt -n "$0" -o k: --long keep-debug:,help -- "$@")"
+eval set -- "$opt"
+
+keeppatterns=()
+while true; do
+    case "$1" in
+        -k|--keep-debug)
+            keeppatterns+=("$2")
+            shift 2
+            ;;
+        --help)
+            usage
+            exit 1
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "internal error" >&2
+            exit 1
+    esac
+done
+
+if [[ $# -ne 1 ]]; then
+    echo "$0: missing operand" >&2
+    echo "Try '$0 --help' for more information." >&2
     exit 1
 fi
 
-# If there are multiple build IDs, we'll use the first one.
-if ! build_id=$(readelf -n "$1" 2>/dev/null | sed -n 's/^[[:space:]]*Build ID:[[:space:]]*\([0-9a-f]\+\)[[:space:]]*$/\1/p' | head -n1); then
-    echo "$1: not an ELF file"
-    exit 0
-fi
+pkgroot=${1%/}
 
-if [[ -z $build_id ]]; then
-    echo "warning: $1 doesn't have a build ID" >&2
-    exit 0
-fi
+while read -rd '' binary; do
+    case "$(file -bi "$binary")" in
+        *application/x-sharedlib*)  # Libraries (.so)
+            strip_flags="$STRIP_SHARED";;
+        *application/x-archive*)    # Libraries (.a)
+            strip_flags="$STRIP_STATIC";;
+        *application/x-object*)
+            case "$binary" in
+                *.ko)           # Kernel module
+                    strip_flags="$STRIP_SHARED";;
+                *)
+                    continue;;
+            esac;;
+        *application/x-executable*) # Binaries
+            strip_flags="$STRIP_BINARIES";;
+        *application/x-pie-executable*)  # Relocatable binaries
+            strip_flags="$STRIP_SHARED";;
+        *)
+            continue ;;
+    esac
 
-if ! readelf -S "$1" | grep "\.debug_info" >/dev/null; then
-    echo "warning: $1 doesn't have debugging information" >&2
-    exit 0
-fi
+    keep=0
+    for pattern in "${keeppatterns[@]}"; do
+        if [[ ${binary##*/} = $pattern ]]; then
+            keep=1
+            break
+        fi
+    done
 
-# https://sourceware.org/gdb/onlinedocs/gdb/Separate-Debug-Files.html
-debuginfo="$2/usr/lib/debug/.build-id/${build_id:0:2}/${build_id:2}.debug"
-echo "$1 -> $debuginfo"
-mkdir -p "${debuginfo%/*}"
-objcopy --only-keep-debug "$1" "$debuginfo"
+    if [[ $keep -ne 0 ]]; then
+        debugfile=$pkgroot/usr/lib/debug/${binary#$pkgroot/}.debug
+
+        debugdir=${debugfile%/*}
+        mkdir -pv "$debugdir"
+
+        echo objcopy --only-keep-debug "$binary" "$debugfile"
+        objcopy --only-keep-debug "$binary" "$debugfile"
+    fi
+
+    echo strip $strip_flags "$binary"
+    strip $strip_flags "$binary"
+
+    if [[ $keep -ne 0 ]]; then
+        echo objcopy --add-gnu-debuglink="$debugfile" "$binary"
+        objcopy --add-gnu-debuglink="$debugfile" "$binary"
+    fi
+done < <(find "$pkgroot" -type f -print0)
 EOS
-chmod +x /sources/create_dbginfo_file.sh
 ```
 
-Install man and info pages compression script
+Package man and info pages compression script
+
 ```sh
-cat <<'EOS' > /sources/zipman.sh
+install -D /dev/stdin /usr/pkg/packaging-helpers-0.0.1/usr/bin/compressdoc <<'EOS'
 #!/bin/bash
-# This file contains code fragments from Pacman:
+# Compress man and info pages in the package.
+# This file contains code from Pacman:
 #
 #   Copyright (c) 2011-2018 Pacman Development Team <pacman-dev@archlinux.org>
 #
@@ -1669,7 +1752,7 @@ cat <<'EOS' > /sources/zipman.sh
 set -euo pipefail
 
 if (( $# != 1 )); then
-    echo "Usage: $0 <DESTDIR>" >&2
+    echo "Usage: $0 PACKAGE_ROOT" >&2
     exit 1
 fi
 
@@ -1685,24 +1768,33 @@ while read -rd ' ' inode; do
         if [[ "${file}" -ef "${link}" ]] ; then
             rm -f "$link" "${link}.gz"
             if [[ ${file%/*} = ${link%/*} ]]; then
-                ln -s -- "${file##*/}.gz" "${link}.gz"
+                target=${file##*/}.gz
             else
-                ln -s -- "/${file}.gz" "${link}.gz"
+                target=/${file}.gz
             fi
+            echo "ln -s -- $target ${link}.gz"
+            ln -s -- "$target" "${link}.gz"
         fi
     done
     if [[ ! -v files[$inode] ]]; then
         files[$inode]=$file
+        echo "gzip -9 -n -f $file"
         gzip -9 -n -f "$file"
     else
         rm -f "$file"
+        echo "ln ${files[$inode]}.gz ${file}.gz"
         ln "${files[$inode]}.gz" "${file}.gz"
+        echo "chmod 644 ${file}.gz"
         chmod 644 "${file}.gz"
     fi
 done < <(find ${MAN_DIRS[@]} -type f \! -name "*.gz" \! -name "*.bz2" \
     -exec stat -c '%i %n' '{}' + 2>/dev/null)
 EOS
-chmod +x /sources/zipman.sh
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/packaging-helpers-0.0.1/* /
 ```
 
 ### Linux-4.20.7 API Headers
@@ -1746,10 +1838,9 @@ cd man-pages-4.16
 make DESTDIR=/usr/pkg/man-pages-4.16 install
 ```
 
-Compress man and info pages:
-
+Compress man pages:
 ```sh
-/sources/zipman.sh /usr/pkg/man-pages-4.16
+compressdoc /usr/pkg/man-pages-4.16
 ```
 
 Install the package:
