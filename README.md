@@ -1440,7 +1440,7 @@ The meaning of LDFLAGS:
 | -z relro      | Turn several sections read-only before turning over control to the program. This prevents some GOT (and .dtors) overwrite attacks.                                        |
 | -z now        | During program load, all dynamic symbols are resolved, allowing for the complete GOT to be marked read-only (due to -z relro above). This prevents GOT overwrite attacks. |
 
-### Creating Essential Files ans Symlinks
+### Creating Essential Files and Symlinks
 Some programs use hard-wired paths to programs which do not exist yet. In order to satisfy these programs, create a number of symbolic links which will be replaced by real files throughout the course of this chapter after the software has been installed:
 
 ```sh
