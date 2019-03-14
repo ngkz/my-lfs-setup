@@ -1528,8 +1528,6 @@ nobody:x:65534:65534:Unprivileged User:/dev/null:/bin/false
 EOS
 ```
 
-The actual password for root (the “x” used here is just a placeholder) will be set later.
-
 - http://refspecs.linuxbase.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/usernames.html
 
 The purpose of each user:
