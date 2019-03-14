@@ -1848,3 +1848,287 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/man-pages-4.16/* /
 ```
+
+### Glibc-2.28
+```sh
+cd /var/tmp
+tar -xf /sources/glibc-2.28.tar.xz
+cd glibc-2.28
+```
+
+Some of the Glibc programs use the non-FHS compilant `/var/db` directory to store their runtime data. Apply the following patch to make such programs store their runtime data in the FHS-compliant locations:
+
+```sh
+patch -Np1 -i /sources/glibc-2.28-fhs-1.patch
+```
+
+First create a compatibility symlink to avoid references to /tools in our final glibc:
+
+```sh
+ln -sfv /tools/lib/gcc /usr/lib
+```
+
+Remove a file that may be left over from a previous build attempt:
+
+```sh
+rm -fv /usr/include/limits.h
+```
+
+The Glibc documentation recommends building Glibc in a dedicated build directory:
+
+```sh
+mkdir -v build
+cd       build
+```
+
+Specify configuration parameters:
+
+```sh
+cat <<'EOS' > configparms
+slibdir=/usr/lib
+rtlddir=/usr/lib
+sbindir=/usr/bin
+rootsbindir=/usr/bin
+EOS
+```
+
+**The meaning of configuration parameters:**
+
+slibdir=/usr/lib
+
+    Change the location of libraries.
+
+rtlddir=/usr/lib
+
+    Change the location of the dynamic linker.
+
+sbindir=/usr/bin
+rootsbindir=/usr/bin
+
+    Change the location of programs.
+
+Prepare Glibc for compilation:
+```sh
+GLIBC_CFLAGS="$CFLAGS -g -fdebug-prefix-map=$(cd .. && pwd)=."
+CC="gcc -isystem /usr/lib/gcc/$(../scripts/config.guess)/$(gcc --version | sed -n 's/^gcc (.*) \([[:digit:].]*\)/\1/p')/include -isystem /usr/include" \
+CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/}           \
+CFLAGS=$GLIBC_CFLAGS                                \
+CXXFLAGS=$GLIBC_CFLAGS                              \
+../configure --prefix=/usr                          \
+             --disable-werror                       \
+             --enable-kernel=3.2                    \
+             --enable-stack-protector=strong        \
+             --enable-stackguard-randomization      \
+             --enable-bind-now                      \
+             --enable-static-pie                    \
+             --libdir=/usr/lib                      \
+             --libexecdir=/usr/lib/glibc
+unset GLIBC_CFLAGS
+```
+
+**The meaning of the options and new configure parameters:**
+
+`CC="gcc -isystem /usr/lib/gcc/x86_64-pc-linux-gnu/$(gcc --version | sed -n 's/^gcc (.*) \([[:digit:].]*\)/\1/p')/include -isystem /usr/include" \`
+
+    Setting the location of both gcc and system include directories avoids introduction of invalid paths in debugging symbols.
+
+`CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/}`
+
+    This disables fortify. Fortify breaks glibc libraries.
+
+ `GLIBC_CFLAGS="$CFLAGS -g -fdebug-prefix-map=$(cd .. && pwd)=."`
+`CFLAGS=$GLIBC_CFLAGS`
+`CXXFLAGS=$GLIBC_CFLAGS`
+
+    `-g` enables debugging information generation.
+    `-fdebug-prefix-map=$(cd .. && pwd)=.` removes paths to source code directory in the debug information.
+
+`--disable-werror`
+
+    This option disables the -Werror option passed to GCC. This is necessary for running the test suite.
+
+`--enable-stack-protector=strong`
+
+    This option increases system security by adding extra code to check for buffer overflows, such as stack smashing attacks.
+
+`--enable-stackguard-randomization`
+
+    This option strengthen stack smashing protector by randomizing the stack canary.
+
+``--libexecdir=/usr/lib/glibc`
+
+    This changes the location of the libexec directory from its default of /usr/libexec to /usr/lib/glibc.
+
+``--enable-bind-now`
+
+    This configures Glibc to use the `-z now` linker option.
+
+`--enable-static-pie`
+
+    This option enables support for building static PIE executables.
+
+`--libdir=/usr/lib`
+
+    Change the location of libraries.
+
+`--libexecdir=/usr/lib`
+
+    Use `/usr/lib` instead of `/usr/libexec`
+
+<!-- TODO: --enable-cet -->
+
+Compile libraries without fortify and linker flag `-z,now`.
+`-z now` breaks the dynamic loader silently.
+
+```sh
+echo "build-programs=no" >> configparms
+LDFLAGS=${LDFLAGS/,-z,now/} make
+```
+
+Re-enable fortify for programs:
+```sh
+sed -i "/build-programs=/s/no/yes/" configparms
+echo "CPPFLAGS-config += -D_FORTIFY_SOURCE=2" >> configparms
+```
+
+Compile programs:
+```sh
+make
+```
+
+Remove all compiler/linker flags in preparation to run test-suite because some flags (-fno-plt, -fexceptions, -Wl,-z,now) break the test suite.
+```sh
+echo "CPPFLAGS-config =" >> configparms
+echo "CFLAGS =" >> configparms
+echo "CXXFLAGS =" >> configparms
+```
+
+Run the test suite:
+```sh
+! LDFLAGS= TIMEOUTFACTOR=3 make check | grep "^FAIL:" | grep -v "inet/tst-idna_name_classify\|stdlib/test-bz22786"
+```
+
+Install the dynamic loader configuration. Though it is a harmless message, the install stage of Glibc will complain about the absence of `/etc/ld.so.conf`.
+
+By default, the dynamic loader (`/lib/ld-linux.so.2`) searches through `/lib` and `/usr/lib` for dynamic libraries that are needed by programs as they are run. However, if there are libraries in directories other than `/lib` and `/usr/lib`, these need to be added to the `/etc/ld.so.conf` file in order for the dynamic loader to find them.
+
+Create the configuration file by running the following:
+
+```sh
+mkdir -pv /usr/pkg/glibc-2.28/etc/ld.so.conf.d
+cat > /usr/pkg/glibc-2.28/etc/ld.so.conf << 'EOS'
+/usr/local/lib
+/opt/lib
+
+include /etc/ld.so.conf.d/*.conf
+EOS
+```
+
+Fix the generated Makefile to skip an unneeded sanity check that fails in the LFS partial environment:
+
+```sh
+sed '/test-installation/s@$(PERL)@echo not running@' -i ../Makefile
+```
+
+Package glibc:
+```sh
+make DESTDIR=/usr/pkg/glibc-2.28 install
+```
+
+Create a symlink for LSB compliance.
+```sh
+ln -sv ld-linux-x86-64.so.2 /usr/pkg/glibc-2.28/usr/lib/ld-lsb-x86-64.so.3
+```
+
+Create the configuration file and runtime directory for nscd:
+```sh
+cp -v ../nscd/nscd.conf /usr/pkg/glibc-2.28/etc/nscd.conf
+mkdir -pv /usr/pkg/glibc-2.28/var/cache/nscd
+```
+
+Next, install the locales that can make the system respond in a different language. None of the locales are required, but if some of them are missing, the test suites of future packages would skip important testcases.
+
+Individual locales can be installed using the `localedef` program. E.g., the first `localedef` command below combines the `/usr/share/i18n/locales/cs_CZ` charset-independent locale definition with the `/usr/share/i18n/charmaps/UTF-8.gz` charmap definition and appends the result to the `/usr/lib/locale/locale-archive` file. The following instructions will install the minimum set of locales necessary for the optimal coverage of tests:
+
+TODO: Where are these locales used?
+
+```sh
+make -C ../localedata objdir=`pwd` DESTDIR=/usr/pkg/glibc-2.28 \
+    install-cs_CZ.UTF-8/UTF-8 \
+    install-de_DE/ISO-8859-1 \
+    install-de_DE@euro/ISO-8859-15 \
+    install-de_DE.UTF-8/UTF-8 \
+    install-en_GB.UTF-8/UTF-8 \
+    install-en_HK/ISO-8859-1 \
+    install-en_PH/ISO-8859-1 \
+    install-en_US/ISO-8859-1 \
+    install-en_US.UTF-8/UTF-8 \
+    install-es_MX/ISO-8859-1 \
+    install-fa_IR/UTF-8 \
+    install-fr_FR/ISO-8859-1 \
+    install-fr_FR@euro/ISO-8859-15 \
+    install-fr_FR.UTF-8/UTF-8 \
+    install-it_IT/ISO-8859-1 \
+    install-it_IT.UTF-8/UTF-8 \
+    install-ja_JP.EUC-JP/EUC-JP \
+    install-ru_RU.KOI8-R/KOI8-R \
+    install-ru_RU.UTF-8/UTF-8 \
+    install-tr_TR.UTF-8/UTF-8 \
+    install-zh_CN.GB18030/GB18030
+```
+
+In addition, install the locale for your own country, language and character set.
+
+```sh
+make -C ../localedata objdir=`pwd` DESTDIR=/usr/pkg/glibc-2.28 install-ja_JP.UTF-8/UTF-8
+```
+
+The /etc/nsswitch.conf file needs to be created because the Glibc defaults do not work well in a networked environment.
+
+Create a new file /etc/nsswitch.conf by running the following:
+```sh
+cat >/usr/pkg/glibc-2.28/etc/nsswitch.conf << 'EOS'
+passwd: files
+group: files
+shadow: files
+
+hosts: files dns
+networks: files
+
+protocols: files
+services: files
+ethers: files
+rpc: files
+EOS
+```
+
+Strip the debugging information. Valgrind and gdb need the debugging information for some libraries, therefore keep them in separated files.
+```sh
+strip-pkg \
+    --keep-debug "ld-*.so" \
+    --keep-debug "libc-*.so" \
+    --keep-debug "libpthread-*.so" \
+    --keep-debug "libthread_db-*.so" \
+    /usr/pkg/glibc-2.28
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/glibc-2.28/usr/share/info/dir
+rm -fv /usr/pkg/glibc-2.28/etc/ld.so.cache
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/glibc-2.28
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/glibc-2.28/* /
+```
+
+Rebuild dynamic linker cache
+```sh
+ldconfig
+```
