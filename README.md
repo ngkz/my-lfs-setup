@@ -370,7 +370,6 @@ RANLIB=$LFS_TGT-ranlib                             \
     --disable-libgomp                              \
     --enable-default-pie                           \
     --enable-default-ssp                           \
-    --enable-linker-build-id                       \
     --enable-multilib                              \
     --with-multilib-list=m32,m64
 make
