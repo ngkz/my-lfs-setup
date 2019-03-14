@@ -2132,3 +2132,105 @@ Rebuild dynamic linker cache
 ```sh
 ldconfig
 ```
+
+### Glibc-2.28 (32bit libraries)
+```sh
+cd ..
+mkdir -v build32
+cd       build32
+```
+
+Specify configuration parameters:
+
+```sh
+cat <<'EOS' > configparms
+slibdir=/usr/lib32
+rtlddir=/usr/lib32
+sbindir=/usr/bin
+rootsbindir=/usr/bin
+EOS
+```
+
+Prepare Glibc for compilation:
+```sh
+GLIBC_CFLAGS="$CFLAGS -g -fdebug-prefix-map=$(cd .. && pwd)=."
+CC="gcc -m32 -isystem /usr/lib/gcc/$(../scripts/config.guess)/$(gcc --version | sed -n 's/^gcc (.*) \([[:digit:].]*\)/\1/p')/include -isystem /usr/include" \
+CXX="g++ -m32" \
+CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/} \
+CFLAGS=$GLIBC_CFLAGS \
+CXXFLAGS=$GLIBC_CFLAGS \
+../configure --prefix=/usr                             \
+             --host=$(linux32 ../scripts/config.guess) \
+             --disable-werror                          \
+             --enable-kernel=3.2                       \
+             --enable-stack-protector=strong           \
+             --enable-stackguard-randomization         \
+             --enable-bind-now                         \
+             --enable-static-pie                       \
+             --libdir=/usr/lib32                       \
+             --libexecdir=/usr/lib32/glibc
+unset GLIBC_CFLAGS
+```
+
+Compile libraries with fortify disabled:
+```sh
+echo "build-programs=no" >> configparms
+LDFLAGS=${LDFLAGS/,-z,now/} make
+```
+
+Re-enable fortify for programs:
+```sh
+sed -i "/build-programs=/s/no/yes/" configparms
+echo "CPPFLAGS-config += -D_FORTIFY_SOURCE=2" >> configparms
+```
+
+Compile programs:
+```sh
+make
+```
+
+Package 32bit glibc:
+```sh
+make DESTDIR=/usr/pkg/lib32-glibc-2.28 install
+```
+
+Remove unneeded files:
+```sh
+rm -rfv /usr/pkg/lib32-glibc-2.28/{etc,usr/{bin,share},var}
+find /usr/pkg/lib32-glibc-2.28/usr/include -type f -not -name '*-32.h' -print -delete
+```
+
+Strip the debug information:
+```sh
+strip-pkg \
+    --keep-debug "ld-*.so" \
+    --keep-debug "libc-*.so" \
+    --keep-debug "libpthread-*.so" \
+    --keep-debug "libthread_db-*.so" \
+    /usr/pkg/lib32-glibc-2.28
+```
+
+Symlink /usr/lib32/locale to /usr/lib/locale:
+```sh
+ln -sv ../lib/locale /usr/pkg/lib32-glibc-2.28/usr/lib32/locale
+```
+
+Make the dynamic linker accessible with a standard path.
+```sh
+ln -sv ../lib32/ld-linux.so.2 /usr/pkg/lib32-glibc-2.28/usr/lib/ld-linux.so.2
+```
+
+Create a symlink for LSB compliance.
+```sh
+ln -sv ../lib32/ld-linux.so.2 /usr/pkg/lib32-glibc-2.28/usr/lib/ld-lsb.so.3
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/lib32-glibc-2.28/* /
+```
+
+Rebuild dynamic linker cache
+```sh
+ldconfig
+```
