@@ -2155,10 +2155,10 @@ Prepare Glibc for compilation:
 ```sh
 GLIBC_CFLAGS="$CFLAGS -g -fdebug-prefix-map=$(cd .. && pwd)=."
 CC="gcc -m32 -isystem /usr/lib/gcc/$(../scripts/config.guess)/$(gcc --version | sed -n 's/^gcc (.*) \([[:digit:].]*\)/\1/p')/include -isystem /usr/include" \
-CXX="g++ -m32" \
-CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/} \
-CFLAGS=$GLIBC_CFLAGS \
-CXXFLAGS=$GLIBC_CFLAGS \
+CXX="g++ -m32"                                         \
+CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/}              \
+CFLAGS=$GLIBC_CFLAGS                                   \
+CXXFLAGS=$GLIBC_CFLAGS                                 \
 ../configure --prefix=/usr                             \
              --host=$(linux32 ../scripts/config.guess) \
              --disable-werror                          \
