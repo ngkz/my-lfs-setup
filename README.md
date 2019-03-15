@@ -2234,3 +2234,37 @@ Rebuild dynamic linker cache
 ```sh
 ldconfig
 ```
+
+### Time Zone Data (2018e)
+Package the time zone data with the following:
+
+```sh
+cd /var/tmp
+mkdir -v tzdata
+cd tzdata
+tar -xf /sources/tzdata2018e.tar.gz
+
+ZONEINFO=/usr/pkg/tzdata-2018e/usr/share/zoneinfo
+mkdir -pv $ZONEINFO/{posix,right}
+
+for tz in etcetera southamerica northamerica europe africa antarctica  \
+          asia australasia backward pacificnew systemv; do
+    zic -L /dev/null   -d $ZONEINFO       -y "sh yearistype.sh" ${tz}
+    zic -L /dev/null   -d $ZONEINFO/posix -y "sh yearistype.sh" ${tz}
+    zic -L leapseconds -d $ZONEINFO/right -y "sh yearistype.sh" ${tz}
+done
+
+cp -v zone.tab zone1970.tab iso3166.tab $ZONEINFO
+zic -d $ZONEINFO -p America/New_York
+unset tz ZONEINFO
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/tzdata-2018e/* /
+```
+
+Then set the time zone to JST by running:
+```sh
+ln -sv /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+```
