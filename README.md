@@ -1457,6 +1457,8 @@ ln -sv /tools/bin/{bash,cat,dd,echo,ln,pwd,rm,stty} /bin
 ln -sv /tools/bin/{env,install,perl} /usr/bin
 ln -sv /tools/lib/libgcc_s.so{,.1} /usr/lib
 ln -sv /tools/lib/libstdc++.{a,so{,.6}} /usr/lib
+ln -sv /tools/lib32/libgcc_s.so{,.1} /usr/lib32
+ln -sv /tools/lib32/libstdc++.{a,so{,.6}} /usr/lib32
 for lib in blkid lzma mount uuid
 do
     ln -sv /tools/lib/lib$lib.so* /usr/lib
