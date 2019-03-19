@@ -1287,6 +1287,7 @@ sudo chown -R root:root $LFS/tools
 |      | /usr/include             | Header files included by C programs                    |
 |      | /usr/lib                 | 64-bit libraries and kernel modules                    |
 |      | /usr/lib32               | 32-bit libraries                                       |
+|      | /usr/lib64 -> lib        | Legacy location of 64-bit shared libraries             |
 |      | /usr/local               | Local hierarchy                                        |
 |      | /usr/local/bin           | Local binaries                                         |
 |      | /usr/local/etc           | Host-specific system configuration for local binaries  |
@@ -1336,6 +1337,7 @@ sudo ln -sv usr/lib32 $LFS/lib32
 sudo ln -sv usr/lib $LFS/lib64
 sudo ln -sv usr/bin $LFS/sbin
 sudo ln -sv bin $LFS/usr/sbin
+sudo ln -sv lib $LFS/usr/lib64
 sudo ln -sv ../run/lock $LFS/var/lock
 sudo ln -sv ../run $LFS/var/run
 ```
