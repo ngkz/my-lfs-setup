@@ -1,5 +1,12 @@
 # Linux from scratch
 
+This documentation is a derivative of "Linux From Scratch" by Gerard Beekmans, used under [CC BY-NC-SA 2.0](https://creativecommons.org/licenses/by-nc-sa/2.0/). This documentation is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) by Kazutoshi Noguchi.
+<!-- TODO This book, "Ngkz's Linux from Scratch" is a derivative of "Linux From Scratch” by Gerard Beekmans, used under [CC BY-NC-SA 2.0](https://creativecommons.org/licenses/by-nc-sa/2.0/). "Ngkz's Linux from Scratch" is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) by Kazutoshi Noguchi. -->
+
+Computer instructions may be extracted from the book under [the MIT License](LICENSE.CODE).
+
+Linux® is a registered trademark of Linus Torvalds.
+
 ## Preparing the host system
 ### $LFS変数を設定・新しい パーティションをマウント
 ```sh
