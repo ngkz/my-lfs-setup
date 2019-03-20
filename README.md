@@ -2510,6 +2510,11 @@ Install the package:
 cp -rsv /usr/pkg/zlib-1.2.11/* /
 ```
 
+Rebuild dynamic linker cache
+```sh
+ldconfig
+```
+
 ### File-5.34
 
 Prepare File for compilation:
@@ -2556,4 +2561,9 @@ find /usr/pkg/file-5.34/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
 Install the package:
 ```sh
 cp -rsv /usr/pkg/file-5.34/* /
+```
+
+Rebuild dynamic linker cache
+```sh
+ldconfig
 ```
