@@ -2632,3 +2632,63 @@ Rebuild dynamic linker cache
 ```sh
 ldconfig
 ```
+
+### M4-1.4.18
+Extract source code:
+
+```sh
+cd /var/tmp
+tar -xf /sources/m4-1.4.18.tar.xz
+cd m4-1.4.18
+```
+
+First, make some fixes required by glibc-2.28:
+
+```sh
+sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c
+echo "#define _IO_IN_BACKUP 0x100" >> lib/stdio-impl.h
+```
+
+Prepare M4 for compilation:
+
+```sh
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package M4:
+
+```sh
+make DESTDIR=/usr/pkg/m4-1.4.18 install
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/m4-1.4.18
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/m4-1.4.18/usr/share/info/dir
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/m4-1.4.18
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/m4-1.4.18/* /
+```
