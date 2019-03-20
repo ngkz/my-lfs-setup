@@ -2465,3 +2465,47 @@ Once everything is working correctly, clean up the test files:
 ```sh
 rm -v dummy.c a.out dummy.log
 ```
+
+### Zlib-1.2.11
+
+Prepare Zlib for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/zlib-1.2.11.tar.xz
+cd zlib-1.2.11
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package zlib:
+
+```sh
+make DESTDIR=/usr/pkg/zlib-1.2.11 install
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/zlib-1.2.11
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/zlib-1.2.11
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/zlib-1.2.11/* /
+```
