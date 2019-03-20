@@ -2520,6 +2520,7 @@ ldconfig
 Prepare File for compilation:
 
 ```sh
+cd /var/tmp
 tar -xf /sources/file-5.34.tar.gz
 cd file-5.34
 ./configure --prefix=/usr
