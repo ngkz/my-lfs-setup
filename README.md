@@ -2567,3 +2567,68 @@ Rebuild dynamic linker cache
 ```sh
 ldconfig
 ```
+
+### Readline-7.0
+ Prepare Readline for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/readline-7.0.tar.gz
+cd readline-7.0
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/readline-7.0
+```
+
+Compile the package:
+
+```sh
+make SHLIB_LIBS="-L/tools/lib -lncursesw"
+```
+
+The meaning of the make option:
+
+`SHLIB_LIBS="-L/tools/lib -lncursesw"`
+
+    This option forces Readline to link against the libncursesw library.
+
+This package does not come with a test suite.
+
+Package readline:
+
+```sh
+make DESTDIR=/usr/pkg/readline-7.0 SHLIB_LIBS="-L/tools/lib -lncurses" install
+```
+
+If desired, install the documentation:
+
+```sh
+install -v -m644 doc/*.{ps,pdf,html,dvi} /usr/pkg/readline-7.0/usr/share/doc/readline-7.0
+gzip -n -9 /usr/pkg/readline-7.0/usr/share/doc/readline-7.0/*.{ps,pdf,html,dvi}
+```
+
+Strip the debug information:
+
+```sh
+strip-pkg /usr/pkg/readline-7.0
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/readline-7.0/usr/share/info/dir
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/readline-7.0
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/readline-7.0/* /
+```
+
+Rebuild dynamic linker cache
+```sh
+ldconfig
+```
