@@ -2509,3 +2509,51 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/zlib-1.2.11/* /
 ```
+
+### File-5.34
+
+Prepare File for compilation:
+
+```sh
+tar -xf /sources/file-5.34.tar.gz
+cd file-5.34
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package file:
+
+```sh
+make DESTDIR=/usr/pkg/file-5.34 install
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/file-5.34
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/file-5.34
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/file-5.34/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/file-5.34/* /
+```
