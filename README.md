@@ -2782,3 +2782,145 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/bc-1.107.1/* /
 ```
+
+### Binutils-2.31.1
+Verify that the PTYs are working properly inside the chroot environment by performing a simple test:
+
+```sh
+expect -c "spawn ls"
+```
+
+This command should output the following:
+
+```
+spawn ls
+```
+
+If, instead, the output includes the message below, then the environment is not set up for proper PTY operation. This issue needs to be resolved before running the test suites for Binutils and GCC:
+
+```
+The system has no more ptys.
+Ask your system administrator to create more.
+```
+
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/binutils-2.31.1.tar.xz
+cd binutils-2.31.1
+```
+
+TODO: explanation
+```sh
+find . -name configure | xargs sed -i.bak "s/ac_cpp='\$CPP \$CPPFLAGS'/ac_cpp='\$CPP \$CPPFLAGS -U_FORTIFY_SOURCE'/"
+```
+
+The Binutils documentation recommends building Binutils in a dedicated build directory:
+
+```sh
+mkdir -v build
+cd       build
+```
+
+Prepare Binutils for compilation:
+```sh
+../configure --prefix=/usr       \
+             --enable-gold       \
+             --enable-ld=default \
+             --enable-plugins    \
+             --enable-shared     \
+             --disable-werror    \
+             --enable-64-bit-bfd \
+             --with-system-zlib
+```
+
+**The meaning of the configure parameters:**
+
+`--enable-gold`
+
+    Build the gold linker and install it as ld.gold (along side the default linker).
+
+`--enable-ld=default`
+
+    Build the original bdf linker and install it as both ld (the default linker) and ld.bfd.
+
+`--enable-plugins`
+
+    Enables plugin support for the linker.
+
+`--enable-64-bit-bfd`
+
+    Enables 64-bit support (on hosts with narrower word sizes). May not be needed on 64-bit systems, but does no harm.
+
+`--with-system-zlib`
+
+    Use the installed zlib library rather than building the included version.
+
+Compile the package:
+
+```sh
+make tooldir=/usr
+```
+
+**The meaning of the make parameter:**
+
+`tooldir=/usr`
+
+    Normally, the tooldir (the directory where the executables will ultimately be located) is set to $(exec_prefix)/$(target_alias). For example, x86_64 machines would expand that to /usr/x86_64-unknown-linux-gnu. Because this is a custom system, this target-specific directory in /usr is not required. $(exec_prefix)/$(target_alias) would be used if the system was used to cross-compile (for example, compiling a package on an Intel machine that generates code that can be executed on PowerPC machines).
+
+Important: The test suite for Binutils in this section is considered critical. Do not skip it under any circumstances.
+
+Hardening flags and GCC configured with `--enable-default-pie` breaks the test suite.
+
+Remove hardening flags and disable PIE with:
+
+```sh
+find . -name Makefile -exec sed -i.bak \
+                                -e 's/^\(\(C\|CXX\)FLAGS\(_FOR_\(BUILD\|TARGET\)\)\? =\).*/\1 -g/' \
+                                -e "/LDFLAGS\(_FOR_\(BUILD\|TARGET\)\)\? =/s/$LDFLAGS$//" \
+                                -e 's/^\(CC\|CXX\) = .*/& -fno-PIE -no-pie/' \
+                                {} \;
+```
+
+Test the results:
+```sh
+MAKEFLAGS= LDFLAGS= make -k check
+echo $?
+```
+
+TODO: meaning of MAKEFLAGS=
+
+TODO: meaning of LDFLAGS=
+
+TODO: メモリが少ないとPLTなんとかのテストが失敗する
+
+Package binutils:
+```sh
+make DESTDIR=/usr/pkg/binutils-2.31.1 tooldir=/usr install
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/binutils-2.31.1
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/binutils-2.31.1/usr/share/info/dir
+find /usr/pkg/binutils-2.31.1/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/binutils-2.31.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/binutils-2.31.1/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
