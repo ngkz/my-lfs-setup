@@ -2987,7 +2987,7 @@ Ensure that all 190 tests in the test suite passed. Check the results by issuing
 awk '/# PASS:/{total+=$3} ; END{print total}' gmp-check-log
 ```
 
-Install the package and its documentation:
+Package GMP and its documentation:
 
 ```sh
 make DESTDIR=/usr/pkg/gmp-6.1.2 install install-html
@@ -3007,6 +3007,11 @@ find /usr/pkg/gmp-6.1.2/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
 Compress man and info pages:
 ```sh
 compressdoc /usr/pkg/gmp-6.1.2
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/gmp-6.1.2/* /
 ```
 
 Rebuild dynamic linker cache:
