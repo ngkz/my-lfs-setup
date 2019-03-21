@@ -2877,6 +2877,7 @@ Remove hardening flags and disable PIE with:
 ```sh
 find . -name Makefile -exec sed -i.bak \
                                 -e 's/^\(\(C\|CXX\)FLAGS\(_FOR_\(BUILD\|TARGET\)\)\? =\).*/\1 -g/' \
+                                -e 's/^\(CPPFLAGS\(_FOR_\(BUILD\|TARGET\)\)\? =\).*/\1/' \
                                 -e "/LDFLAGS\(_FOR_\(BUILD\|TARGET\)\)\? =/s/$LDFLAGS$//" \
                                 -e 's/^\(CC\|CXX\) = .*/& -fno-PIE -no-pie/' \
                                 {} \;
