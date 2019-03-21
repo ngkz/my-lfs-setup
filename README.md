@@ -2885,7 +2885,6 @@ find . -name Makefile -exec sed -i.bak \
 Test the results:
 ```sh
 MAKEFLAGS= LDFLAGS= make -k check
-echo $?
 ```
 
 TODO: meaning of MAKEFLAGS=
