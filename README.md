@@ -2924,3 +2924,92 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### GMP-6.1.2
+
+Note
+
+If you are building for 32-bit x86, but you have a CPU which is capable of running 64-bit code and you have specified CFLAGS in the environment, the configure script will attempt to configure for 64-bits and fail. Avoid this by invoking the configure command below with
+
+```sh
+ABI=32 ./configure ...
+```
+
+Note
+
+The default settings of GMP produce libraries optimized for the host processor. If libraries suitable for processors less capable than the host's CPU are desired, generic libraries can be created by running the following:
+
+```sh
+cp -v configfsf.guess config.guess
+cp -v configfsf.sub   config.sub
+```
+
+ Prepare GMP for compilation:
+
+```sh
+tar -xf /sources/gmp-6.1.2.tar.xz
+cd gmp-6.1.2
+./configure --prefix=/usr    \
+            --enable-cxx     \
+            --disable-static \
+            --docdir=/usr/share/doc/gmp
+```
+
+**The meaning of the new configure options:**
+
+`--enable-cxx`
+
+    This parameter enables C++ support
+
+`--docdir=/usr/share/doc/gmp-6.1.2`
+
+    This variable specifies the correct place for the documentation.
+
+Compile the package and generate the HTML documentation:
+```sh
+make
+make html
+```
+
+Important
+
+The test suite for GMP in this section is considered critical. Do not skip it under any circumstances.
+
+Test the results:
+
+```sh
+make check 2>&1 | tee gmp-check-log
+```
+
+Ensure that all 190 tests in the test suite passed. Check the results by issuing the following command:
+
+```sh
+awk '/# PASS:/{total+=$3} ; END{print total}' gmp-check-log
+```
+
+Install the package and its documentation:
+
+```sh
+make DESTDIR=/usr/pkg/gmp-6.1.2 install install-html
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/gmp-6.1.2
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/gmp-6.1.2/usr/share/info/dir
+find /usr/pkg/gmp-6.1.2/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/gmp-6.1.2
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
