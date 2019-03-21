@@ -2578,7 +2578,7 @@ tar -xf /sources/readline-7.0.tar.gz
 cd readline-7.0
 ./configure --prefix=/usr    \
             --disable-static \
-            --docdir=/usr/share/doc/readline-7.0
+            --docdir=/usr/share/doc/readline
 ```
 
 Compile the package:
