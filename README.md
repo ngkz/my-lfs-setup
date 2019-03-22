@@ -3018,3 +3018,65 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### MPFR-4.0.1
+Prepare MPFR for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/mpfr-4.0.1.tar.xz
+cd mpfr-4.0.1
+./configure --prefix=/usr        \
+            --disable-static     \
+            --enable-thread-safe \
+            --docdir=/usr/share/doc/mpfr
+```
+
+Compile the package and generate the HTML documentation:
+
+```sh
+make
+make html
+```
+
+**Important**
+
+The test suite for MPFR in this section is considered critical. Do not skip it under any circumstances.
+
+Test the results and ensure that all tests passed:
+
+```sh
+make check
+```
+
+Package MPFR and its documentation:
+
+```sh
+make DESTDIR=/usr/pkg/mpfr-4.0.1 install install-html
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/mpfr-4.0.1/usr/share/info/dir
+find /usr/pkg/mpfr-4.0.1/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/mpfr-4.0.1
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/mpfr-4.0.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/mpfr-4.0.1/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
