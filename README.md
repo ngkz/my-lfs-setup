@@ -3086,6 +3086,7 @@ ldconfig
 Prepare MPC for compilation:
 
 ```sh
+cd /var/tmp
 tar -xf /sources/mpc-1.1.0.tar.gz
 cd mpc-1.1.0
 ./configure --prefix=/usr    \
