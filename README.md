@@ -3081,3 +3081,59 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+## MPC-1.1.0
+Prepare MPC for compilation:
+
+```sh
+tar -xf /sources/mpc-1.1.0.tar.gz
+cd mpc-1.1.0
+./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/mpc
+```
+
+Compile the package and generate the HTML documentation:
+
+```sh
+make
+make html
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Install the package and its documentation:
+
+```sh
+make DESTDIR=/usr/pkg/mpc-1.1.0 install install-html
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/mpc-1.1.0/usr/share/info/dir
+find /usr/pkg/mpc-1.1.0/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/mpc-1.1.0
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/mpc-1.1.0
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/mpc-1.1.0/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
