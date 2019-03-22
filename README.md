@@ -41,7 +41,7 @@ mkdir -pv $LFS/tools
 ```sh
 sudo mkdir -pv $LFS/{dev,proc,bin,etc,lib,sbin,usr,tmp,var/tmp}
 sudo mount -v --bind /dev $LFS/dev
-sudo mount -vt devpts devpts $LFS/dev/pts -o gid=5,mode=620
+sudo mount -vt devpts devpts $LFS/dev/pts -o gid=5,newinstance,ptmxmode=0666,mode=620
 sudo mount -vt proc proc $LFS/proc
 sudo mount -v --rbind /bin $LFS/bin
 sudo mount -v --rbind /usr $LFS/usr
@@ -1371,7 +1371,7 @@ sudo mount -vt tmpfs -o nodev,nosuid,noexec,mode=0755 tmpfs $LFS/run
 sudo install -dv -m 1777 $LFS/run/shm
 sudo install -dv -m 1777 $LFS/run/lock
 sudo mount -vt tmpfs -o nodev,nosuid none $LFS/tmp
-sudo mount -vt devpts devpts $LFS/dev/pts -o gid=5,mode=620
+sudo mount -vt devpts devpts $LFS/dev/pts -o gid=5,mode=620,newinstance,ptmxmode=0666
 ```
 
 **The meaning of the mount options for devpts:**
@@ -1383,6 +1383,14 @@ gid=5
 mode=0620
 
     This ensures that all devpts-created device nodes have mode 0620 (user readable and writable, group writable). Together with the option above, this ensures that devpts will create device nodes that meet the requirements of grantpt(), meaning the Glibc pt_chown helper binary (which is not installed by default) is not necessary.
+
+newinstance
+
+    TODO
+
+ptmxmode=0666
+
+    TODO
 
 ### Entering the Chroot Environment
 
