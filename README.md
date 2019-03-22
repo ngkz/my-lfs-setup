@@ -2811,7 +2811,7 @@ cd binutils-2.31.1
 
 TODO: explanation
 ```sh
-find . -name configure | xargs sed -i.bak "s/ac_cpp='\$CPP \$CPPFLAGS'/ac_cpp='\$CPP \$CPPFLAGS -U_FORTIFY_SOURCE'/"
+find . -name configure | xargs sed -i.bak "s/ac_cpp='\$\(\(CXX\)\?CPP\) \$CPPFLAGS'/ac_cpp='\$\1 \$CPPFLAGS -U_FORTIFY_SOURCE'/"
 ```
 
 The Binutils documentation recommends building Binutils in a dedicated build directory:
