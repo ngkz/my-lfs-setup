@@ -1389,7 +1389,7 @@ mode=0620
 ```sh
 #export LFS=...
 #umask 022
-CFLAGS="-O2 -march=native -pipe -Wformat -Werror=format-security -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables"
+CFLAGS="-O2 -march=native -pipe -Wformat -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables"
 sudo chroot "$LFS" /tools/bin/env -i \
     HOME=/root                  \
     TERM="$TERM"                \
@@ -1415,7 +1415,6 @@ The meaning of CFLAGS:
 | -O2                          | Turn on optimizations. Using -O3 is not recommended because it can slow down a system and break several packages. |
 | -march=native                | Tunes the generated code for the machine running the compiler. Generated code may not run on older CPU.           |
 | -pipe                        | Run compiler and assembler in parallel.  This can improve compilation performance.                                |
-| -Werror=format-security      | Turn on warnings about insecure format functions usage and treat them as errors.                                  |
 | -fstack-protector-strong     | Enable stack buffer overflow checks.                                                                              |
 | -fstack-clash-protection     | Generate code to prevent stack clash style attacks.                                                               |
 | -fno-plt                     | Generate more efficient code by eliminating PLT stubs and exposing GOT loads to optimizations.                    |
