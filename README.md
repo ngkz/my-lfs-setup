@@ -3082,7 +3082,7 @@ Rebuild dynamic linker cache:
 ldconfig
 ```
 
-## MPC-1.1.0
+### MPC-1.1.0
 Prepare MPC for compilation:
 
 ```sh
