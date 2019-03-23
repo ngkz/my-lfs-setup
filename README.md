@@ -1398,7 +1398,7 @@ ptmxmode=0666
 ```sh
 #export LFS=...
 #umask 022
-CFLAGS="-O2 -march=native -pipe -Wformat -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables"
+CFLAGS="-O2 -march=native -pipe -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables"
 sudo chroot "$LFS" /tools/bin/env -i \
     HOME=/root                  \
     TERM="$TERM"                \
