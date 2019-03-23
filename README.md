@@ -1250,7 +1250,8 @@ Currently, the $LFS/tools directory is owned by the user lfs, a user that exists
 To avoid this issue, you could add the lfs user to the new LFS system later when creating the /etc/passwd file, taking care to assign it the same user and group IDs as on the host system. Better yet, change the ownership of the $LFS/tools directory to user root by running the following command:
 
 ```sh
-sudo chown -R root:root $LFS/tools
+sudo chown -R root:root "$LFS"
+sudo chmod 755 "$LFS"
 ```
 
 ## Installing Basic System Software
