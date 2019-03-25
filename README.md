@@ -2888,8 +2888,8 @@ find . -name Makefile -exec sed -i.bak \
                                 -e 's/^\(CPPFLAGS\(_FOR_\(BUILD\|TARGET\)\)\? =\).*/\1/' \
                                 -e "/LDFLAGS\(_FOR_\(BUILD\|TARGET\)\)\? =/s/$LDFLAGS$//" \
                                 -e 's/^\(CC\|CXX\) = .*/& -fno-PIE -no-pie/' \
-                                {} \;
-find . -name Makefile -exec touch -r {}.bak {} \;
+                                {} \; \
+                      -exec touch -r {}.bak {} \;
 ```
 
 Test the results:
