@@ -2956,6 +2956,7 @@ cp -v configfsf.sub   config.sub
  Prepare GMP for compilation:
 
 ```sh
+cd /var/tmp
 tar -xf /sources/gmp-6.1.2.tar.xz
 cd gmp-6.1.2
 ./configure --prefix=/usr    \
