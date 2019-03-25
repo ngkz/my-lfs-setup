@@ -2612,8 +2612,8 @@ make DESTDIR=/usr/pkg/readline-7.0 SHLIB_LIBS="-L/tools/lib -lncurses" install
 If desired, install the documentation:
 
 ```sh
-install -v -m644 doc/*.{ps,pdf,html,dvi} /usr/pkg/readline-7.0/usr/share/doc/readline-7.0
-gzip -n -9 /usr/pkg/readline-7.0/usr/share/doc/readline-7.0/*.{ps,pdf,html,dvi}
+install -v -m644 doc/*.{ps,pdf,html,dvi} /usr/pkg/readline-7.0/usr/share/doc/readline
+gzip -n -9 /usr/pkg/readline-7.0/usr/share/doc/readline/*.{ps,pdf,html,dvi}
 ```
 
 Strip the debug information:
