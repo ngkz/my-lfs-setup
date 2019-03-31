@@ -3227,3 +3227,391 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/shadow-4.6/* /
 ```
+
+### GCC-8.2.0
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/gcc-8.2.0.tar.xz
+cd gcc-8.2.0
+```
+
+If building on x86\_64, change the default directory name for 64-bit libraries to "lib" and ensure the default directory name for the 32-bit libraries to "lib32":
+```sh
+case $(uname -m) in
+  x86_64)
+    sed -e '/m64=/s/lib64/lib/' \
+        -e '/m32=/s@m32=.*@m32=../lib32@'  \
+        -i.orig gcc/config/i386/t-linux64
+ ;;
+esac
+```
+
+Fix tests known to fail when configured with `--enable-default-ssp`.
+```sh
+patch -p1 < /sources/gcc-fix-broken-tests-ssp.patch
+#11 test regressions when building GCC 6 with --enable-default-ssp 
+#https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70230
+patch -p1 < /sources/gcc-pr70230.patch
+```
+
+Fix tests known to fail when configured with `--enable-default-pie`.
+```sh
+patch -p1 < /sources/gcc-fix-broken-tests-pie.patch
+#https://gcc.gnu.org/bugzilla/show_bug.cgi?id=70150
+patch -p1 < /sources/gcc-pr70150.patch
+```
+
+Remove one test known to cause a problem:
+
+```sh
+rm gcc/testsuite/g++.dg/pr83239.C
+```
+
+Remove the symlink created earlier as the final gcc includes will be installed here:
+
+```sh
+rm -fv /usr/lib/gcc
+```
+
+TODO: explanation
+```sh
+find . -name configure | xargs sed -i.bak "s/ac_cpp='\$\(\(CXX\)\?CPP\) \$CPPFLAGS'/ac_cpp='\$\1 \$CPPFLAGS -U_FORTIFY_SOURCE'/"
+```
+
+The GCC documentation recommends building GCC in a dedicated build directory:
+
+```sh
+mkdir -v build
+cd       build
+```
+
+Remove some hardening flags which cause a problem:
+```sh
+cflags_old=$CFLAGS
+cxxflags_old=$CXXFLAGS
+cppflags_old=$CPPFLAGS
+CFLAGS="$(echo "$CFLAGS" | sed -r 's/-pipe|-fexceptions//g') -g -fdebug-prefix-map=$(cd .. && pwd)=."
+CXXFLAGS="$CFLAGS"
+CPPFLAGS="${CPPFLAGS/-D_GLIBCXX_ASSERTIONS/}"
+```
+
+- `-pipe` [broke some test](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=48565).
+- `-fexceptions` broke libasan.
+- `-D_GLIBCCXX_ASSERTIONS` broke gcov.
+
+Prepare GCC for compilation:
+
+```sh
+SED=sed                                          \
+../configure --prefix=/usr                       \
+             --libexecdir=/usr/lib               \
+             --enable-languages=c,c++            \
+             --disable-bootstrap                 \
+             --disable-libmpx                    \
+             --enable-default-pie                \
+             --enable-default-ssp                \
+             --enable-multilib                   \
+             --with-multilib-list=m32,m64        \
+             --with-system-zlib
+```
+
+Note that for other languages, there are some prerequisites that are not yet available. See the BLFS Book for instructions on how to build all of GCC's supported languages.
+
+**The meaning of the new configure parameters:**
+
+`SED=sed`
+
+    Setting this environment variable prevents a hard-coded path to /tools/bin/sed.
+
+`--disable-libmpx`
+
+    This switch tells GCC to not build mpx (Memory Protection Extensions) that can cause problems on some processors. It has been removed from the next version of gcc.
+
+`--with-system-zlib`
+
+    This switch tells GCC to link to the system installed copy of the Zlib library, rather than its own internal copy.
+
+Compile the package:
+```sh
+make
+```
+
+One set of tests in the GCC test suite is known to exhaust the stack, so increase the stack size prior to running the tests:
+
+```sh
+ulimit -s 32768
+```
+
+Test the results as a non-privileged user, but do not stop at errors:
+
+```sh
+chown -Rv nobody .
+su nobody -s /bin/bash -c "PATH=$PATH make -k check" || true
+```
+
+<!-- partial test: make check RUNTESTFLAGS="gcov.exp=gcov-8.C" -->
+
+To check the test suite results, run:
+
+```sh
+! ../contrib/test_summary -t | grep "^FAIL:\|^XPASS:"
+```
+
+Package gcc:
+
+```sh
+make DESTDIR=/usr/pkg/gcc-8.2.0 install
+```
+
+Restore flags:
+```sh
+CFLAGS=$cflags_old
+CXXFLAGS=$cxxflags_old
+CPPFLAGS=$cppflags_old
+unset cflags_old
+unset cxxflags_old
+unset cppflags_old
+```
+
+Create a symlink required by the [FHS](https://refspecs.linuxfoundation.org/FHS_3.0/fhs/ch03s09.html) for "historical" reasons.
+
+```sh
+ln -sv ../usr/bin/cpp /usr/pkg/gcc-8.2.0/usr/lib/cpp
+```
+
+Many packages use the name cc to call the C compiler. To satisfy those packages, create a symlink:
+
+```sh
+ln -sv gcc /usr/pkg/gcc-8.2.0/usr/bin/cc
+```
+
+Add a compatibility symlink to enable building programs with Link Time Optimization (LTO):
+
+```sh
+install -v -dm755 /usr/pkg/gcc-8.2.0/usr/lib/bfd-plugins
+ln -sfv ../../lib/gcc/$(gcc -dumpmachine)/8.2.0/liblto_plugin.so \
+        /usr/pkg/gcc-8.2.0/usr/lib/bfd-plugins/
+```
+
+Move a misplaced file:
+
+```sh
+mkdir -pv /usr/pkg/gcc-8.2.0/usr/share/gdb/auto-load/usr/lib
+mv -v /usr/pkg/gcc-8.2.0/usr/lib/*gdb.py /usr/pkg/gcc-8.2.0/usr/share/gdb/auto-load/usr/lib
+```
+
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/gcc-8.2.0/usr/share/info/dir
+find /usr/pkg/gcc-8.2.0/usr/{lib,lib32} -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg \
+    --keep-debug "libstdc++.so*" \
+    --keep-debug "libquadmath.so*" \
+    --keep-debug "libitm.so*" \
+    --keep-debug "libatomic.so*" \
+    /usr/pkg/gcc-8.2.0
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/gcc-8.2.0
+```
+
+Install the package:
+```sh
+cp -rsvf /usr/pkg/gcc-8.2.0/* /
+```
+
+Now that our final toolchain is in place, it is important to again ensure that compiling and linking will work as expected. We do this by performing the same sanity checks as we did earlier in the chapter:
+
+```sh
+cd /tmp
+echo 'int main(){}' > dummy.c
+cc -fno-PIE -no-pie dummy.c -v -Wl,--verbose &> dummy.log
+readelf -l a.out | grep ': /lib'
+```
+
+There should be no errors, and the output of the last command will be (allowing for platform-specific differences in dynamic linker name):
+
+```
+[Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
+```
+
+Now make sure that we're setup to use the correct start files:
+
+```sh
+grep -o '/lib.*/crt[1in].*succeeded' dummy.log
+```
+
+The output of the last command should be:
+
+```
+/lib/../lib/crt1.o succeeded
+/lib/../lib/crti.o succeeded
+/lib/../lib/crtn.o succeeded
+```
+
+Depending on your machine architecture, the above may differ slightly, the difference usually being the name of the directory after /usr/lib/gcc. The important thing to look for here is that gcc has found all three crt*.o files under the /usr/lib directory.
+
+Verify that the compiler is searching for the correct header files:
+
+```sh
+grep -B4 '^ /usr/include' dummy.log
+```
+
+This command should return the following output:
+
+```
+#include <...> search starts here:
+ /usr/pkg/gcc-8.2.0/usr/bin/../lib/gcc/x86_64-pc-linux-gnu/8.2.0/include
+ /usr/pkg/gcc-8.2.0/usr/bin/../lib/gcc/x86_64-pc-linux-gnu/8.2.0/include-fixed
+ /usr/local/include
+ /usr/include
+```
+
+Next, verify that the new linker is being used with the correct search paths:
+
+```sh
+grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
+```
+
+References to paths that have components with '-linux-gnu' should be ignored, but otherwise the output of the last command should be:
+
+```
+SEARCH_DIR("/usr/x86_64-pc-linux-gnu/lib64")
+SEARCH_DIR("/usr/local/lib64")
+SEARCH_DIR("/lib64")
+SEARCH_DIR("/usr/lib64")
+SEARCH_DIR("/usr/x86_64-pc-linux-gnu/lib")
+SEARCH_DIR("/usr/local/lib")
+SEARCH_DIR("/lib")
+SEARCH_DIR("/usr/lib");
+```
+
+Next make sure that we're using the correct libc:
+
+```sh
+grep "/lib.*/libc.so.6 " dummy.log
+```
+
+The output of the last command should be:
+
+```
+attempt to open /usr/lib/libc.so.6 succeeded
+```
+
+Lastly, make sure GCC is using the correct dynamic linker:
+
+```sh
+grep found dummy.log
+```
+
+The output of the last command should be (allowing for platform-specific differences in dynamic linker name):
+
+```
+found ld-linux-x86-64.so.2 at /usr/lib/ld-linux-x86-64.so.2
+```
+
+TODO: explanation
+
+```sh
+cc -fno-PIE -no-pie dummy.c -v -Wl,--verbose &> dummy.log
+readelf -l a.out | grep ': /lib'
+```
+
+There should be no errors, and the output of the last command will be (allowing for platform-specific differences in dynamic linker name):
+
+```
+[Requesting program interpreter: /lib/ld-linux.so.2]
+```
+
+Now make sure that we're setup to use the correct start files:
+
+```sh
+grep -o '/lib.*/crt[1in].*succeeded' dummy.log
+```
+
+The output of the last command should be:
+
+```
+/lib/../lib32/crt1.o succeeded
+/lib/../lib32/crti.o succeeded
+/lib/../lib32/crtn.o succeeded
+```
+
+Depending on your machine architecture, the above may differ slightly, the difference usually being the name of the directory after /usr/lib/gcc. The important thing to look for here is that gcc has found all three crt*.o files under the /usr/lib directory.
+
+Verify that the compiler is searching for the correct header files:
+
+```sh
+grep -B4 '^ /usr/include' dummy.log
+```
+
+This command should return the following output:
+
+```
+#include <...> search starts here:
+ /usr/pkg/gcc-8.2.0/usr/bin/../lib/gcc/x86_64-pc-linux-gnu/8.2.0/include
+ /usr/pkg/gcc-8.2.0/usr/bin/../lib/gcc/x86_64-pc-linux-gnu/8.2.0/include-fixed
+ /usr/local/include
+ /usr/include
+```
+
+Next, verify that the new linker is being used with the correct search paths:
+
+```sh
+grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
+```
+
+References to paths that have components with '-linux-gnu' should be ignored, but otherwise the output of the last command should be:
+
+```
+SEARCH_DIR("/usr/i386-pc-linux-gnu/lib32")
+SEARCH_DIR("/usr/x86_64-pc-linux-gnu/lib32")
+SEARCH_DIR("/usr/local/lib32")
+SEARCH_DIR("/lib32")
+SEARCH_DIR("/usr/lib32")
+SEARCH_DIR("/usr/i386-pc-linux-gnu/lib")
+SEARCH_DIR("/usr/local/lib")
+SEARCH_DIR("/lib")
+SEARCH_DIR("/usr/lib");
+
+```
+
+Next make sure that we're using the correct libc:
+
+```sh
+grep "/lib.*/libc.so.6 " dummy.log
+```
+
+The output of the last command should be:
+
+```
+attempt to open /usr/lib32/libc.so.6 succeeded
+```
+
+Lastly, make sure GCC is using the correct dynamic linker:
+
+```sh
+grep found dummy.log
+```
+
+The output of the last command should be (allowing for platform-specific differences in dynamic linker name):
+
+```
+found ld-linux.so.2 at /usr/lib32/ld-linux.so.2
+```
+
+If the output does not appear as shown above or is not received at all, then something is seriously wrong. Investigate and retrace the steps to find out where the problem is and correct it. The most likely reason is that something went wrong with the specs file adjustment. Any issues will need to be resolved before continuing with the process.
+
+Once everything is working correctly, clean up the test files:
+
+```sh
+rm -v dummy.c a.out dummy.log
+```
