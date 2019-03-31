@@ -158,7 +158,7 @@ do
 done
 ```
 
-64bitライブラリのディレクトリをlib, 32bitライブラリのディレクトリをlib32に変更
+If building on x86\_64, change the default directory name for 64-bit libraries to "lib" and ensure the default directory name for the 32-bit libraries to "lib32":
 ```sh
 case $(uname -m) in
   x86_64)
