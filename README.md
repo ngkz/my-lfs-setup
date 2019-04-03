@@ -3615,3 +3615,111 @@ Once everything is working correctly, clean up the test files:
 ```sh
 rm -v dummy.c a.out dummy.log
 ```
+
+## Bzip2-1.0.6
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/bzip2-1.0.6.tar.gz
+cd bzip2-1.0.6
+```
+
+Apply a patch that builds bzip2 with our `CFLAGS`, `CPPFLAGS` and `LDFLAGS`:
+
+```sh
+#https://gitweb.gentoo.org/repo/gentoo.git/plain/app-arch/bzip2/files/bzip2-1.0.4-makefile-CFLAGS.patch
+patch -Np1 -i /sources/bzip2-1.0.4-makefile-CFLAGS.patch
+patch -Np1 -i /sources/bzip2-1.0.6-makefile-LDFLAGS.patch
+```
+
+Apply a patch that fixes CVE-2016-3189 vulnerability:
+
+```sh
+#https://gitweb.gentoo.org/repo/gentoo.git/plain/app-arch/bzip2/files/bzip2-1.0.6-CVE-2016-3189.patch
+patch -Np1 -i /sources/bzip2-1.0.6-CVE-2016-3189.patch
+```
+
+Apply a patch that will install the documentation for this package:
+
+```sh
+patch -Np1 -i /sources/bzip2-1.0.6-install_docs-1.patch
+```
+
+The following command ensures installation of symbolic links are relative:
+
+```sh
+sed -i 's@\(ln -s -f \)$(PREFIX)/bin/@\1@' Makefile
+```
+
+Ensure the man pages are installed into the correct location:
+
+```sh
+sed -i "s@(PREFIX)/man@(PREFIX)/share/man@g" Makefile
+```
+
+Remove version string from the document location:
+
+```sh
+sed -i "s@DOCDIR=.*@DOCDIR=share/doc/bzip2@g" Makefile
+```
+
+Prepare Bzip2 for compilation with:
+
+```sh
+make -f Makefile-libbz2_so
+make clean
+```
+
+
+The meaning of the make parameter:
+
+`-f Makefile-libbz2_so`
+
+    This will cause Bzip2 to be built using a different Makefile file, in this case the Makefile-libbz2_so file, which creates a dynamic libbz2.so library and links the Bzip2 utilities against it.
+
+Compile and test the package:
+
+```sh
+make
+```
+
+Install the programs:
+
+```sh
+make PREFIX=/usr/pkg/bzip2-1.0.6/usr install
+```
+
+Install the shared bzip2 binary, make some necessary symbolic links, and clean up:
+
+```sh
+cp -v bzip2-shared /usr/pkg/bzip2-1.0.6/usr/bin/bzip2
+ln -svf bzip2 /usr/pkg/bzip2-1.0.6/usr/bin/bunzip2
+ln -svf bzip2 /usr/pkg/bzip2-1.0.6/usr/bin/bzcat
+cp -av libbz2.so* /usr/pkg/bzip2-1.0.6/usr/lib
+ln -sv libbz2.so.1.0 /usr/pkg/bzip2-1.0.6/usr/lib/libbz2.so
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/bzip2-1.0.6
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/bzip2-1.0.6
+```
+
+Compress documentation:
+```sh
+gzip -9 -n -f /usr/pkg/bzip2-1.0.6/usr/share/doc/bzip2/**
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/bzip2-1.0.6/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
