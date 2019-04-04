@@ -3728,3 +3728,45 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+## Pkg-config-0.29.2
+Prepare Pkg-config for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/pkg-config-0.29.2.tar.gz
+cd pkg-config-0.29.2
+./configure --prefix=/usr              \
+            --with-internal-glib       \
+            --disable-host-tool
+```
+
+The meaning of the new configure options:
+
+--with-internal-glib
+
+    This will allow pkg-config to use its internal version of Glib because an external version is not available in LFS.
+
+--disable-host-tool
+
+    This option disables the creation of an undesired hard link to the pkg-config program.
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/pkg-config-0.29.2
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/pkg-config-0.29.2
+```
+
+Compress the documentation:
+```sh
+gzip -9n /usr/pkg/pkg-config-0.29.2/usr/share/doc/pkg-config/*
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/pkg-config-0.29.2/* /
+```
