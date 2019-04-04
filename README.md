@@ -3526,7 +3526,7 @@ found ld-linux-x86-64.so.2 at /usr/lib/ld-linux-x86-64.so.2
 TODO: explanation
 
 ```sh
-cc -fno-PIE -no-pie dummy.c -v -Wl,--verbose &> dummy.log
+cc -m32 -fno-PIE -no-pie dummy.c -v -Wl,--verbose &> dummy.log
 readelf -l a.out | grep ': /lib'
 ```
 
