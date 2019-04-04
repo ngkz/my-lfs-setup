@@ -3428,6 +3428,11 @@ Install the package:
 cp -rsvf /usr/pkg/gcc-8.2.0/* /
 ```
 
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
+
 Now that our final toolchain is in place, it is important to again ensure that compiling and linking will work as expected. We do this by performing the same sanity checks as we did earlier in the chapter:
 
 ```sh
