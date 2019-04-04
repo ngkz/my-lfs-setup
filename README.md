@@ -3296,9 +3296,9 @@ CXXFLAGS="$CFLAGS"
 CPPFLAGS="${CPPFLAGS/-D_GLIBCXX_ASSERTIONS/}"
 ```
 
-- `-pipe` [broke some test](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=48565).
-- `-fexceptions` broke libasan.
-- `-D_GLIBCCXX_ASSERTIONS` broke gcov.
+- `-pipe` breaks [some tests](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=48565).
+- `-fexceptions` breaks libasan.
+- `-D_GLIBCCXX_ASSERTIONS` breaks gcov.
 
 Prepare GCC for compilation:
 
