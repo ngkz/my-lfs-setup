@@ -2392,7 +2392,7 @@ found ld-linux-x86-64.so.2 at /usr/lib/ld-linux-x86-64.so.2
 
 If the output does not appear as shown above or is not received at all, then something is seriously wrong. Investigate and retrace the steps to find out where the problem is and correct it. The most likely reason is that something went wrong with the specs file adjustment. Any issues will need to be resolved before continuing with the process.
 
-TODO: description
+Also, check 32-bit code compilation:
 
 ```sh
 cc -m32 -no-pie -fno-PIE dummy.c -v -Wl,--verbose &> dummy.log
@@ -3523,7 +3523,7 @@ The output of the last command should be (allowing for platform-specific differe
 found ld-linux-x86-64.so.2 at /usr/lib/ld-linux-x86-64.so.2
 ```
 
-TODO: explanation
+Also, check 32-bit code compilation:
 
 ```sh
 cc -m32 -fno-PIE -no-pie dummy.c -v -Wl,--verbose &> dummy.log
