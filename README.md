@@ -3384,7 +3384,7 @@ Create a symlink required by the [FHS](https://refspecs.linuxfoundation.org/FHS_
 ln -sv ../usr/bin/cpp /usr/pkg/gcc-8.2.0/usr/lib/cpp
 ```
 
-Many packages use the name cc to call the C compiler. To satisfy those packages, create a symlink:
+Many packages use the name `cc` to call the C compiler. To satisfy those packages, create a symlink:
 
 ```sh
 ln -sv gcc /usr/pkg/gcc-8.2.0/usr/bin/cc
@@ -3466,8 +3466,6 @@ The output of the last command should be:
 /lib/../lib/crtn.o succeeded
 ```
 
-Depending on your machine architecture, the above may differ slightly, the difference usually being the name of the directory after /usr/lib/gcc. The important thing to look for here is that gcc has found all three crt*.o files under the /usr/lib directory.
-
 Verify that the compiler is searching for the correct header files:
 
 ```sh
@@ -3490,7 +3488,7 @@ Next, verify that the new linker is being used with the correct search paths:
 grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
 ```
 
-References to paths that have components with '-linux-gnu' should be ignored, but otherwise the output of the last command should be:
+The output of the last command should be:
 
 ```
 SEARCH_DIR("/usr/x86_64-pc-linux-gnu/lib64")
@@ -3554,8 +3552,6 @@ The output of the last command should be:
 /lib/../lib32/crtn.o succeeded
 ```
 
-Depending on your machine architecture, the above may differ slightly, the difference usually being the name of the directory after /usr/lib/gcc. The important thing to look for here is that gcc has found all three crt*.o files under the /usr/lib directory.
-
 Verify that the compiler is searching for the correct header files:
 
 ```sh
@@ -3578,7 +3574,7 @@ Next, verify that the new linker is being used with the correct search paths:
 grep 'SEARCH.*/usr/lib' dummy.log |sed 's|; |\n|g'
 ```
 
-References to paths that have components with '-linux-gnu' should be ignored, but otherwise the output of the last command should be:
+The output of the last command should be:
 
 ```
 SEARCH_DIR("/usr/i386-pc-linux-gnu/lib32")
