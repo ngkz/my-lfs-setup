@@ -3716,7 +3716,7 @@ compressdoc /usr/pkg/bzip2-1.0.6
 
 Compress documentation:
 ```sh
-gzip -9 -n -f /usr/pkg/bzip2-1.0.6/usr/share/doc/bzip2/**
+gzip -9nv /usr/pkg/bzip2-1.0.6/usr/share/doc/bzip2/**
 ```
 
 Install the package:
@@ -3763,7 +3763,7 @@ compressdoc /usr/pkg/pkg-config-0.29.2
 
 Compress the documentation:
 ```sh
-gzip -9n /usr/pkg/pkg-config-0.29.2/usr/share/doc/pkg-config/*
+gzip -9nv /usr/pkg/pkg-config-0.29.2/usr/share/doc/pkg-config/*
 ```
 
 Install the package:
