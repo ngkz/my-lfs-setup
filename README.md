@@ -3771,21 +3771,25 @@ make DESTDIR=/usr/pkg/pkg-config-0.29.2 install
 
 
 Strip the debug information:
+
 ```sh
 strip-pkg /usr/pkg/pkg-config-0.29.2
 ```
 
 Compress man and info pages:
+
 ```sh
 compressdoc /usr/pkg/pkg-config-0.29.2
 ```
 
 Compress the documentation:
+
 ```sh
 gzip -9nv /usr/pkg/pkg-config-0.29.2/usr/share/doc/pkg-config/*
 ```
 
 Install the package:
+
 ```sh
 cp -rsv /usr/pkg/pkg-config-0.29.2/* /
 ```
