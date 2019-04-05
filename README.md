@@ -3751,6 +3751,25 @@ The meaning of the new configure options:
 
     This option disables the creation of an undesired hard link to the pkg-config program.
 
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package pkg-config:
+
+```sh
+make DESTDIR=/usr/pkg/pkg-config-0.29.2 install
+```
+
+
 Strip the debug information:
 ```sh
 strip-pkg /usr/pkg/pkg-config-0.29.2
