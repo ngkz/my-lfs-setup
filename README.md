@@ -2818,7 +2818,9 @@ tar -xf /sources/binutils-2.31.1.tar.xz
 cd binutils-2.31.1
 ```
 
-TODO: explanation
+The configure script calls the C preprocessor like `gcc -E $CPPFLAGS <INPUT>`. Because it passes `-D_FORTIFY_SOURCE` in `CPPFLAGS` to GCC without optimization flags, GCC emits a warning, configure will be confused, and the build will fail.
+
+Fix this issue with:
 ```sh
 find . -name configure | xargs sed -i.bak "s/ac_cpp='\$\(\(CXX\)\?CPP\) \$CPPFLAGS'/ac_cpp='\$\1 \$CPPFLAGS -U_FORTIFY_SOURCE'/"
 ```
@@ -3274,7 +3276,9 @@ Remove the symlink created earlier as the final gcc includes will be installed h
 rm -fv /usr/lib/gcc
 ```
 
-TODO: explanation
+The configure script calls the C preprocessor like `gcc -E $CPPFLAGS <INPUT>`. Because it passes `-D_FORTIFY_SOURCE` in `CPPFLAGS` to GCC without optimization flags, GCC emits a warning, configure will be confused, and the build will fail.
+
+Fix this issue with:
 ```sh
 find . -name configure | xargs sed -i.bak "s/ac_cpp='\$\(\(CXX\)\?CPP\) \$CPPFLAGS'/ac_cpp='\$\1 \$CPPFLAGS -U_FORTIFY_SOURCE'/"
 ```
