@@ -3917,3 +3917,58 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+## Attr-2.4.48
+Prepare Attr for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/attr-2.4.48.tar.gz
+cd attr-2.4.48
+./configure --prefix=/usr     \
+            --disable-static  \
+            --sysconfdir=/etc
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+The tests need to be run on a filesystem that supports extended attributes such as the ext2, ext3, or ext4 filesystems. To test the results, issue:
+
+```sh
+make check
+```
+
+Package attr:
+
+```sh
+make DESTDIR=/usr/pkg/attr-2.4.48 install
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/attr-2.4.48/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/attr-2.4.48
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/attr-2.4.48
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/attr-2.4.48/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
