@@ -3972,3 +3972,48 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+## Acl-2.2.53
+Prepare Acl for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/acl-2.2.53.tar.gz
+cd acl-2.2.53
+./configure --prefix=/usr         \
+            --disable-static
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+The Acl tests need to be run on a filesystem that supports access controls after Coreutils has been built with the Acl libraries. If desired, return to this package and run make check after Coreutils has been built later in this chapter.
+
+Install the package:
+
+```sh
+make DESTDIR=/usr/pkg/acl-2.2.53 install
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/acl-2.2.53/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/acl-2.2.53
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/acl-2.2.53
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/acl-2.2.53/* /
+```
