@@ -4193,3 +4193,30 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/psmisc-23.1/* /
 ```
+
+## Iana-Etc-2.30
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/iana-etc-2.30.tar.bz2 
+cd iana-etc-2.30
+```
+
+The following command converts the raw data provided by IANA into the correct formats for the /etc/protocols and /etc/services data files:
+
+```sh
+make
+```
+
+This package does not come with a test suite.
+
+Package iana-etc:
+
+```sh
+make DESTDIR=/usr/pkg/iana-etc-2.30 install
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/iana-etc-2.30/* /
+```
