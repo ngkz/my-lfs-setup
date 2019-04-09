@@ -4154,3 +4154,42 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/sed-4.5/* /
 ```
+
+## Psmisc-23.1
+Prepare Psmisc for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/psmisc-23.1.tar.xz
+cd psmisc-23.1
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+This package does not come with a test suite.
+
+Package psmisc:
+
+```sh
+make DESTDIR=/usr/pkg/psmisc-23.1 install
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/psmisc-23.1
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/psmisc-23.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/psmisc-23.1/* /
+```
