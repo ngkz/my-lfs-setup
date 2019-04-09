@@ -3910,7 +3910,7 @@ compressdoc /usr/pkg/ncurses-6.1
 
 Install the package:
 ```sh
-cp -rsv /usr/pkg/ncurses-6.1/* /
+cp -rsvf /usr/pkg/ncurses-6.1/* /
 ```
 
 Rebuild dynamic linker cache:
