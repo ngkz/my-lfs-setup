@@ -4087,3 +4087,70 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+## Sed-4.5
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/sed-4.5.tar.xz
+cd sed-4.5
+```
+
+First fix an issue in the LFS environment and remove a failing test:
+
+```sh
+sed -i 's/usr/tools/'                 build-aux/help2man
+sed -i 's/testsuite.panic-tests.sh//' Makefile.in
+```
+
+Prepare Sed for compilation:
+
+```sh
+./configure --prefix=/usr
+```
+
+Compile the package and generate the HTML documentation:
+
+```sh
+make
+make html
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Install the package and its documentation:
+
+```sh
+make DESTDIR=/usr/pkg/sed-4.5 install
+install -d -m755           /usr/pkg/sed-4.5/usr/share/doc/sed
+install -m644 doc/sed.html /usr/pkg/sed-4.5/usr/share/doc/sed
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/sed-4.5/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/sed-4.5
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/sed-4.5
+```
+
+Compress the documentation:
+```sh
+gzip -9nv /usr/pkg/sed-4.5/usr/share/doc/sed/sed.html
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/sed-4.5/* /
+```
