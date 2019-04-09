@@ -4264,3 +4264,76 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/bison-3.0.5/* /
 ```
+
+## Flex-2.6.4
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/flex-2.6.4.tar.gz
+cd flex-2.6.4
+```
+
+First, fix a problem introduced with glibc-2.26:
+
+```sh
+sed -i "/math.h/a #include <malloc.h>" src/flexdef.h
+```
+
+The build procedure assumes the help2man program is available to create a man page from the executable --help option. This is not present, so we use an environment variable to skip this process. Now, prepare Flex for compilation:
+
+```sh
+HELP2MAN=/tools/bin/true \
+./configure --prefix=/usr --disable-static
+```
+
+TODO: report upstream
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results (about 0.5 SBU), issue:
+
+```sh
+make check
+```
+
+Package flex:
+
+```sh
+make DESTDIR=/usr/pkg/flex-2.6.4 install
+```
+
+A few programs do not know about flex yet and try to run its predecessor, lex. To support those programs, create a symbolic link named lex that runs flex in lex emulation mode:
+
+```sh
+ln -sv flex /usr/pkg/flex-2.6.4/usr/bin/lex
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/flex-2.6.4/usr/share/info/dir
+find /usr/pkg/flex-2.6.4/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/flex-2.6.4
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/flex-2.6.4
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/flex-2.6.4/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
