@@ -3992,7 +3992,7 @@ make
 
 The Acl tests need to be run on a filesystem that supports access controls after Coreutils has been built with the Acl libraries. If desired, return to this package and run make check after Coreutils has been built later in this chapter.
 
-Install the package:
+Package acl:
 
 ```sh
 make DESTDIR=/usr/pkg/acl-2.2.53 install
@@ -4050,7 +4050,7 @@ make
 
 This package does not come with a test suite.
 
-Install the package:
+Package libcap:
 
 ```sh
 make RAISE_SETFCAP=no lib=lib prefix=/usr DESTDIR=/usr/pkg/libcap-2.25 install
@@ -4122,7 +4122,7 @@ To test the results, issue:
 make check
 ```
 
-Install the package and its documentation:
+Package sed and its documentation:
 
 ```sh
 make DESTDIR=/usr/pkg/sed-4.5 install
