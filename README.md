@@ -4220,3 +4220,47 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/iana-etc-2.30/* /
 ```
+
+## Bison-3.0.5
+Prepare Bison for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/bison-3.0.5.tar.xz
+cd bison-3.0.5
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+There is a circular dependency between bison and flex with regard to the checks. If desired, after installing flex in the next section, the bison can be rebuilt and the bison checks can be run with `make check`.
+
+Package bison:
+
+```sh
+make DESTDIR=/usr/pkg/bison-3.0.5 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/bison-3.0.5/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/bison-3.0.5
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/bison-3.0.5
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/bison-3.0.5/* /
+```
