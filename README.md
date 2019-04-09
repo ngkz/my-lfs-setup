@@ -4017,3 +4017,73 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/acl-2.2.53/* /
 ```
+
+## Libcap-2.25
+Extract source code:
+
+```sh
+cd /var/tmp
+tar -xf /sources/libcap-2.25.tar.xz
+cd libcap-2.25
+```
+
+Prevent a static library from being installed:
+```sh
+sed -i '/install.*STALIBNAME/d' libcap/Makefile
+```
+
+Use our `CFLAGS`, `CPPFLAGS`, and `LDFLAGS`:
+```sh
+sed -i 's/^CFLAGS :=/CFLAGS +=/' Make.Rules
+sed -i 's/^LDFLAGS :=/LDFLAGS +=/' Make.Rules
+```
+
+Move binaries to /usr/bin:
+```sh
+sed -i '/^SBINDIR=/s/sbin/bin/' Make.Rules
+```
+
+Compile the package:
+```sh
+make
+```
+
+This package does not come with a test suite.
+
+Install the package:
+
+```sh
+make RAISE_SETFCAP=no lib=lib prefix=/usr DESTDIR=/usr/pkg/libcap-2.25 install
+chmod -v 755 /usr/pkg/libcap-2.25/usr/lib/libcap.so
+```
+
+
+The meaning of the make option:
+
+`RAISE_SETFCAP=no`
+
+    This parameter skips trying to use setcap on itself. This avoids an installation error if the kernel or file system does not support extended capabilities.
+
+`lib=lib`
+
+    This parameter installs the library in $prefix/lib rather than $prefix/lib64 on x86_64. It has no effect on x86.
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/libcap-2.25
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/libcap-2.25
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/libcap-2.25/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
