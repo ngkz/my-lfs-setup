@@ -4467,3 +4467,63 @@ exec /bin/bash --login +h
 Note
 
 The parameters used make the bash process an interactive login shell and continue to disable hashing so that new programs are found as they become available.
+
+### Libtool-2.4.6
+Prepare Libtool for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/libtool-2.4.6.tar.xz
+cd libtool-2.4.6/
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results (about 11.0 SBU), issue:
+
+```sh
+make check TESTSUITEFLAGS=$MAKEFLAGS
+#123: compiling softlinked libltdl                    FAILED (standalone.at:35)
+#124: compiling copied libltdl                        FAILED (standalone.at:50)
+#125: installable libltdl                             FAILED (standalone.at:67)
+#126: linking libltdl without autotools               FAILED (standalone.at:85)
+#130: linking libltdl without autotools               FAILED (subproject.at:115)
+```
+
+Note
+
+    The test time for libtool can be reduced significantly on a system with multiple cores. To do this, append TESTSUITEFLAGS=-j<N> to the line above. For instance, using -j4 can reduce the test time by over 60 percent.
+
+
+Five tests are known to fail in the LFS build environment due to a circular dependency, but all tests pass if rechecked after automake is installed.
+
+Install the package:
+
+```sh
+make DESTDIR=/usr/pkg/libtool-2.4.6 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/libtool-2.4.6/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/libtool-2.4.6
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/libtool-2.4.6
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/libtool-2.4.6/* /
+```
