@@ -4527,3 +4527,8 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/libtool-2.4.6/* /
 ```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
