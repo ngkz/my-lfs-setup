@@ -4637,3 +4637,68 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/gperf-3.1/* /
 ```
+
+### Expat-2.2.6
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/expat-2.2.6.tar.bz2
+cd expat-2.2.6
+```
+
+First fix a problem with the regression tests in the LFS environment:
+
+```sh
+sed -i 's|usr/bin/env |bin/|' run.sh.in
+```
+
+Prepare Expat for compilation:
+
+```sh
+./configure --prefix=/usr    \
+            --disable-static
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package expat:
+
+```sh
+make DESTDIR=/usr/pkg/expat-2.2.6 install
+```
+
+If desired, install the documentation:
+
+```sh
+install -v -m644 doc/*.{html,png,css} /usr/pkg/expat-2.2.6/usr/share/doc/expat
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/expat-2.2.6/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/expat-2.2.6
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/expat-2.2.6
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/expat-2.2.6/* /
+```
