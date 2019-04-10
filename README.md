@@ -4393,3 +4393,77 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/grep-3.1/* /
 ```
+
+### Bash-4.4.18
+Prepare Bash for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/bash-4.4.18.tar.gz
+cd bash-4.4.18
+./configure --prefix=/usr                       \
+            --without-bash-malloc               \
+            --with-installed-readline
+```
+
+The meaning of the new configure option:
+
+`--with-installed-readline`
+
+    This option tells Bash to use the readline library that is already installed on the system rather than using its own readline version.
+
+Compile the package:
+
+```sh
+make
+```
+
+Skip down to “Install the package” if not running the test suite.
+
+To prepare the tests, ensure that the nobody user can write to the sources tree:
+
+```sh
+chown -Rv nobody .
+```
+
+Now, run the tests as the nobody user:
+
+```sh
+su nobody -s /bin/bash -c "PATH=$PATH make tests"
+```
+
+Package bash:
+
+```sh
+make DESTDIR=/usr/pkg/bash-4.4.18 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/bash-4.4.18/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/bash-4.4.18
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/bash-4.4.18
+```
+
+Install the package:
+```sh
+cp -rsvf /usr/pkg/bash-4.4.18/* /
+```
+
+Run the newly compiled bash program (replacing the one that is currently being executed):
+
+```sh
+exec /bin/bash --login +h
+```
+
+Note
+
+The parameters used make the bash process an interactive login shell and continue to disable hashing so that new programs are found as they become available.
