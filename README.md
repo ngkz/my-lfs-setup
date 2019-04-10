@@ -3621,7 +3621,7 @@ Once everything is working correctly, clean up the test files:
 rm -v dummy.c a.out dummy.log
 ```
 
-## Bzip2-1.0.6
+### Bzip2-1.0.6
 Extract source code:
 ```sh
 cd /var/tmp
@@ -3729,7 +3729,7 @@ Rebuild dynamic linker cache:
 ldconfig
 ```
 
-## Pkg-config-0.29.2
+### Pkg-config-0.29.2
 Prepare Pkg-config for compilation:
 
 ```sh
@@ -3794,7 +3794,7 @@ Install the package:
 cp -rsv /usr/pkg/pkg-config-0.29.2/* /
 ```
 
-## Ncurses-6.1
+### Ncurses-6.1
 Extract source code:
 
 ```sh
@@ -3918,7 +3918,7 @@ Rebuild dynamic linker cache:
 ldconfig
 ```
 
-## Attr-2.4.48
+### Attr-2.4.48
 Prepare Attr for compilation:
 
 ```sh
@@ -3973,7 +3973,7 @@ Rebuild dynamic linker cache:
 ldconfig
 ```
 
-## Acl-2.2.53
+### Acl-2.2.53
 Prepare Acl for compilation:
 
 ```sh
@@ -4018,7 +4018,7 @@ Install the package:
 cp -rsv /usr/pkg/acl-2.2.53/* /
 ```
 
-## Libcap-2.25
+### Libcap-2.25
 Extract source code:
 
 ```sh
@@ -4088,7 +4088,7 @@ Rebuild dynamic linker cache:
 ldconfig
 ```
 
-## Sed-4.5
+### Sed-4.5
 Extract source code:
 ```sh
 cd /var/tmp
@@ -4155,7 +4155,7 @@ Install the package:
 cp -rsv /usr/pkg/sed-4.5/* /
 ```
 
-## Psmisc-23.1
+### Psmisc-23.1
 Prepare Psmisc for compilation:
 
 ```sh
@@ -4194,7 +4194,7 @@ Install the package:
 cp -rsv /usr/pkg/psmisc-23.1/* /
 ```
 
-## Iana-Etc-2.30
+### Iana-Etc-2.30
 Extract source code:
 ```sh
 cd /var/tmp
@@ -4221,7 +4221,7 @@ Install the package:
 cp -rsv /usr/pkg/iana-etc-2.30/* /
 ```
 
-## Bison-3.0.5
+### Bison-3.0.5
 Prepare Bison for compilation:
 
 ```sh
@@ -4265,7 +4265,7 @@ Install the package:
 cp -rsv /usr/pkg/bison-3.0.5/* /
 ```
 
-## Flex-2.6.4
+### Flex-2.6.4
 Extract source code:
 ```sh
 cd /var/tmp
