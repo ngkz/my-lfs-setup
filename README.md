@@ -4502,7 +4502,7 @@ Note
 
 Five tests are known to fail in the LFS build environment due to a circular dependency, but all tests pass if rechecked after automake is installed.
 
-Install the package:
+Package libtool:
 
 ```sh
 make DESTDIR=/usr/pkg/libtool-2.4.6 install
