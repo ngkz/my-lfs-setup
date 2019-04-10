@@ -4532,3 +4532,65 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### GDBM-1.17
+Prepare GDBM for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/gdbm-1.17.tar.gz
+cd gdbm-1.17
+./configure --prefix=/usr \
+            --disable-static \
+            --enable-libgdbm-compat
+```
+
+The meaning of the configure option:
+
+`--enable-libgdbm-compat`
+
+    This switch enables the libgdbm compatibility library to be built, as some packages outside of LFS may require the older DBM routines it provides.
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package gdbm:
+
+```sh
+make DESTDIR=/usr/pkg/gdbm-1.17 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/gdbm-1.17/usr/share/info/dir
+find /usr/pkg/gdbm-1.17/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/gdbm-1.17
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/gdbm-1.17
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/gdbm-1.17/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
