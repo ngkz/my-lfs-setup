@@ -4337,3 +4337,59 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### Grep-3.1
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/grep-3.1.tar.xz
+cd grep-3.1
+```
+
+The backref-alt test doesn't fail for glibc 2.28 or later:
+```sh
+sed -i 's/@USE_INCLUDED_REGEX_FALSE@am__append_2 = backref-alt/@USE_INCLUDED_REGEX_FALSE@am__append_2 =/' tests/Makefile.in
+```
+
+Prepare Grep for compilation:
+```sh
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make -k check
+```
+
+Package grep:
+
+```sh
+make DESTDIR=/usr/pkg/grep-3.1 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/grep-3.1/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/grep-3.1
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/grep-3.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/grep-3.1/* /
+```
