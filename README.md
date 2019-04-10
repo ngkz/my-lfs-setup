@@ -4594,3 +4594,46 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### Gperf-3.1
+Prepare Gperf for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/gperf-3.1.tar.gz
+cd gperf-3.1
+./configure --prefix=/usr --docdir=/usr/share/doc/gperf
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+The tests are known to fail if running multiple simultaneous tests (-j option greater than 1). To test the results, issue:
+
+```sh
+make -j1 check
+```
+
+Package gperf:
+
+```sh
+make DESTDIR=/usr/pkg/gperf-3.1 install
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/gperf-3.1
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/gperf-3.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/gperf-3.1/* /
+```
