@@ -4942,3 +4942,51 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/perl-xml-parser-2.44/* /
 ```
+
+### Intltool-0.51.0
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/intltool-0.51.0.tar.gz
+cd intltool-0.51.0
+```
+
+First fix a warning that is caused by perl-5.22 and later:
+```sh
+sed -i 's:\\\${:\\\$\\{:' intltool-update.in
+```
+
+Prepare Intltool for compilation:
+
+```sh
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Install the package:
+
+```sh
+make DESTDIR=/usr/pkg/intltool-0.51.0 install
+install -v -Dm644 doc/I18N-HOWTO /usr/pkg/intltool-0.51.0/usr/share/doc/intltool/I18N-HOWTO
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/intltool-0.51.0
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/intltool-0.51.0/* /
+```
