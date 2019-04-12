@@ -5087,3 +5087,52 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/automake-1.16.1/* /
 ```
+
+### Xz-5.2.4
+Prepare Xz for compilation with:
+
+```sh
+cd /var/tmp
+tar -xf /sources/xz-5.2.4.tar.xz
+cd xz-5.2.4
+./configure --prefix=/usr    \
+            --disable-static
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package xz:
+
+```sh
+make DESTDIR=/usr/pkg/xz-5.2.4 install
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/xz-5.2.4/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/xz-5.2.4
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/xz-5.2.4
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/xz-5.2.4/* /
+```
