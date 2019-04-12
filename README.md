@@ -5039,3 +5039,51 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/autoconf-2.69/* /
 ```
+
+### Automake-1.16.1
+Prepare Automake for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/automake-1.16.1.tar.xz
+cd automake-1.16.1
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+Using the -j4 make option speeds up the tests, even on systems with only one processor, due to internal delays in individual tests. To test the results, issue:
+
+```sh
+make check
+```
+
+Package automake:
+
+```sh
+make DESTDIR=/usr/pkg/automake-1.16.1 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/automake-1.16.1/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/automake-1.16.1
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/automake-1.16.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/automake-1.16.1/* /
+```
