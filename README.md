@@ -5136,3 +5136,74 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/xz-5.2.4/* /
 ```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
+
+### Kmod-25
+Prepare Kmod for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/kmod-25.tar.xz
+cd kmod-25
+./configure --prefix=/usr          \
+            --sysconfdir=/etc      \
+            --with-xz              \
+            --with-zlib
+```
+
+The meaning of the configure options:
+
+`--with-xz`, `--with-zlib`
+
+    These options enable Kmod to handle compressed kernel modules.
+
+`--with-rootlibdir=/lib`
+
+    This option ensures different library related files are placed in the correct directories.
+
+Compile the package:
+
+```sh
+make
+```
+
+This package does not come with a test suite that can be run in the LFS chroot environment. At a minimum the git program is required and several tests will not run outside of a git repository.
+
+Package kmod, and create symlinks for compatibility with Module-Init-Tools (the package that previously handled Linux kernel modules):
+
+```sh
+make DESTDIR=/usr/pkg/kmod-25 install
+
+for target in depmod insmod lsmod modinfo modprobe rmmod; do
+  ln -sfv kmod /usr/pkg/kmod-25/usr/bin/$target
+done
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/kmod-25/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/kmod-25
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/kmod-25
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/kmod-25/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
