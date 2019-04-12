@@ -4894,3 +4894,51 @@ Install the package:
 ```sh
 cp -rsvf /usr/pkg/perl-5.28.0/* /
 ```
+
+### XML::Parser-2.44
+Prepare XML::Parser for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/XML-Parser-2.44.tar.gz
+cd XML-Parser-2.44
+perl Makefile.PL INSTALLDIRS=vendor
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make test
+```
+
+Package XML::Parser:
+
+```sh
+make DESTDIR=/usr/pkg/perl-xml-parser-2.44 install
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/perl-xml-parser-2.44 \( -name ".packlist" -o -name "*.pod" \) -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/perl-xml-parser-2.44
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/perl-xml-parser-2.44
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/perl-xml-parser-2.44/* /
+```
