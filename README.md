@@ -4781,3 +4781,116 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/inetutils-1.9.4/* /
 ```
+
+### Perl-5.28.0
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/perl-5.28.0.tar.xz
+cd perl-5.28.0
+```
+
+First create a basic /etc/hosts file to be referenced in one of Perl's configuration files as well as the optional test suite:
+
+```sh
+echo "127.0.0.1 localhost $(hostname)" > /etc/hosts
+```
+
+This version of Perl now builds the Compress::Raw::Zlib and Compress::Raw::BZip2 modules. By default Perl will use an internal copy of the sources for the build. Issue the following command so that Perl will use the libraries installed on the system:
+
+```sh
+export BUILD_ZLIB=False
+export BUILD_BZIP2=0
+```
+
+To have full control over the way Perl is set up, you can remove the “-des” options from the following command and hand-pick the way this package is built. Alternatively, use the command exactly as below to use the defaults that Perl auto-detects:
+
+```sh
+sh Configure -des -Dprefix=/usr                  \
+                  -Dvendorprefix=/usr            \
+                  -Dman1dir=/usr/share/man/man1  \
+                  -Dman3dir=/usr/share/man/man3  \
+                  -Dpager="/usr/bin/less -isR"   \
+                  -Duseshrplib                   \
+                  -Dusethreads                   \
+                  -Doptimize="$CFLAGS $CPPFLAGS" \
+                  -Dldflags="$LDFLAGS"           \
+                  -Dlddlflags="-shared $LDFLAGS"
+```
+
+**The meaning of the configure options:**
+
+`-Dvendorprefix=/usr`
+
+    This ensures perl knows how to tell packages where they should install their perl modules.
+
+`-Dpager="/usr/bin/less -isR"`
+
+    This ensures that less is used instead of more.
+
+`-Dman1dir=/usr/share/man/man1 -Dman3dir=/usr/share/man/man3`
+
+    Since Groff is not installed yet, Configure thinks that we do not want man pages for Perl. Issuing these parameters overrides this decision.
+
+`-Duseshrplib`
+
+    Build a shared libperl needed by some perl modules.
+
+`-Dusethreads`
+
+    Build perl with support for threads.
+
+`-Doptimize="$CFLAGS $CPPFLAGS"`
+`-Dldflags="$LDFLAGS"`
+`-Dlddlflags="-shared $LDFLAGS"`
+
+    Use our `CFLAGS`, `CPPFLAGS`, and `LDFLAGS`.
+
+Compile the package:
+
+```sh
+make
+```
+
+One test fails due to using the most recent version of gdbm. (See https://rt.perl.org/Public/Bug/Display.html?id=133295)
+
+```sh
+sed -i 's|BEGIN {|BEGIN { plan(skip_all => "fatal test unsupported with gdbm 1.15");|' ext/GDBM_File/t/fatal.t
+```
+
+To test the results (approximately 11 SBU), issue:
+
+```sh
+make -k test
+```
+
+Package perl
+
+```sh
+make DESTDIR=/usr/pkg/perl-5.28.0 install
+```
+
+Clean up:
+```sh
+unset BUILD_ZLIB BUILD_BZIP2
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/perl-5.28.0 -name ".packlist" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/perl-5.28.0
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/perl-5.28.0
+```
+
+Install the package:
+```sh
+cp -rsvf /usr/pkg/perl-5.28.0/* /
+```
