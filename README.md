@@ -5207,3 +5207,133 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### Gettext-0.19.8.1
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/gettext-0.19.8.1.tar.xz
+cd gettext-0.19.8.1
+```
+First, suppress two invocations of test-lock which on some machines can loop forever:
+
+```sh
+sed -i '/^TESTS =/d' gettext-runtime/tests/Makefile.in &&
+sed -i 's/test-lock..EXEEXT.//' gettext-tools/gnulib-tests/Makefile.in
+```
+
+Now fix a configuration file:
+
+```sh
+sed -e '/AppData/{N;N;p;s/\.appdata\./.metainfo./}' \
+    -i gettext-tools/its/appdata.loc
+```
+
+Prepare Gettext for compilation:
+
+```sh
+./configure --prefix=/usr    \
+            --disable-static
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results (this takes a long time, around 3 SBUs), issue:
+
+```sh
+make check
+```
+
+Package gettext:
+
+```sh
+make DESTDIR=/usr/pkg/gettext-0.19.8.1 install
+chmod -v 0755 /usr/pkg/gettext-0.19.8.1/usr/lib/preloadable_libintl.so
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/gettext-0.19.8.1/usr/share/info/dir
+find /usr/pkg/gettext-0.19.8.1/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/gettext-0.19.8.1
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/gettext-0.19.8.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/gettext-0.19.8.1/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
+
+### Libelf-0.173
+Libelf is part of elfutils-0.173 package. Use the elfutils-0.173.tar.bz2 as the source tarball.
+
+Prepare Libelf for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/elfutils-0.173.tar.bz2
+cd elfutils-0.173
+CFLAGS="$CFLAGS -g" ./configure --prefix=/usr
+```
+
+The meaning of the configure options:
+
+`CFLAGS="$CFLAGS -g"`
+
+    A few tests fail when no debugging information.
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package only libelf:
+
+```sh
+make -C libelf DESTDIR=/usr/pkg/libelf-0.173 install
+install -Dvm644 config/libelf.pc /usr/pkg/libelf-0.173/usr/lib/pkgconfig/libelf.pc
+```
+
+Purging unneeded files:
+```sh
+rm /usr/pkg/libelf-0.173/usr/lib/libelf.a
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/libelf-0.173
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/libelf-0.173/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
