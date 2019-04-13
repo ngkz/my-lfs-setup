@@ -5483,3 +5483,113 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### Python-3.7.0
+Prepare Python for compilation:
+```sh
+cd /var/tmp
+tar -xf /sources/Python-3.7.0.tar.xz
+cd Python-3.7.0
+./configure --prefix=/usr          \
+            --enable-shared        \
+            --with-system-expat    \
+            --with-system-ffi      \
+            --with-ensurepip=yes   \
+            --enable-optimizations \
+            --with-lto             \
+            --with-computed-gotos
+```
+
+
+The meaning of the configure options:
+
+`--with-system-expat`
+
+    This switch enables linking against system version of Expat.
+
+`--with-system-ffi`
+
+    This switch enables linking against system version of libffi.
+
+`--with-ensurepip=yes`
+
+    This switch enables building pip and setuptools packaging programs.
+
+`--enable-optimizations`
+
+    Enable Profile Guided Optimization (PGO) and may be used to auto-enable Link Time
+    Optimization (LTO) on some platforms.
+
+`--with-lto`
+
+    Enable Link Time Optimization.
+
+`--with-computed-gotos`
+
+    On compilers that support it (notably: gcc, SunPro, icc), Compiles
+    the bytecode evaluation loop with a new dispatch mechanism which gives
+    speedups of up to 20%, depending on the system, the compiler, and
+    the benchmark.
+
+
+Compile the package:
+
+```sh
+make
+```
+
+The test suite requires TK and and X Windows session and cannot be run until Python 3 is reinstalled in BLFS.
+
+Package Python 3:
+
+```sh
+make DESTDIR=/usr/pkg/python3-3.7.0 install
+chmod -v 755 /usr/pkg/python3-3.7.0/usr/lib/libpython3.7m.so
+chmod -v 755 /usr/pkg/python3-3.7.0/usr/lib/libpython3.so
+```
+
+The meaning of the install commands:
+
+`chmod -v 755 /usr/pkg/python3-3.7.0/usr/lib/libpython3.{7m.,}so`
+
+    Fix permissions for libraries to be consistent with other libraries.
+
+If desired, install the preformatted documentation:
+
+```sh
+install -v -dm755 /usr/pkg/python3-3.7.0/usr/share/doc/python3/html
+```
+
+```sh
+tar --strip-components=1  \
+    --no-same-owner       \
+    --no-same-permissions \
+    -C /usr/pkg/python3-3.7.0/usr/share/doc/python3/html \
+    -xvf /sources/python-3.7.0-docs-html.tar.bz2
+```
+
+The meaning of the documentation install commands:
+
+`--no-same-owner` and `--no-same-permissions`
+
+    Ensure the installed files have the correct ownership and permissions. Without these options, using tar will install the package files with the upstream creator's values.
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/python3-3.7.0
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/python3-3.7.0
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/python3-3.7.0/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
