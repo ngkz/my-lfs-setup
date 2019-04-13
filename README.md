@@ -5337,3 +5337,77 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### Libffi-3.2.1
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/libffi-3.2.1.tar.gz
+cd libffi-3.2.1
+```
+Modify the Makefile to install headers into the standard /usr/include directory instead of /usr/lib/libffi-3.2.1/include.
+
+```sh
+sed -e '/^includesdir/ s/$(libdir).*$/$(includedir)/' \
+    -i include/Makefile.in
+
+sed -e '/^includedir/ s/=.*$/=@includedir@/' \
+    -e 's/^Cflags: -I${includedir}/Cflags:/' \
+    -i libffi.pc.in
+```
+
+Prepare libffi for compilation:
+
+```sh
+./configure --prefix=/usr --disable-static --with-gcc-arch=native
+```
+
+The meaning of the configure option:
+
+`--with-gcc-arch=native`
+
+    Ensure gcc optimizes for the current system. If this is not specified, the system is guessed and the code generated may not be correct for some systems. If the generated code will be copied from the native system to a less capable system, use the less capable system as a parameter. For details about alternative system types, see the x86 options in the gcc manual.
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package libffi:
+
+```sh
+make DESTDIR=/usr/pkg/libffi-3.2.1 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/libffi-3.2.1/usr/share/info/dir
+find /usr/pkg/libffi-3.2.1/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/libffi-3.2.1
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/libffi-3.2.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/libffi-3.2.1/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
