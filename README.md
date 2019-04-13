@@ -5411,3 +5411,75 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### OpenSSL-1.1.0i
+TODO: libressl
+
+Prepare OpenSSL for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/openssl-1.1.0i.tar.gz
+cd openssl-1.1.0i
+./Configure --prefix=/usr       \
+            --openssldir=/etc/ssl \
+            --libdir=lib \
+            shared \
+            zlib-dynamic \
+            linux-x86_64 \
+            "-Wa,--noexecstack $CPPFLAGS ${CFLAGS/-O?/} $LDFLAGS"
+```
+The meaning of the configure option:
+
+`"-Wa,--noexecstack $CPPFLAGS ${CFLAGS/-O?/} $LDFLAGS"`
+
+    Use our CPPFLAGS, CFLAGS, and LDFLAGS except optimization level. (The default optimization level is `-O3`)
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make test
+```
+
+One subtest in the test 40-test_rehash.t fails in the lfs chroot environment, but passes when run as a regular user.
+
+Package OpenSSL:
+
+```sh
+sed -i '/INSTALL_LIBS/s/libcrypto.a libssl.a//' Makefile
+make MANSUFFIX=ssl DESTDIR=/usr/pkg/openssl-1.1.0i install
+```
+
+If desired, install the documentation:
+
+```sh
+cp -vfr doc/* /usr/pkg/openssl-1.1.0i/usr/share/doc/openssl
+```
+
+<!-- skip purging unneeded files -->
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/openssl-1.1.0i
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/openssl-1.1.0i
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/openssl-1.1.0i/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
