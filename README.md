@@ -5696,3 +5696,65 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/meson-0.47.1/* /
 ```
+
+### Procps-ng-3.3.15
+Prepare procps-ng for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/procps-ng-3.3.15.tar.xz
+cd procps-ng-3.3.15
+./configure --prefix=/usr                            \
+            --sbindir=/usr/bin                       \
+            --disable-static                         \
+            --disable-kill
+```
+
+The meaning of the configure options:
+
+`--disable-kill`
+
+    This switch disables building the kill command that will be installed by the Util-linux package.
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Install the package:
+
+```sh
+make DESTDIR=/usr/pkg/procps-ng-3.3.15 install
+```
+
+Purging unneeded files:
+```sh
+find /usr/pkg/procps-ng-3.3.15/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/procps-ng-3.3.15
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/procps-ng-3.3.15
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/procps-ng-3.3.15/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
