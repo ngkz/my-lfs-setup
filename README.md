@@ -5758,3 +5758,101 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### E2fsprogs-1.44.3
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/e2fsprogs-1.44.3.tar.gz
+cd e2fsprogs-1.44.3
+```
+
+The E2fsprogs documentation recommends that the package be built in a subdirectory of the source tree:
+
+```sh
+mkdir -v build
+cd build
+```
+
+Prepare E2fsprogs for compilation:
+
+```sh
+../configure --prefix=/usr           \
+             --sysconfdir=/etc       \
+             --sbindir=/usr/bin      \
+             --enable-elf-shlibs     \
+             --disable-libblkid      \
+             --disable-libuuid       \
+             --disable-uuidd         \
+             --disable-fsck
+```
+
+The meaning of the environment variable and configure options:
+
+`--enable-elf-shlibs`
+
+    This creates the shared libraries which some programs in this package use.
+
+`--disable-*`
+
+    This prevents E2fsprogs from building and installing the libuuid and libblkid libraries, the uuidd daemon, and the fsck wrapper, as Util-Linux installs more recent versions.
+
+Compile the package:
+
+```sh
+make
+```
+
+To set up and run the test suite we need to first link some libraries from /tools/lib to a location where the test programs look. To run the tests, issue:
+
+```sh
+ln -sfv /tools/lib/lib{blk,uu}id.so.1 lib
+make LD_LIBRARY_PATH=/tools/lib check
+```
+
+One of the E2fsprogs tests will attempt to allocate 256 MB of memory. If you do not have significantly more RAM than this, be sure to enable sufficient swap space for the test. See Section 2.5, “Creating a File System on the Partition” and Section 2.7, “Mounting the New Partition” for details on creating and enabling swap space. Two tests, f_bigalloc_badinode and f_bigalloc_orphan_list, are known ot fail.
+
+Install the binaries, documentation, and shared libraries:
+
+```sh
+make DESTDIR=/usr/pkg/e2fsprogs-1.44.3 install
+```
+
+Install the static libraries and headers:
+
+```sh
+make DESTDIR=/usr/pkg/e2fsprogs-1.44.3 install-libs
+```
+
+Make the installed static libraries writable so debugging symbols can be removed later:
+
+```sh
+chmod -v u+w /usr/pkg/e2fsprogs-1.44.3/usr/lib/{libcom_err,libe2p,libext2fs,libss}.a
+```
+
+If desired, create and install some additional documentation by issuing the following commands:
+
+```sh
+makeinfo -o      doc/com_err.info ../lib/et/com_err.texinfo
+install -v -m644 doc/com_err.info /usr/pkg/e2fsprogs-1.44.3/usr/share/info
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/e2fsprogs-1.44.3
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/e2fsprogs-1.44.3
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/e2fsprogs-1.44.3/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
