@@ -5654,3 +5654,45 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/ninja-1.8.2/* /
 ```
+
+### Meson-0.47.1
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/meson-0.47.1.tar.gz
+cd meson-0.47.1
+```
+
+Compile Meson with the following command:
+
+```sh
+python3 setup.py build
+```
+
+This package does not come with a test suite.
+
+Package meson:
+
+```sh
+python3 setup.py install --prefix=/usr --root=/usr/pkg/meson-0.47.1
+```
+
+The meaning of the install parameters:
+
+`--prefix=/usr`
+
+    Change the installation prefix from /usr/pkg/python3-3.7.0 to /usr.
+
+`--root=/usr/pkg/meson-0.47.1`
+
+    By default python3 setup.py install installs various files (such as man pages) into Python Eggs. With a specified root location, setup.py installs these files into a standard hierarchy.
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/meson-0.47.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/meson-0.47.1/* /
+```
