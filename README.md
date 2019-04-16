@@ -5851,3 +5851,114 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### Coreutils-8.30
+
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/coreutils-8.30.tar.xz
+cd coreutils-8.30
+```
+
+POSIX requires that programs from Coreutils recognize character boundaries correctly even in multibyte locales. The following patch fixes this non-compliance and other internationalization-related bugs.
+
+```sh
+patch -Np1 -i /sources/coreutils-8.30-i18n-1.patch
+```
+
+Suppress a test which on some machines can loop forever:
+
+```sh
+sed -i '/test.lock/s/^/#/' gnulib-tests/gnulib.mk
+```
+
+Now prepare Coreutils for compilation:
+
+```sh
+autoreconf -fiv
+FORCE_UNSAFE_CONFIGURE=1 ./configure \
+            --prefix=/usr            \
+            --libexecdir=/usr/lib    \
+            --enable-no-install-program=kill,uptime
+```
+
+**The meaning of the configure options:**
+
+`autoreconf`
+
+    This command updates generated configuration files consistent with the latest version of automake.
+
+`FORCE_UNSAFE_CONFIGURE=1`
+
+    This environment variable allows the package to be built as the root user.
+
+`--enable-no-install-program=kill,uptime`
+
+    The purpose of this switch is to prevent Coreutils from installing binaries that will be installed by other packages later.
+
+Compile the package:
+
+```sh
+FORCE_UNSAFE_CONFIGURE=1 make
+```
+
+Skip down to “Install the package” if not running the test suite.
+
+Now the test suite is ready to be run. First, run the tests that are meant to be run as user root:
+```sh
+make NON_ROOT_USERNAME=nobody check-root
+```
+
+We're going to run the remainder of the tests as the nobody user. Certain tests, however, require that the user be a member of more than one group. So that these tests are not skipped we'll add a temporary group and make the user nobody a part of it:
+
+```sh
+echo "dummy:x:1000:nobody" >> /etc/group
+```
+
+Fix some of the permissions so that the non-root user can compile and run the tests:
+
+```sh
+chown -Rv nobody .
+```
+
+Now run the tests. Make sure the PATH in the su environment includes /tools/bin.
+
+```sh
+su nobody -s /bin/bash \
+          -c "PATH=$PATH make RUN_EXPENSIVE_TESTS=yes check"
+```
+
+The test program test-getlogin is known to fail in a partially built system environment like the chroot environment here, but passes if run at the end of this chapter. The test program tty.sh is also known to fail.
+
+Remove the temporary group:
+
+```sh
+sed -i '/dummy/d' /etc/group
+```
+
+Package coreutils:
+
+```sh
+make DESTDIR=/usr/pkg/coreutils-8.30 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/coreutils-8.30/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/coreutils-8.30
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/coreutils-8.30
+```
+
+Install the package:
+```sh
+cp -rsvf /usr/pkg/coreutils-8.30/* /
+```
