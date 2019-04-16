@@ -5962,3 +5962,60 @@ Install the package:
 ```sh
 cp -rsvf /usr/pkg/coreutils-8.30/* /
 ```
+
+### Check-0.12.0
+Prepare Check for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/check-0.12.0.tar.gz
+cd check-0.12.0
+./configure --prefix=/usr
+```
+
+Build the package:
+
+```sh
+make
+```
+
+Compilation is now complete. To run the Check test suite, issue the following command:
+
+```sh
+make check
+```
+
+Note that the Check test suite may take a relatively long (up to 4 SBU) time.
+
+Package check and fix a script:
+
+```sh
+make DESTDIR=/usr/pkg/check-0.12.0 install
+sed -i '1 s/tools/usr/' /usr/pkg/check-0.12.0/usr/bin/checkmk
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/check-0.12.0/usr/share/info/dir
+find /usr/pkg/check-0.12.0/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/check-0.12.0
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/check-0.12.0
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/check-0.12.0/* /
+```
+
+Rebuild dynamic linker cache:
+```sh
+ldconfig
+```
