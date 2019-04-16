@@ -5073,11 +5073,6 @@ Purging unneeded files:
 rm -fv /usr/pkg/automake-1.16.1/usr/share/info/dir
 ```
 
-Strip the debug information:
-```sh
-strip-pkg /usr/pkg/automake-1.16.1
-```
-
 Compress man and info pages:
 ```sh
 compressdoc /usr/pkg/automake-1.16.1
