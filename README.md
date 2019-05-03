@@ -6067,3 +6067,67 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/diffutils-3.6/* /
 ```
+
+## Gawk-4.2.1
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/gawk-4.2.1.tar.xz
+cd gawk-4.2.1
+```
+
+First, ensure some unneeded files are not installed:
+```sh
+sed -i 's/extras//' Makefile.in
+```
+
+Prepare Gawk for compilation:
+
+```sh
+./configure --prefix=/usr --libexecdir=/usr/lib/gawk
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package gawk:
+
+```sh
+make DESTDIR=/usr/pkg/gawk-4.2.1 install
+```
+
+If desired, package the documentation:
+
+```sh
+mkdir -pv /usr/pkg/gawk-4.2.1/usr/share/doc/gawk
+cp    -v doc/{awkforai.txt,*.{eps,pdf,jpg}} /usr/pkg/gawk-4.2.1/usr/share/doc/gawk
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/gawk-4.2.1/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/gawk-4.2.1
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/gawk-4.2.1
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/gawk-4.2.1/* /
+```
