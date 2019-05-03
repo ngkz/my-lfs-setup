@@ -6131,3 +6131,75 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/gawk-4.2.1/* /
 ```
+
+### Findutils-4.6.0
+Extract source code:
+```sh
+cd /var/tmp
+tar -xf /sources/findutils-4.6.0.tar.gz
+cd findutils-4.6.0
+```
+
+First, suppress a test which on some machines can loop forever:
+
+```sh
+sed -i 's/test-lock..EXEEXT.//' tests/Makefile.in
+```
+
+Next, make some fixes required by glibc-2.28:
+
+```sh
+sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' gl/lib/*.c
+sed -i '/unistd/a #include <sys/sysmacros.h>' gl/lib/mountlist.c
+echo "#define _IO_IN_BACKUP 0x100" >> gl/lib/stdio-impl.h
+```
+
+Prepare Findutils for compilation:
+
+```sh
+./configure --prefix=/usr --localstatedir=/var/lib/locate --libexecdir=/usr/lib/findutils
+```
+
+The meaning of the configure options:
+
+`--localstatedir`
+
+    This option changes the location of the locate database to be in /var/lib/locate, which is FHS-compliant.
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package findutils:
+
+```sh
+make DESTDIR=/usr/pkg/findutils-4.6.0 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/findutils-4.6.0/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/findutils-4.6.0
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/findutils-4.6.0
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/findutils-4.6.0/* /
+```
