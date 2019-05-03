@@ -6203,3 +6203,49 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/findutils-4.6.0/* /
 ```
+
+### Groff-1.22.3
+Groff expects the environment variable `PAGE` to contain the default paper size. For users in the United States, `PAGE=letter` is appropriate. Elsewhere, `PAGE=A4` may be more suitable. While the default paper size is configured during compilation, it can be overridden later by echoing either “A4” or “letter” to the /etc/papersize file.
+
+Prepare Groff for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/groff-1.22.3.tar.gz
+cd groff-1.22.3
+PAGE=A4 ./configure --prefix=/usr --libexecdir=/usr/lib --docdir=/usr/share/doc/groff
+```
+
+This package does not support parallel build. Compile the package:
+
+```sh
+make -j1
+```
+
+This package does not come with a test suite.
+
+Package groff:
+
+```sh
+make DESTDIR=/usr/pkg/groff-1.22.3 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/groff-1.22.3/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/groff-1.22.3
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/groff-1.22.3
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/groff-1.22.3/* /
+```
