@@ -6019,3 +6019,51 @@ Rebuild dynamic linker cache:
 ```sh
 ldconfig
 ```
+
+### Diffutils-3.6
+Prepare Diffutils for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/diffutils-3.6.tar.xz
+cd diffutils-3.6
+./configure --prefix=/usr
+```
+
+Compile the package:
+
+```sh
+make
+```
+
+To test the results, issue:
+
+```sh
+make check
+```
+
+Package diffutils:
+
+```sh
+make DESTDIR=/usr/pkg/diffutils-3.6 install
+```
+
+Purging unneeded files:
+```sh
+rm -fv /usr/pkg/diffutils-3.6/usr/share/info/dir
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/diffutils-3.6
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/diffutils-3.6
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/diffutils-3.6/* /
+```
