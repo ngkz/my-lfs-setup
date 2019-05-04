@@ -1398,14 +1398,14 @@ ptmxmode=0666
 ```sh
 #export LFS=...
 #umask 022
-CFLAGS="-O2 -march=native -pipe -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables"
+CFLAGS="-O2 -march=native -pipe -fstack-clash-protection -fno-plt -fexceptions -fasynchronous-unwind-tables -Wp,-D_FORTIFY_SOURCE=2"
 sudo chroot "$LFS" /tools/bin/env -i \
     HOME=/root                  \
     TERM="$TERM"                \
     PS1='(lfs chroot) \u:\w\$ ' \
     PATH=/bin:/usr/bin:/sbin:/usr/sbin:/tools/bin \
     MAKEFLAGS="-j$(nproc)"      \
-    CPPFLAGS="-D_FORTIFY_SOURCE=2 -D_GLIBCXX_ASSERTIONS" \
+    CPPFLAGS="-D_GLIBCXX_ASSERTIONS" \
     CFLAGS="$CFLAGS" \
     CXXFLAGS="$CFLAGS" \
     LDFLAGS="-Wl,-O1,--sort-common,--as-needed,-z,now" \
@@ -1419,16 +1419,18 @@ The meaning of CFLAGS:
 - https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html
 - https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html
 
-| Flag                         | Effect                                                                                                            |
-|------------------------------|-------------------------------------------------------------------------------------------------------------------|
-| -O2                          | Turn on optimizations. Using -O3 is not recommended because it can slow down a system and break several packages. |
-| -march=native                | Tunes the generated code for the machine running the compiler. Generated code may not run on older CPU.           |
-| -pipe                        | Run compiler and assembler in parallel.  This can improve compilation performance.                                |
-| -fstack-protector-strong     | Enable stack buffer overflow checks.                                                                              |
-| -fstack-clash-protection     | Generate code to prevent stack clash style attacks.                                                               |
-| -fno-plt                     | Generate more efficient code by eliminating PLT stubs and exposing GOT loads to optimizations.                    |
-| -fexceptions                 | Provide exception unwinding support for C programs. This also hardens cancellation handling in C programs.        |
-| -fasynchronous-unwind-tables | Required for support of asynchronous cancellation and proper unwinding from signal handlers.                      |
+| Flag                         | Effect                                                                                                                                                                                                                                                                                                                                              |
+|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -O2                          | Turn on optimizations. Using -O3 is not recommended because it can slow down a system and break several packages.                                                                                                                                                                                                                                   |
+| -march=native                | Tunes the generated code for the machine running the compiler. Generated code may not run on older CPU.                                                                                                                                                                                                                                             |
+| -pipe                        | Run compiler and assembler in parallel.  This can improve compilation performance.                                                                                                                                                                                                                                                                  |
+| -fstack-protector-strong     | Enable stack buffer overflow checks.                                                                                                                                                                                                                                                                                                                |
+| -fstack-clash-protection     | Generate code to prevent stack clash style attacks.                                                                                                                                                                                                                                                                                                 |
+| -fno-plt                     | Generate more efficient code by eliminating PLT stubs and exposing GOT loads to optimizations.                                                                                                                                                                                                                                                      |
+| -fexceptions                 | Provide exception unwinding support for C programs. This also hardens cancellation handling in C programs.                                                                                                                                                                                                                                          |
+| -fasynchronous-unwind-tables | Required for support of asynchronous cancellation and proper unwinding from signal handlers.                                                                                                                                                                                                                                                        |
+| -Wp,-D_FORTIFY_SOURCE=2      | Enable buffer overflow detection in various functions. Define this flag in CFLAGS instead of CPPFLAGS, because if CPPFLAGS defines _FORTIFY_SOURCE, the configure script calls the preprocessor like `gcc -E $CPPFLAGS <INPUT>` which causes enabling fortify without the optimization flags, generates warnings and confuses the configure script. |
+|                              |                                                                                                                                                                                                                                                                                                                                                     |
 
 <!--
 TODO:
@@ -1441,7 +1443,6 @@ The meaning of CPPFLAGS:
 
 | Flag                  | Effect                                                                                                                       |
 |-----------------------|------------------------------------------------------------------------------------------------------------------------------|
-| -D_FORTIFY_SOURCE=2   | Enable buffer overflow detection in various functions.                                                                       |
 | -D_GLIBCXX_ASSERTIONS | Enable lightweight assertions in the C++ standard library, such as bounds checking for the subscription operator on vectors. |
 
 The meaning of LDFLAGS:
@@ -1928,9 +1929,8 @@ rootsbindir=/usr/bin
 
 Prepare Glibc for compilation:
 ```sh
-GLIBC_CFLAGS="$CFLAGS -g -fdebug-prefix-map=$(cd .. && pwd)=."
+GLIBC_CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/} -g -fdebug-prefix-map=$(cd .. && pwd)=."
 CC="gcc -isystem /usr/lib/gcc/$(../scripts/config.guess)/$(gcc --version | sed -n 's/^gcc (.*) \([[:digit:].]*\)/\1/p')/include -isystem /usr/include" \
-CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/}           \
 CFLAGS=$GLIBC_CFLAGS                                \
 CXXFLAGS=$GLIBC_CFLAGS                              \
 ../configure --prefix=/usr                          \
@@ -1951,14 +1951,11 @@ unset GLIBC_CFLAGS
 
     Setting the location of both gcc and system include directories avoids introduction of invalid paths in debugging symbols.
 
-`CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/}`
-
-    This disables fortify. Fortify breaks glibc libraries.
-
- `GLIBC_CFLAGS="$CFLAGS -g -fdebug-prefix-map=$(cd .. && pwd)=."`
+`GLIBC_CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/} -g -fdebug-prefix-map=$(cd .. && pwd)=."`
 `CFLAGS=$GLIBC_CFLAGS`
 `CXXFLAGS=$GLIBC_CFLAGS`
 
+    `${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/}` disables fortify. Fortify breaks glibc libraries.
     `-g` enables debugging information generation.
     `-fdebug-prefix-map=$(cd .. && pwd)=.` removes paths to source code directory in the debug information.
 
@@ -2172,12 +2169,11 @@ EOS
 
 Prepare Glibc for compilation:
 ```sh
-GLIBC_CFLAGS="$CFLAGS -g -fdebug-prefix-map=$(cd .. && pwd)=."
+GLIBC_CFLAGS="${CFLAGS/-Wp,-D_FORTIFY_SOURCE=2/} -g -fdebug-prefix-map=$(cd .. && pwd)=."
 CC="gcc -m32 -isystem /usr/lib/gcc/$(../scripts/config.guess)/$(gcc --version | sed -n 's/^gcc (.*) \([[:digit:].]*\)/\1/p')/include -isystem /usr/include" \
-CXX="g++ -m32"                                         \
-CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/}              \
-CFLAGS=$GLIBC_CFLAGS                                   \
-CXXFLAGS=$GLIBC_CFLAGS                                 \
+CXX="g++ -m32"                                      \
+CFLAGS=$GLIBC_CFLAGS                                \
+CXXFLAGS=$GLIBC_CFLAGS                              \
 ../configure --prefix=/usr                             \
              --host=$(linux32 ../scripts/config.guess) \
              --disable-werror                          \
@@ -2818,13 +2814,6 @@ tar -xf /sources/binutils-2.31.1.tar.xz
 cd binutils-2.31.1
 ```
 
-The configure script calls the C preprocessor like `gcc -E $CPPFLAGS <INPUT>`. Because it passes `-D_FORTIFY_SOURCE` in `CPPFLAGS` to GCC without optimization flags, GCC emits a warning, configure will be confused, and the build will fail.
-
-Fix this issue with:
-```sh
-find . -name configure | xargs sed -i.bak "s/ac_cpp='\$\(\(CXX\)\?CPP\) \$CPPFLAGS'/ac_cpp='\$\1 \$CPPFLAGS -U_FORTIFY_SOURCE'/"
-```
-
 The Binutils documentation recommends building Binutils in a dedicated build directory:
 
 ```sh
@@ -3274,13 +3263,6 @@ Remove the symlink created earlier as the final gcc includes will be installed h
 
 ```sh
 rm -fv /usr/lib/gcc
-```
-
-The configure script calls the C preprocessor like `gcc -E $CPPFLAGS <INPUT>`. Because it passes `-D_FORTIFY_SOURCE` in `CPPFLAGS` to GCC without optimization flags, GCC emits a warning, configure will be confused, and the build will fail.
-
-Fix this issue with:
-```sh
-find . -name configure | xargs sed -i.bak "s/ac_cpp='\$\(\(CXX\)\?CPP\) \$CPPFLAGS'/ac_cpp='\$\1 \$CPPFLAGS -U_FORTIFY_SOURCE'/"
 ```
 
 The GCC documentation recommends building GCC in a dedicated build directory:
