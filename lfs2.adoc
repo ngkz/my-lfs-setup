@@ -286,6 +286,75 @@ Rebuild dynamic linker cache:
 ldconfig
 ----
 
+=== Make-4.2.1
+Extract source code:
+
+[source,bash]
+----
+cd /var/tmp
+tar -xf /sources/make-4.2.1.tar.bz2
+cd make-4.2.1
+----
+
+Again, work around an error caused by glibc-2.27:
+
+[source,bash]
+----
+sed -i '211,217 d; 219,229 d; 232 d' glob/glob.c
+----
+
+Prepare Make for compilation:
+
+[source,bash]
+----
+./configure --prefix=/usr
+----
+
+Compile the package:
+
+[source,bash]
+----
+make
+----
+
+The test suite needs to know where supporting perl files are located. We use an environment variable to accomplish this. To test the results, issue:
+
+[source,bash]
+----
+make PERL5LIB=$PWD/tests/ check
+----
+
+Package make:
+
+[source,bash]
+----
+make DESTDIR=/usr/pkg/make-4.2.1 install
+----
+
+Purging unneeded files:
+[source,bash]
+----
+rm -fv /usr/pkg/make-4.2.1/usr/share/info/dir
+----
+
+Strip the debug information:
+[source,bash]
+----
+strip-pkg /usr/pkg/make-4.2.1
+----
+
+Compress man and info pages:
+[source,bash]
+----
+compressdoc /usr/pkg/make-4.2.1
+----
+
+Install the package:
+[source,bash]
+----
+cp -rsv /usr/pkg/make-4.2.1/* /
+----
+
 ////
 Purging unneeded files:
 [source,bash]
