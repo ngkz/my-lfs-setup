@@ -6230,3 +6230,47 @@ Install the package:
 ```sh
 cp -rsv /usr/pkg/groff-1.22.3/* /
 ```
+
+### Less-530
+Prepare Less for compilation:
+
+```sh
+cd /var/tmp
+tar -xf /sources/less-530.tar.gz
+./configure --prefix=/usr --sysconfdir=/etc
+```
+
+The meaning of the configure options:
+
+`--sysconfdir=/etc`
+
+    This option tells the programs created by the package to look in /etc for the configuration files.
+
+Compile the package:
+
+```sh
+make
+```
+
+This package does not come with a test suite.
+
+Install the package:
+
+```sh
+make DESTDIR=/usr/pkg/less-530 install
+```
+
+Strip the debug information:
+```sh
+strip-pkg /usr/pkg/less-530
+```
+
+Compress man and info pages:
+```sh
+compressdoc /usr/pkg/less-530
+```
+
+Install the package:
+```sh
+cp -rsv /usr/pkg/less-530/* /
+```
