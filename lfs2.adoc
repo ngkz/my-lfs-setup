@@ -355,6 +355,56 @@ Install the package:
 cp -rsv /usr/pkg/make-4.2.1/* /
 ----
 
+=== Patch-2.7.6
+Prepare Patch for compilation:
+
+[source,bash]
+----
+cd /var/tmp
+tar -xf /sources/patch-2.7.6.tar.xz
+cd patch-2.7.6
+./configure --prefix=/usr
+----
+
+Compile the package:
+
+[source,bash]
+----
+make
+----
+
+To test the results, issue:
+
+[source,bash]
+----
+make check
+----
+
+Package patch:
+
+[source,bash]
+----
+make DESTDIR=/usr/pkg/patch-2.7.6 install
+----
+
+Strip the debug information:
+[source,bash]
+----
+strip-pkg /usr/pkg/patch-2.7.6
+----
+
+Compress man and info pages:
+[source,bash]
+----
+compressdoc /usr/pkg/patch-2.7.6
+----
+
+Install the package:
+[source,bash]
+----
+cp -rsv /usr/pkg/patch-2.7.6/* /
+----
+
 ////
 Purging unneeded files:
 [source,bash]
