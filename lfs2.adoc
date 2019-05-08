@@ -223,6 +223,69 @@ Install the package:
 cp -rsv /usr/pkg/kbd-2.0.4/* /
 ----
 
+=== Libpipeline-1.5.0
+
+Prepare Libpipeline for compilation:
+
+[source,bash]
+----
+cd /var/tmp
+tar -xf /sources/libpipeline-1.5.0.tar.gz
+cd libpipeline-1.5.0
+./configure --prefix=/usr
+----
+
+Compile the package:
+
+[source,bash]
+----
+make
+----
+
+To test the results, issue:
+
+[source,bash]
+----
+make check
+----
+
+Package libpipeline:
+
+[source,bash]
+----
+make DESTDIR=/usr/pkg/libpipeline-1.5.0 install
+----
+
+Purging unneeded files:
+[source,bash]
+----
+find /usr/pkg/libpipeline-1.5.0/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+----
+
+Strip the debug information:
+[source,bash]
+----
+strip-pkg /usr/pkg/libpipeline-1.5.0
+----
+
+Compress man and info pages:
+[source,bash]
+----
+compressdoc /usr/pkg/libpipeline-1.5.0
+----
+
+Install the package:
+[source,bash]
+----
+cp -rsv /usr/pkg/libpipeline-1.5.0/* /
+----
+
+Rebuild dynamic linker cache:
+[source,bash]
+----
+ldconfig
+----
+
 ////
 Purging unneeded files:
 [source,bash]
