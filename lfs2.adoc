@@ -133,6 +133,96 @@ Install the package:
 cp -rsv /usr/pkg/iproute2-4.18.0/* /
 ----
 
+=== Kbd-2.0.4
+Extract source code:
+[source,bash]
+----
+cd /var/tmp
+tar -xf /sources/kbd-2.0.4.tar.xz
+cd kbd-2.0.4
+----
+
+The behaviour of the Backspace and Delete keys is not consistent across the keymaps in the Kbd package. The following patch fixes this issue for i386 keymaps:
+
+[source,bash]
+----
+patch -Np1 -i /sources/kbd-2.0.4-backspace-1.patch
+----
+
+After patching, the Backspace key generates the character with code 127, and the Delete key generates a well-known escape sequence.
+
+Remove the redundant `resizecons` program (it requires the defunct svgalib to provide the video mode files - for normal use `setfont` sizes the console appropriately) together with its manpage.
+
+[source,bash]
+----
+sed -i 's/\(RESIZECONS_PROGS=\)yes/\1no/g' configure
+sed -i 's/resizecons.8 //' docs/man/man8/Makefile.in
+----
+
+Prepare Kbd for compilation:
+
+[source,bash]
+----
+PKG_CONFIG_PATH=/tools/lib/pkgconfig ./configure --prefix=/usr --disable-vlock
+----
+
+.The meaning of the configure options:
+
+--disable-vlock::
+This option prevents the vlock utility from being built, as it requires the PAM library, which isn't available in the chroot environment.
+
+Compile the package:
+
+[source,bash]
+----
+make
+----
+
+To test the results, issue:
+
+[source,bash]
+----
+make check
+----
+
+Package kbd:
+
+[source,bash]
+----
+make DESTDIR=/usr/pkg/kbd-2.0.4 install
+----
+
+[NOTE]
+====
+For some languages (e.g., Belarusian) the Kbd package doesn't provide a useful keymap where the stock “by” keymap assumes the ISO-8859-5 encoding, and the CP1251 keymap is normally used. Users of such languages have to download working keymaps separately.
+====
+
+If desired, install the documentation:
+
+[source,bash]
+----
+mkdir -pv           /usr/pkg/kbd-2.0.4/usr/share/doc/kbd
+cp -R -v docs/doc/* /usr/pkg/kbd-2.0.4/usr/share/doc/kbd
+----
+
+Strip the debug information:
+[source,bash]
+----
+strip-pkg /usr/pkg/kbd-2.0.4
+----
+
+Compress man and info pages:
+[source,bash]
+----
+compressdoc /usr/pkg/kbd-2.0.4
+----
+
+Install the package:
+[source,bash]
+----
+cp -rsv /usr/pkg/kbd-2.0.4/* /
+----
+
 ////
 Purging unneeded files:
 [source,bash]
