@@ -84,7 +84,7 @@ tar -xf /sources/iproute2-4.18.0.tar.xz
 cd iproute2-4.18.0
 ----
 
-The `arpd` program included in this package will not be built since it is dependent on Berkeley DB, which is not installed in LFS. However, a directory for `arpd` and a man page will still be installed. Prevent this by running the commands below. If the `arpd` binary is needed, instructions for compiling Berkeley DB can be found in the BLFS Book at http://www.linuxfromscratch.org/blfs/view/8.3/server/databases.html#db.
+The `arpd` program included in this package will not be built since it is dependent on Berkeley DB, which is not installed in LFS. However, a directory for `arpd` and a man page will still be installed. Prevent this by running the commands below. If the `arpd` binary is needed, instructions for compiling Berkeley DB can be found in the BLFS Book.
 
 [source,bash]
 ----
@@ -92,7 +92,7 @@ sed -i /ARPD/d Makefile
 rm -fv man/man8/arpd.8
 ----
 
-It is also necessary to disable building two modules that requires http://www.linuxfromscratch.org/blfs/view/8.3/postlfs/iptables.html.
+It is also necessary to disable building two modules that requires iptables.
 
 [source,bash]
 ----
@@ -112,7 +112,7 @@ Install the package:
 
 [source,bash]
 ----
-make DESTDIR=/usr/pkg/iproute2-4.18.0 install
+make SBINDIR=/usr/bin DESTDIR=/usr/pkg/iproute2-4.18.0 install
 ----
 
 Strip the debug information:
