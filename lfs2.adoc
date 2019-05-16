@@ -405,6 +405,60 @@ Install the package:
 cp -rsv /usr/pkg/patch-2.7.6/* /
 ----
 
+=== BusyBox-1.30.1
+Extract source code:
+
+[source,bash]
+----
+cd /var/tmp
+tar -xf /sources/busybox-1.30.1.tar.bz2
+cd busybox-1.30.1
+----
+
+The following tells BusyBox to use the default configuration:
+
+[source,bash]
+----
+make defconfig
+----
+
+Increase size of copy buffer
+
+[source,bash]
+----
+sed -i 's/\(CONFIG_FEATURE_COPYBUF_KB\)=.*/\1=128/' .config
+----
+
+Compile the package:
+
+[source,bash]
+----
+make
+----
+
+Package busybox:
+
+[source,bash]
+----
+mkdir -p /usr/pkg/busybox-1.30.1/usr/bin
+cp busybox /usr/pkg/busybox-1.30.1/usr/bin
+for applet in bootchartd halt poweroff reboot init mdev chpst setuidgid envuidgid envdir softlimit runsv runsvdir sv svc svok svlogd klogd logger logread syslogd; do
+    ln -s busybox /usr/pkg/busybox-1.30.1/usr/bin/$applet
+done
+----
+
+Strip the debug information:
+[source,bash]
+----
+strip-pkg /usr/pkg/busybox-1.30.1
+----
+
+Install the package:
+[source,bash]
+----
+cp -rsv /usr/pkg/busybox-1.30.1/* /
+----
+
 ////
 Purging unneeded files:
 [source,bash]
