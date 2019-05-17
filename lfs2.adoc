@@ -651,6 +651,75 @@ Rebuild dynamic linker cache:
 ldconfig
 ----
 
+=== Tar-1.30
+==== Installation of Tar
+Prepare Tar for compilation:
+
+[source,bash]
+----
+cd /var/tmp
+tar -xf /sources/tar-1.30.tar.xz
+cd tar-1.30
+FORCE_UNSAFE_CONFIGURE=1  \
+./configure --prefix=/usr \
+            --libexecdir=/usr/lib/tar
+----
+
+.The meaning of the configure options:
+
+FORCE_UNSAFE_CONFIGURE=1::
+This forces the test for mknod to be run as root. It is generally considered dangerous to run this test as the root user, but as it is being run on a system that has only been partially built, overriding it is OK.
+
+Compile the package:
+
+[source,bash]
+----
+make
+----
+
+To test the results (about 3 SBU), issue:
+
+[source,bash]
+----
+make check
+----
+
+One test, link mismatch, is known to fail.
+Tests may fail sporadically.
+
+Package tar:
+
+[source,bash]
+----
+make DESTDIR=/usr/pkg/tar-1.30 install
+make DESTDIR=/usr/pkg/tar-1.30 -C doc install-html
+----
+
+Purging unneeded files:
+[source,bash]
+----
+rm -fv /usr/pkg/tar-1.30/usr/share/info/dir
+find /usr/pkg/tar-1.30/usr/lib -name "*.la" -delete -printf "removed '%p'\n"
+----
+
+Strip the debug information:
+[source,bash]
+----
+strip-pkg /usr/pkg/tar-1.30
+----
+
+Compress man and info pages:
+[source,bash]
+----
+compressdoc /usr/pkg/tar-1.30
+----
+
+Install the package:
+[source,bash]
+----
+cp -rsv /usr/pkg/tar-1.30/* /
+----
+
 ////
 Purging unneeded files:
 [source,bash]
