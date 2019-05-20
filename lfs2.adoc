@@ -806,6 +806,127 @@ Rebuild dynamic linker cache:
 ldconfig
 ----
 
+=== Vim-8.1
+First, change the default location of the vimrc configuration file to /etc:
+
+[source,bash]
+----
+echo '#define SYS_VIMRC_FILE "/etc/vimrc"' >> src/feature.h
+----
+
+Prepare Vim for compilation:
+
+[source,bash]
+----
+./configure --prefix=/usr
+----
+
+Compile the package:
+
+[source,bash]
+----
+make
+----
+
+To test the results, issue:
+
+[source,bash]
+----
+LANG=en_US.UTF-8 make -j1 test &> vim-test.log
+grep "ALL DONE" vim-test.log
+----
+
+Package vim:
+
+[source,bash]
+----
+make DESTDIR=/usr/pkg/vim-8.1 install
+----
+
+Many users are used to using vi instead of vim. To allow execution of vim when users habitually enter vi, create a symlink for both the binary and the man page in the provided languages:
+
+[source,bash]
+----
+ln -sv vim /usr/pkg/vim-8.1/usr/bin/vi
+for L in  /usr/pkg/vim-8.1/usr/share/man/{,*/}man1/vim.1; do
+    ln -sv vim.1 $(dirname $L)/vi.1
+done
+----
+
+By default, Vim's documentation is installed in /usr/share/vim. The following symlink allows the documentation to be accessed via /usr/share/doc/vim-8.1, making it consistent with the location of documentation for other packages:
+
+[source,bash]
+----
+mkdir -p /usr/pkg/vim-8.1/usr/share/doc
+ln -sv ../vim/vim81/doc /usr/pkg/vim-8.1/usr/share/doc/vim
+----
+
+By default, vim runs in vi-compatible mode. This may be new to users who have used other editors in the past. The “nocompatible” setting is included below to highlight the fact that a new behavior is being used. It also reminds those who would change to “compatible” mode that it should be the first setting in the configuration file. This is necessary because it changes other settings, and overrides must come after this setting. Create a default vim configuration file by running the following:
+
+[source,bash]
+----
+mkdir -p /usr/pkg/vim-8.1/etc
+cat > /usr/pkg/vim-8.1/etc/vimrc << "EOF"
+" Begin /etc/vimrc
+
+" Ensure defaults are set before customizing settings, not after
+source $VIMRUNTIME/defaults.vim
+let skip_defaults_vim=1
+
+set nocompatible
+set backspace=2
+set mouse=
+syntax on
+if (&term == "xterm") || (&term == "putty")
+  set background=dark
+endif
+
+" End /etc/vimrc
+EOF
+----
+
+The set nocompatible setting makes vim behave in a more useful way (the default) than the vi-compatible manner. Remove the “no” to keep the old vi behavior. The set backspace=2 setting allows backspacing over line breaks, autoindents, and the start of insert. The syntax on parameter enables vim's syntax highlighting. The set mouse= setting enables proper pasting of text with the mouse when working in chroot or over a remote connection. Finally, the if statement with the set background=dark setting corrects vim's guess about the background color of some terminal emulators. This gives the highlighting a better color scheme for use on the black background of these programs.
+
+Documentation for other available options can be obtained by running the following command:
+
+[source,bash]
+----
+vim -c ':options'
+----
+
+[NOTE]
+====
+By default, Vim only installs spell files for the English language. To install spell files for your preferred language, download the *.spl and optionally, the *.sug files for your language and character encoding from ftp://ftp.vim.org/pub/vim/runtime/spell/ and save them to /usr/share/vim/vim81/spell/.
+
+To use these spell files, some configuration in /etc/vimrc is needed, e.g.:
+
+[source,vim]
+----
+set spelllang=en,ru
+set spell
+----
+
+For more information, see the appropriate README file located at the URL above.
+====
+
+Strip the debug information:
+[source,bash]
+----
+strip-pkg /usr/pkg/vim-8.1
+----
+
+Compress man and info pages:
+[source,bash]
+----
+compressdoc /usr/pkg/vim-8.1
+----
+
+Install the package:
+[source,bash]
+----
+cp -rsv /usr/pkg/vim-8.1/* /
+----
+
 ////
 Purging unneeded files:
 [source,bash]
