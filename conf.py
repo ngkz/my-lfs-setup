@@ -102,7 +102,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'FLFSdoc'
+htmlhelp_basename = 'F2LFSdoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -129,7 +129,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'FLFS.tex', 'F\\(\\sp{\\text{2}}\\)LFS Documentation',
+    (master_doc, 'F2LFS.tex', 'F\\(\\sp{\\text{2}}\\)LFS Documentation',
      'Kazutoshi Noguchi', 'manual'),
 ]
 
@@ -150,8 +150,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'FLFS', 'F²LFS Documentation',
-     author, 'FLFS', 'One line description of project.',
+    (master_doc, 'F2LFS', 'F²LFS Documentation',
+     author, 'F2LFS', 'One line description of project.',
      'Miscellaneous'),
 ]
 
