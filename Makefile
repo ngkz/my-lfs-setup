@@ -12,7 +12,7 @@ help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 livehtml:
-	sphinx-autobuild -b html -i ".git/*" "$(SPHINXOPTS)" "$(BUILDDIR)/html"
+	sphinx-autobuild -b html -i ".git/*" -i "$(BUILDDIR)/*" "$(SPHINXOPTS)" "$(BUILDDIR)/html"
 
 .PHONY: help Makefile serve
 
