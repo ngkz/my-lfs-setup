@@ -83,7 +83,10 @@ html_theme = 'alabaster'
 #
 html_theme_options = {
     'fixed_sidebar': True,
-    'show_relbars': True
+    'show_relbars': True,
+    'logo': 'logo.png',
+    'logo_name': True,
+    'logo_text_align': 'center'
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
