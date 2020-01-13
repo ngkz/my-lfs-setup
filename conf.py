@@ -12,10 +12,10 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-
+import os
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.joinpath('_ext').resolve()))
 
 # -- Project information -----------------------------------------------------
 
@@ -40,6 +40,7 @@ release = '9.0.0+'
 # ones.
 extensions = [
     'sphinx.ext.githubpages',
+    'af2lfs'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -69,6 +70,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'env', '.git', 'tests']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
+# The name of default domain
+primary_domain = 'f2lfs'
 
 # -- Options for HTML output -------------------------------------------------
 
