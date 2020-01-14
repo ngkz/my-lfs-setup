@@ -20,6 +20,7 @@ livehtml:
 		-i .gitignore \
 		-i "tests/*" \
 		-i Makefile \
+		-i requirements.txt \
 		"$(SPHINXOPTS)" \
 		"$(BUILDDIR)/html"
 
