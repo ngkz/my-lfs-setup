@@ -1,5 +1,7 @@
+from unittest.mock import Mock
 import pytest
 from sphinx.testing.util import assert_node
+from af2lfs import F2LFSDomain, Package
 
 @pytest.mark.sphinx('dummy', testroot='domain')
 def test_f2lfs_domain(app):
@@ -8,7 +10,7 @@ def test_f2lfs_domain(app):
     packages = app.env.get_domain('f2lfs').packages
 
     assert 'foo' in packages
-    foo = packages['foo']
+    foo = packages['foo'][1]
     assert foo.name == 'foo'
     assert foo.version == '1.3.37'
     assert foo.license == 'WTFPL'
@@ -59,7 +61,7 @@ foo block 2 command 2 line 2'''
 foo block 2 command 2 expected output line 2'''
 
     assert 'bar' in packages
-    bar = packages['bar']
+    bar = packages['bar'][1]
     assert bar.name == 'bar'
     assert bar.version == '31.3.37'
     assert bar.license is None
@@ -75,7 +77,7 @@ foo block 2 command 2 expected output line 2'''
     assert step1.expected_output is None
 
     assert 'baz' in packages
-    baz = packages['baz']
+    baz = packages['baz'][1]
     assert baz.name == 'baz'
     assert baz.version == '0.0.0'
     assert baz.license is None
@@ -86,7 +88,7 @@ foo block 2 command 2 expected output line 2'''
     assert baz.build_steps == []
 
     assert 'qux' in packages
-    qux = packages['qux']
+    qux = packages['qux'][1]
     assert qux.name == 'qux'
     assert qux.version == '0.0.0'
     assert qux.license is None
@@ -156,3 +158,10 @@ unexpected key 'branch'.''' in warning.getvalue()
 invalid option value: (option: "sources"; value: '- git: a\n  sha256sum: a')
 unexpected key 'sha256sum'.''' in warning.getvalue()
     assert 'index.rst:93: WARNING: duplicate package names are not allowed' in warning.getvalue()
+
+def test_f2lfs_domain_clear_doc():
+    env = Mock(domaindata={}, docname="docname")
+    domain = F2LFSDomain(env)
+    domain.add_package(Package("pkgname", "0.0.0", None, [], [], [], False))
+    domain.clear_doc("docname")
+    assert not "pkgname" in domain.packages

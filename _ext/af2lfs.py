@@ -227,6 +227,7 @@ class F2LFSDomain(Domain):
     initial_data = {
         'packages': {}
     }
+    data_version = 1
 
     @property
     def packages(self):
@@ -237,8 +238,13 @@ class F2LFSDomain(Domain):
 
     def add_package(self, package):
         assert not package.name in self.packages
-        self.packages[package.name] = package
+        self.packages[package.name] = (self.env.docname, package)
 
+    # Remove traces of a document in the domain-specific inventories.
+    def clear_doc(self, docname):
+        for key, (pkg_docname, package) in list(self.packages.items()):
+            if pkg_docname == docname:
+                del self.packages[key]
 
 def setup(app):
     app.add_domain(F2LFSDomain)
