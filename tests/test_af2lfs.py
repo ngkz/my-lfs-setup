@@ -1,6 +1,5 @@
 import pytest
 from sphinx.testing.util import assert_node
-import re
 
 @pytest.mark.sphinx('dummy', testroot='domain')
 def test_f2lfs_domain(app):
