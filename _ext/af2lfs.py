@@ -2,8 +2,11 @@ from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.directives import SphinxDirective, ObjectDescription
 from sphinx.domains import Domain
+from sphinx.util import logging
 import yaml
 import re
+
+logger = logging.getLogger(__name__)
 
 class LookaheadIterator:
     def __init__(self, _iter):
@@ -170,10 +173,7 @@ class PackageDirective(SphinxDirective):
             'bootstrap' in self.options
         )
 
-        domain = self.env.get_domain('f2lfs')
-        if domain.has_package(package):
-            raise self.error('duplicate package declarations are not allowed')
-        domain.add_package(package)
+        self.env.get_domain('f2lfs').note_package(package, (self.env.docname, self.lineno))
 
         self.env.ref_context['f2lfs:package'] = package
 
@@ -233,11 +233,11 @@ class F2LFSDomain(Domain):
     def packages(self):
         return self.data['packages']
 
-    def has_package(self, package):
-        return package.name in self.packages
-
-    def add_package(self, package):
-        assert not package.name in self.packages
+    def note_package(self, package, location):
+        if package.name in self.packages:
+            docname = self.packages[package.name][0]
+            logger.warning("duplicate package declaration of '{}', other declaration in '{}'"
+                           .format(package.name, docname), location=location)
         self.packages[package.name] = (self.env.docname, package)
 
     # Remove traces of a document in the domain-specific inventories.

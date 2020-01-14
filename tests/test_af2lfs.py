@@ -157,11 +157,11 @@ unexpected key 'branch'.''' in warning.getvalue()
     assert r'''index.rst:86: WARNING: Error in "package" directive:
 invalid option value: (option: "sources"; value: '- git: a\n  sha256sum: a')
 unexpected key 'sha256sum'.''' in warning.getvalue()
-    assert 'index.rst:93: WARNING: duplicate package declarations are not allowed' in warning.getvalue()
+    assert "index.rst:93: WARNING: duplicate package declaration of 'baz', other declaration in 'index'" in warning.getvalue()
 
 def test_f2lfs_domain_clear_doc():
     env = Mock(domaindata={}, docname="docname")
     domain = F2LFSDomain(env)
-    domain.add_package(Package("pkgname", "0.0.0", None, [], [], [], False))
+    domain.note_package(Package("pkgname", "0.0.0", None, [], [], [], False), "index")
     domain.clear_doc("docname")
     assert not "pkgname" in domain.packages
