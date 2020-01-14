@@ -172,7 +172,7 @@ class PackageDirective(SphinxDirective):
 
         domain = self.env.get_domain('f2lfs')
         if domain.has_package(package):
-            raise self.error('duplicate package names are not allowed')
+            raise self.error('duplicate package declarations are not allowed')
         domain.add_package(package)
 
         self.env.ref_context['f2lfs:package'] = package
