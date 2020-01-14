@@ -5,8 +5,7 @@ from sphinx.testing.util import assert_node
 def test_f2lfs_domain(app):
     app.builder.build_all()
 
-    assert 'packages' in app.env.domains['f2lfs'].data
-    packages = app.env.domains['f2lfs'].data['packages']
+    packages = app.env.get_domain('f2lfs').packages
 
     assert 'foo' in packages
     foo = packages['foo']

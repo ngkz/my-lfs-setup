@@ -235,6 +235,10 @@ class F2LFSDomain(Domain):
         assert not package.name in self.data['packages']
         self.data['packages'][package.name] = package
 
+    @property
+    def packages(self):
+        return self.data['packages']
+
 def setup(app):
     app.add_domain(F2LFSDomain)
 
