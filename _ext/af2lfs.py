@@ -246,6 +246,18 @@ class F2LFSDomain(Domain):
             if pkg_docname == docname:
                 del self.packages[key]
 
+    # Merge in data regarding docnames from a different domaindata inventory
+    # (coming from a subprocess in parallel builds).
+    def merge_domaindata(self, docnames, otherdata):
+        for their_docname, their_package in otherdata['packages'].values():
+            if their_docname in docnames:
+                if their_package.name in self.packages:
+                    our_docname = self.packages[their_package.name][0]
+                    logger.warning("duplicate package declaration of '{}', also defined in '{}'"
+                                   .format(their_package.name, our_docname),
+                                   location=their_docname)
+                self.packages[their_package.name] = (their_docname, their_package)
+
 def setup(app):
     app.add_domain(F2LFSDomain)
 

@@ -1,3 +1,4 @@
+from unittest import mock
 from unittest.mock import Mock
 import pytest
 from sphinx.testing.util import assert_node
@@ -165,3 +166,35 @@ def test_f2lfs_domain_clear_doc():
     domain.note_package(Package("pkgname", "0.0.0", None, [], [], [], False), "index")
     domain.clear_doc("docname")
     assert not "pkgname" in domain.packages
+
+@mock.patch('af2lfs.logger')
+def test_f2lfs_domain_merge_domaindata(logger):
+    env = Mock(domaindata={
+        'f2lfs': {
+            'packages': {
+                'foo': ('doc1', Package('foo', '0.0.0', None, [], [], [], False))
+            },
+            'version': F2LFSDomain.data_version
+        }
+    })
+    domain = F2LFSDomain(env)
+    domain.merge_domaindata(['doc1', 'doc2'], {
+        'packages': {
+            'foo': ('doc2', Package('foo', '0.0.0', None, [], [], [], False)),
+            'bar': ('doc1', Package('bar', '0.0.0', None, [], [], [], False)),
+            'qux': ('doc3', Package('qux', '0.0.0', None, [], [], [], False))
+        }
+    })
+
+    assert 'foo' in domain.packages
+    assert domain.packages['foo'][0] == 'doc2'
+    assert domain.packages['foo'][1].name == 'foo'
+
+    assert 'bar' in domain.packages
+    assert domain.packages['bar'][0] == 'doc1'
+    assert domain.packages['bar'][1].name == 'bar'
+
+    assert not 'qux' in domain.packages
+
+    logger.warning.assert_called_with("duplicate package declaration of 'foo', also defined in 'doc1'",
+                                      location='doc2')
