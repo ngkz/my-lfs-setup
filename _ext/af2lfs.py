@@ -184,12 +184,11 @@ class BuildStepDirective(SphinxDirective):
     has_content = True
 
     def run(self):
+        self.assert_has_content()
+
         package = self.env.ref_context.get('f2lfs:package')
         if package is None:
             raise self.error('buildstep directive must come after corresponding package directive')
-
-        if not self.content:
-            raise self.warning('empty buildstep')
 
         cursor = LookaheadIterator(iter(self.content))
         while cursor.has_next:

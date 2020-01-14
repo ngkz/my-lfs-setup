@@ -109,7 +109,7 @@ def test_f2lfs_domain_error_check(app, warning):
     assert 'index.rst:3: WARNING: buildstep directive must come after corresponding package directive' in warning.getvalue()
     assert 'index.rst:10: WARNING: command continuation must come after command' in warning.getvalue()
     assert 'index.rst:15: WARNING: expected output must come after corresponding command' in warning.getvalue()
-    assert 'index.rst:20: WARNING: empty buildstep' in warning.getvalue()
+    assert 'index.rst:20: WARNING: Content block expected for the "f2lfs:buildstep" directive; none found.' in warning.getvalue()
     assert '''index.rst:24: WARNING: Error in "package" directive:
 1 argument(s) required, 0 supplied.''' in warning.getvalue()
     assert '''index.rst:27: WARNING: Error in "package" directive:
