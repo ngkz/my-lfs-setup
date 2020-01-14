@@ -161,11 +161,11 @@ unexpected key 'sha256sum'.''' in warning.getvalue()
     assert "index.rst:93: WARNING: duplicate package declaration of 'baz', also defined in 'index'" in warning.getvalue()
 
 def test_f2lfs_domain_clear_doc():
-    env = Mock(domaindata={}, docname="docname")
+    env = Mock(domaindata={}, docname='docname')
     domain = F2LFSDomain(env)
-    domain.note_package(Package("pkgname", "0.0.0", None, [], [], [], False), "index")
-    domain.clear_doc("docname")
-    assert not "pkgname" in domain.packages
+    domain.note_package(Package('pkgname', '0.0.0', None, [], [], [], False), 'index')
+    domain.clear_doc('docname')
+    assert not 'pkgname' in domain.packages
 
 @mock.patch('af2lfs.logger')
 def test_f2lfs_domain_merge_domaindata(logger):
