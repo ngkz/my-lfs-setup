@@ -186,7 +186,7 @@ class BuildStepDirective(SphinxDirective):
     def run(self):
         package = self.env.ref_context.get('f2lfs:package')
         if package is None:
-            raise self.error('buildstep directive must be placed after corresponding package directive')
+            raise self.error('buildstep directive must come after corresponding package directive')
 
         if not self.content:
             raise self.warning('empty buildstep')
@@ -196,9 +196,9 @@ class BuildStepDirective(SphinxDirective):
             line = next(cursor)
 
             if line.startswith('> '):
-                raise self.error('command continuation line must be placed after command prompt line')
+                raise self.error('command continuation must come after command')
             elif (not line.startswith('$ ')) and (not line.startswith('# ')):
-                raise self.error('expected output must be placed after corresponding command')
+                raise self.error('expected output must come after corresponding command')
 
             commands = [line[2:]]
             while cursor.has_next and cursor.peek().startswith('> '):
