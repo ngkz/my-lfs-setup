@@ -236,7 +236,7 @@ class F2LFSDomain(Domain):
     def note_package(self, package, location):
         if package.name in self.packages:
             docname = self.packages[package.name][0]
-            logger.warning("duplicate package declaration of '{}', other declaration in '{}'"
+            logger.warning("duplicate package declaration of '{}', also defined in '{}'"
                            .format(package.name, docname), location=location)
         self.packages[package.name] = (self.env.docname, package)
 
