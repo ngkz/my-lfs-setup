@@ -21,7 +21,8 @@ livehtml:
 		-i "tests/*" \
 		-i Makefile \
 		-i requirements.txt \
-		"$(SPHINXOPTS)" \
+		$(SPHINXOPTS) \
+		"$(SOURCEDIR)" \
 		"$(BUILDDIR)/html"
 
 test:
