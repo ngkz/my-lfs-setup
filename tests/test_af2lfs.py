@@ -196,5 +196,6 @@ def test_f2lfs_domain_merge_domaindata(logger):
 
     assert not 'qux' in domain.packages
 
-    logger.warning.assert_called_with("duplicate package declaration of 'foo', also defined in 'doc1'",
-                                      location='doc2')
+    logger.warning.assert_called_with(
+        "duplicate package declaration of 'foo', also defined in 'doc1'",
+        location='doc2')
