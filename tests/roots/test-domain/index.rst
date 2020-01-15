@@ -2,7 +2,7 @@
    :license: WTFPL
    :deps: - bar OR baz
           - qux
-   :build-deps: - bar
+   :build-deps: - quux
    :sources: - http: http://example.com/src1.tar.xz
                gpgsig: http://example.com/src1.tar.xz.sig
                gpgkey: src1-key.gpg
@@ -36,3 +36,5 @@
 .. package:: baz
 
 .. package:: qux
+
+.. package:: quux

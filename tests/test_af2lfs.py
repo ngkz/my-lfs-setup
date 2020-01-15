@@ -22,7 +22,7 @@ def test_f2lfs_domain(app):
         ('bar', 'baz'),
         'qux'
     ]
-    assert foo.build_deps == ['bar']
+    assert foo.build_deps == ['quux']
     assert foo.sources == [
         {
             'type': 'http',
@@ -92,15 +92,7 @@ foo block 2 command 2 expected output line 2'''
     assert baz.build_steps == []
 
     assert 'qux' in packages
-    qux = packages['qux'][1]
-    assert qux.name == 'qux'
-    assert qux.version == '0.0.0'
-    assert qux.license is None
-    assert qux.deps == []
-    assert qux.build_deps == []
-    assert qux.sources == []
-    assert not qux.bootstrap
-    assert qux.build_steps == []
+    assert 'quux' in packages
 
     doctree = app.env.get_doctree('index')
     assert_node(doctree[1],
