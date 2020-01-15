@@ -1,6 +1,8 @@
 from unittest import mock
 from unittest.mock import Mock
+import textwrap
 import pytest
+from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
 from af2lfs import F2LFSDomain, Package
 
@@ -199,3 +201,17 @@ def test_f2lfs_domain_merge_domaindata(logger):
     logger.warning.assert_called_with(
         "duplicate package declaration of 'foo', also defined in 'doc1'",
         location='doc2')
+
+def test_f2lfs_buildstep_should_not_append_steps_partially(app, warning):
+    text = textwrap.dedent("""\
+    .. f2lfs:package:: foo
+    .. f2lfs:buildstep::
+
+       $ foo
+       bar
+       > foo
+    """)
+    restructuredtext.parse(app, text)
+    domain = app.env.get_domain("f2lfs")
+    assert domain.packages["foo"][1].build_steps == []
+    assert "WARNING: command continuation must come after command" in warning.getvalue()

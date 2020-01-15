@@ -45,9 +45,6 @@ class Package:
         self.bootstrap = bootstrap
         self.build_steps = []
 
-    def add_build_step(self, command, expected_output):
-        self.build_steps.append(BuildStep(command, expected_output))
-
     def __repr__(self):
         return "<Package '{}'>".format(self.name)
 
@@ -191,6 +188,8 @@ class BuildStepDirective(SphinxDirective):
             raise self.error('buildstep directive must come after corresponding package directive')
 
         cursor = LookaheadIterator(iter(self.content))
+        steps = []
+
         while cursor.has_next:
             line = next(cursor)
 
@@ -207,10 +206,12 @@ class BuildStepDirective(SphinxDirective):
             while cursor.has_next and (not re.match(r'^(\$|#|>) ', cursor.peek())):
                 expected_output.append(next(cursor))
 
-            package.add_build_step(
+            steps.append(BuildStep(
                 "\n".join(commands),
                 "\n".join(expected_output) if expected_output else None
-            )
+            ))
+
+        package.build_steps.extend(steps)
 
         paragraph_node = nodes.paragraph(text='Hello world!')
         return [paragraph_node]

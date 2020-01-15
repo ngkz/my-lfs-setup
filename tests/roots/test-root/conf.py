@@ -1,0 +1,1 @@
+extensions = ['af2lfs']
