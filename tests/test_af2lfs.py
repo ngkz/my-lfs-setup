@@ -2,6 +2,7 @@ from unittest import mock
 from unittest.mock import Mock
 import textwrap
 import pytest
+from docutils import nodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
 from af2lfs import F2LFSDomain, Package
@@ -102,7 +103,9 @@ foo block 2 command 2 expected output line 2'''
     assert qux.build_steps == []
 
     doctree = app.env.get_doctree('index')
-    print(doctree)
+    assert_node(doctree[1],
+                [nodes.literal_block, '$ foo block 1 command 1'])
+    assert_node(doctree[1], language='console')
 
 @pytest.mark.sphinx('dummy', testroot='domain-error-check')
 def test_f2lfs_domain_error_check(app, warning):

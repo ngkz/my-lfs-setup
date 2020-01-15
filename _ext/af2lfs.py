@@ -213,8 +213,9 @@ class BuildStepDirective(SphinxDirective):
 
         package.build_steps.extend(steps)
 
-        paragraph_node = nodes.paragraph(text='Hello world!')
-        return [paragraph_node]
+        text = '\n'.join(self.content)
+        node = nodes.literal_block(text, text, language="console")
+        return [node]
 
 
 class F2LFSDomain(Domain):
