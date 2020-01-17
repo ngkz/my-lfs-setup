@@ -94,11 +94,6 @@ foo block 2 command 2 expected output line 2'''
     assert 'qux' in packages
     assert 'quux' in packages
 
-    doctree = app.env.get_doctree('index')
-    assert_node(doctree[1],
-                [nodes.literal_block, '$ foo block 1 command 1'])
-    assert_node(doctree[1], language='console')
-
 @pytest.mark.sphinx('dummy', testroot='domain-error-check')
 def test_f2lfs_domain_error_check(app, warning):
     app.builder.build_all()
@@ -210,3 +205,17 @@ def test_f2lfs_buildstep_should_not_append_steps_partially(app, warning):
     domain = app.env.get_domain("f2lfs")
     assert domain.packages["foo"][1].build_steps == []
     assert "WARNING: command continuation must come after command" in warning.getvalue()
+
+def test_f2lfs_buildstep_doctree(app):
+    text = textwrap.dedent("""\
+    paragraph to supress warning
+
+    .. f2lfs:package:: foo
+    .. f2lfs:buildstep::
+
+       $ foo
+    """)
+    doctree = restructuredtext.parse(app, text)
+    assert_node(doctree[2],
+                [nodes.literal_block, '$ foo'])
+    assert_node(doctree[2], language='console')
