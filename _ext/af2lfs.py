@@ -1,6 +1,6 @@
 from docutils import nodes
 from docutils.parsers.rst import directives
-from sphinx.directives import SphinxDirective, ObjectDescription
+from sphinx.directives import SphinxDirective
 from sphinx.domains import Domain
 from sphinx.util import logging
 from sphinx import addnodes
