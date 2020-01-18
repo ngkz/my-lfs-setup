@@ -3,8 +3,10 @@ from docutils.parsers.rst import directives
 from sphinx.directives import SphinxDirective, ObjectDescription
 from sphinx.domains import Domain
 from sphinx.util import logging
+from sphinx import addnodes
 import yaml
 import re
+import os.path
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +146,26 @@ def sources(value):
 
     return result
 
+def field(name, body_content):
+    field = nodes.field()
+    field += nodes.field_name(name, name)
+    body = nodes.field_body()
+    body += body_content
+    field += body
+    return field
+
+def text(text):
+    return nodes.Text(text, text)
+
+def blist_field(name):
+    blist = nodes.bullet_list()
+    return (field(name, blist), blist)
+
+def list_item(body):
+    item = nodes.list_item()
+    item += body
+    return item
+
 class PackageDirective(SphinxDirective):
     required_arguments = 1
     optional_arguments = 1
@@ -170,12 +192,88 @@ class PackageDirective(SphinxDirective):
             'bootstrap' in self.options
         )
 
-        self.env.get_domain('f2lfs').note_package(package, (self.env.docname, self.lineno))
+        field_list = nodes.field_list()
+        field_list += field('Name', text(package.name))
+        field_list += field('Version', text(package.version))
+        if not package.license is None:
+            field_list += field('License', text(package.license))
 
+        if package.deps or package.build_deps:
+            deps_field, deps_blist = blist_field('Dependencies')
+
+            for dep in package.deps:
+                if isinstance(dep, tuple):
+                    deps_blist += list_item(text(' or '.join(dep)))
+                else:
+                    deps_blist += list_item(text(dep))
+
+            for dep in package.build_deps:
+                if isinstance(dep, tuple):
+                    deps_blist += list_item(text(' or '.join(dep) + ' (build-time)'))
+                else:
+                    deps_blist += list_item(text(dep + ' (build-time)'))
+
+            field_list += deps_field
+
+        if package.sources:
+            sources_field, sources_blist = blist_field('Sources')
+
+            for source in package.sources:
+                source_item = nodes.list_item()
+                source_line_block = nodes.line_block()
+
+                url_line = nodes.line()
+                url_line += nodes.reference(source['url'], source['url'],
+                                                 refuri=source['url'])
+
+                branch = source.get('branch')
+                if not branch is None:
+                    url_line += text(' (branch ')
+                    url_line += nodes.literal(branch, branch)
+                    url_line += text(')')
+
+                commit = source.get('commit')
+                if not commit is None:
+                    url_line += text(' (commit ')
+                    url_line += nodes.literal(commit, commit)
+                    url_line += text(')')
+
+                gpgsig = source.get('gpgsig')
+                if not gpgsig is None:
+                    url_line += text(' (')
+                    url_line += nodes.reference("sig", "sig", refuri=gpgsig)
+                    url_line += text(')')
+
+                gpgkey = source.get('gpgkey')
+                if not gpgkey is None:
+                    url_line += text(' (')
+                    url_line += addnodes.download_reference(
+                        "key", "key",
+                        reftarget=os.path.relpath(
+                            os.path.join(self.env.srcdir, 'keyrings', gpgkey),
+                            os.path.join(self.env.doc2path(self.env.docname), '..')
+                        )
+                    )
+                    url_line += text(')')
+
+                source_line_block += url_line
+
+                sha256sum = source.get('sha256sum')
+                if not sha256sum is None:
+                    sum_line = nodes.line()
+                    sum_line += text('SHA256: ')
+                    sum_line += nodes.literal(sha256sum, sha256sum, classes=['hash'])
+                    source_line_block += sum_line
+
+                source_item += source_line_block
+                sources_blist += source_item
+
+            field_list += sources_field
+
+        self.env.get_domain('f2lfs').note_package(package, (self.env.docname, self.lineno))
         self.env.ref_context['f2lfs:package'] = package
 
-        paragraph_node = nodes.paragraph(text='Hello world!')
-        return [paragraph_node]
+        return [field_list]
 
 class BuildStepDirective(SphinxDirective):
     has_content = True

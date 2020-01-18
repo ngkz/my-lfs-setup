@@ -3,6 +3,7 @@ from unittest.mock import Mock
 import textwrap
 import pytest
 from docutils import nodes
+from sphinx import addnodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
 from af2lfs import F2LFSDomain, Package
@@ -219,3 +220,88 @@ def test_f2lfs_buildstep_doctree(app):
     assert_node(doctree[2],
                 [nodes.literal_block, '$ foo'])
     assert_node(doctree[2], language='console')
+
+def test_f2lfs_package_doctree(app):
+    text = textwrap.dedent("""\
+    paragraph to supress warning
+
+    .. f2lfs:package:: pkg1 1.0.0
+    .. f2lfs:package:: pkg2 1.0.0
+       :license: license
+    .. f2lfs:package:: pkg3 1.0.0
+       :deps: - dep1-1 OR dep1-2
+              - dep2
+    .. f2lfs:package:: pkg4 1.0.0
+       :build-deps: - builddep1-1 OR builddep1-2
+                    - builddep2
+    .. f2lfs:package:: pkg5 1.0.0
+       :sources: - http: src1
+                   gpgsig: src1-sig
+                   gpgkey: src1-key
+                 - http: src2
+                   sha256sum: src2-sha256
+                 - git: src3
+                   branch: src3-branch
+                 - git: src4
+                   commit: src4-commit
+    """)
+
+    doctree = restructuredtext.parse(app, text)
+    assert_node(doctree[1],
+                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
+                                                   [nodes.field_body, 'pkg1'])],
+                                    [nodes.field, ([nodes.field_name, 'Version'],
+                                                   [nodes.field_body, '1.0.0'])])])
+    assert_node(doctree[2],
+                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
+                                                   [nodes.field_body, 'pkg2'])],
+                                    [nodes.field, ([nodes.field_name, 'Version'],
+                                                   [nodes.field_body, '1.0.0'])],
+                                    [nodes.field, ([nodes.field_name, 'License'],
+                                                   [nodes.field_body, 'license'])])])
+    assert_node(doctree[3],
+                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
+                                                   [nodes.field_body, 'pkg3'])],
+                                    [nodes.field, ([nodes.field_name, 'Version'],
+                                                   [nodes.field_body, '1.0.0'])],
+                                    [nodes.field, ([nodes.field_name, 'Dependencies'],
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, 'dep1-1 or dep1-2'],
+                                                                                          [nodes.list_item, 'dep2'])])])])
+    assert_node(doctree[4],
+                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
+                                                   [nodes.field_body, 'pkg4'])],
+                                    [nodes.field, ([nodes.field_name, 'Version'],
+                                                   [nodes.field_body, '1.0.0'])],
+                                    [nodes.field, ([nodes.field_name, 'Dependencies'],
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, 'builddep1-1 or builddep1-2 (build-time)'],
+                                                                                          [nodes.list_item, 'builddep2 (build-time)'])])])])
+    assert_node(doctree[5],
+                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
+                                                   [nodes.field_body, 'pkg5'])],
+                                    [nodes.field, ([nodes.field_name, 'Version'],
+                                                   [nodes.field_body, '1.0.0'])],
+                                    [nodes.field, ([nodes.field_name, 'Sources'],
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.line_block, nodes.line, ([nodes.reference, 'src1'],
+                                                                                                                                           ' (',
+                                                                                                                                           [nodes.reference, 'sig'],
+                                                                                                                                           ')',
+                                                                                                                                           ' (',
+                                                                                                                                           [addnodes.download_reference, 'key'],
+                                                                                                                                           ')')],
+                                                                                          [nodes.list_item, nodes.line_block, ([nodes.line, nodes.reference, 'src2'],
+                                                                                                                               [nodes.line, ('SHA256: ',
+                                                                                                                                             [nodes.literal, 'src2-sha256'])])],
+                                                                                          [nodes.list_item, nodes.line_block, nodes.line, ([nodes.reference, 'src3'],
+                                                                                                                                           ' (branch ',
+                                                                                                                                           [nodes.literal, 'src3-branch'],
+                                                                                                                                           ')')],
+                                                                                          [nodes.list_item, nodes.line_block, nodes.line, ([nodes.reference, 'src4'],
+                                                                                                                                           ' (commit ',
+                                                                                                                                           [nodes.literal, 'src4-commit'],
+                                                                                                                                           ')')])])])])
+    assert_node(doctree[5][2][1][0][0][0][0][0], refuri='src1')
+    assert_node(doctree[5][2][1][0][0][0][0][2], refuri='src1-sig')
+    assert_node(doctree[5][2][1][0][0][0][0][5], reftarget='keyrings/src1-key')
+    assert_node(doctree[5][2][1][0][1][0][0][0], refuri='src2')
+    assert_node(doctree[5][2][1][0][2][0][0][0], refuri='src3')
+    assert_node(doctree[5][2][1][0][3][0][0][0], refuri='src4')
