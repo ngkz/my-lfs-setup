@@ -2,7 +2,9 @@ from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.directives import SphinxDirective
 from sphinx.domains import Domain
+from sphinx.roles import XRefRole
 from sphinx.util import logging
+from sphinx.util.nodes import make_refnode
 from sphinx import addnodes
 import yaml
 import re
@@ -192,6 +194,8 @@ class PackageDirective(SphinxDirective):
             'bootstrap' in self.options
         )
 
+        targetnode = nodes.target('', '', ids=['package-' + pkgname], ismod=True)
+
         field_list = nodes.field_list()
         field_list += field('Name', text(package.name))
         field_list += field('Version', text(package.version))
@@ -273,7 +277,7 @@ class PackageDirective(SphinxDirective):
         self.env.get_domain('f2lfs').note_package(package, (self.env.docname, self.lineno))
         self.env.ref_context['f2lfs:package'] = package
 
-        return [field_list]
+        return [targetnode, field_list]
 
 class BuildStepDirective(SphinxDirective):
     has_content = True
@@ -319,6 +323,9 @@ class BuildStepDirective(SphinxDirective):
 class F2LFSDomain(Domain):
     name = 'f2lfs'
     label = 'F2LFS'
+    roles = {
+        'ref': XRefRole()
+    }
     directives = {
         'package': PackageDirective,
         'buildstep': BuildStepDirective
@@ -356,6 +363,15 @@ class F2LFSDomain(Domain):
                                    .format(their_package.name, our_docname),
                                    location=their_docname)
                 self.packages[their_package.name] = (their_docname, their_package)
+
+    def resolve_xref(self, env, fromdocname, builder, typ, target, node,
+                     contnode):
+        if not target in self.packages:
+            return None
+        todocname, package = self.packages[target]
+        targetid = 'package-' + package.name
+        return make_refnode(builder, fromdocname, todocname, targetid, contnode,
+                            'Package ' + package.name)
 
 def setup(app):
     app.add_domain(F2LFSDomain)
