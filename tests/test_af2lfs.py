@@ -194,35 +194,35 @@ def test_f2lfs_domain_merge_domaindata(logger):
         location='doc2')
 
 def test_f2lfs_buildstep_should_not_append_steps_partially(app, warning):
-    text = textwrap.dedent("""\
+    text = textwrap.dedent('''\
     .. f2lfs:package:: foo
     .. f2lfs:buildstep::
 
        $ foo
        bar
        > foo
-    """)
+    ''')
     restructuredtext.parse(app, text)
-    domain = app.env.get_domain("f2lfs")
-    assert domain.packages["foo"][1].build_steps == []
-    assert "WARNING: command continuation must come after command" in warning.getvalue()
+    domain = app.env.get_domain('f2lfs')
+    assert domain.packages['foo'][1].build_steps == []
+    assert 'WARNING: command continuation must come after command' in warning.getvalue()
 
 def test_f2lfs_buildstep_doctree(app):
-    text = textwrap.dedent("""\
+    text = textwrap.dedent('''\
     paragraph to supress warning
 
     .. f2lfs:package:: foo
     .. f2lfs:buildstep::
 
        $ foo
-    """)
+    ''')
     doctree = restructuredtext.parse(app, text)
     assert_node(doctree[3],
                 [nodes.literal_block, '$ foo'])
     assert_node(doctree[3], language='console')
 
 def test_f2lfs_package_doctree(app):
-    text = textwrap.dedent("""\
+    text = textwrap.dedent('''\
     paragraph to supress warning
 
     .. f2lfs:package:: pkg1 1.0.0
@@ -244,7 +244,7 @@ def test_f2lfs_package_doctree(app):
                    branch: src3-branch
                  - git: src4
                    commit: src4-commit
-    """)
+    ''')
 
     doctree = restructuredtext.parse(app, text)
     assert_node(doctree[1], nodes.target, refid='package-pkg1', ismod=True)
@@ -318,12 +318,12 @@ def test_f2lfs_package_doctree(app):
     assert_node(doctree[10][2][1][0][3][0][0][0], refuri='src4')
 
 def test_f2lfs_package_ref(app):
-    text = textwrap.dedent("""\
+    text = textwrap.dedent('''\
     paragraph to supress warning
 
     .. f2lfs:package:: pkg1 1.0.0
     :f2lfs:ref:`pkg1`
-    """)
+    ''')
 
     doctree = restructuredtext.parse(app, text)
     assert_node(doctree[3][0], [addnodes.pending_xref, nodes.literal, 'pkg1'])

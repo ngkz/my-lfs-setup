@@ -65,7 +65,7 @@ class BuildStep:
         return rep
 
 def validate_package_name(name):
-    return name != "OR" and (not re.search("[^a-zA-Z0-9_-]", name))
+    return name != 'OR' and (not re.search('[^a-zA-Z0-9_-]', name))
 
 def dependency(value):
     try:
@@ -143,8 +143,8 @@ def sources(value):
                     raise ValueError("only one of 'branch' or 'commit' can be specified")
                 branch_or_commit_seen = True
 
-        source_out["type"] = _type
-        source_out["url"] = url
+        source_out['type'] = _type
+        source_out['url'] = url
         result.append(source_out)
 
     return result
@@ -191,7 +191,7 @@ class PackageDirective(SphinxDirective):
 
         package = Package(
             pkgname,
-            self.arguments[1] if len(self.arguments) >= 2 else "0.0.0", #package version
+            self.arguments[1] if len(self.arguments) >= 2 else '0.0.0', #package version
             self.options.get('license', None),
             self.options.get('deps', []),
             self.options.get('build-deps', []),
@@ -264,14 +264,14 @@ class PackageDirective(SphinxDirective):
                 gpgsig = source.get('gpgsig')
                 if not gpgsig is None:
                     url_line += text(' (')
-                    url_line += nodes.reference("sig", "sig", refuri=gpgsig)
+                    url_line += nodes.reference('sig', 'sig', refuri=gpgsig)
                     url_line += text(')')
 
                 gpgkey = source.get('gpgkey')
                 if not gpgkey is None:
                     url_line += text(' (')
                     url_line += addnodes.download_reference(
-                        "key", "key",
+                        'key', 'key',
                         reftarget=os.path.relpath(
                             os.path.join(self.env.srcdir, 'keyrings', gpgkey),
                             os.path.join(self.env.doc2path(self.env.docname), '..')
@@ -330,14 +330,14 @@ class BuildStepDirective(SphinxDirective):
                 expected_output.append(next(cursor))
 
             steps.append(BuildStep(
-                "\n".join(commands),
-                "\n".join(expected_output) if expected_output else None
+                '\n'.join(commands),
+                '\n'.join(expected_output) if expected_output else None
             ))
 
         package.build_steps.extend(steps)
 
         text = '\n'.join(self.content)
-        node = nodes.literal_block(text, text, language="console")
+        node = nodes.literal_block(text, text, language='console')
         return [node]
 
 
