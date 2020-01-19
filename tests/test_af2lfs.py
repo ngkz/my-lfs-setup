@@ -268,8 +268,10 @@ def test_f2lfs_package_doctree(app):
                                     [nodes.field, ([nodes.field_name, 'Version'],
                                                    [nodes.field_body, '1.0.0'])],
                                     [nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, 'dep1-1 or dep1-2'],
-                                                                                          [nodes.list_item, 'dep2'])])])])
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep1-1'],
+                                                                                                                               ' or ',
+                                                                                                                               [addnodes.pending_xref, nodes.literal, 'dep1-2'])],
+                                                                                          [nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep2']])])])])
     assert_node(doctree[7], nodes.target, refid='package-pkg4', ismod=True)
     assert_node(doctree[8],
                 [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
@@ -277,8 +279,12 @@ def test_f2lfs_package_doctree(app):
                                     [nodes.field, ([nodes.field_name, 'Version'],
                                                    [nodes.field_body, '1.0.0'])],
                                     [nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, 'builddep1-1 or builddep1-2 (build-time)'],
-                                                                                          [nodes.list_item, 'builddep2 (build-time)'])])])])
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep1-1'],
+                                                                                                                               ' or ',
+                                                                                                                               [addnodes.pending_xref, nodes.literal, 'builddep1-2'],
+                                                                                                                               ' (build-time)')],
+                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
+                                                                                                                               ' (build-time)')])])])])
     assert_node(doctree[9], nodes.target, refid='package-pkg5', ismod=True)
     assert_node(doctree[10],
                 [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],

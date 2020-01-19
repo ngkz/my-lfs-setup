@@ -9,6 +9,7 @@ from sphinx import addnodes
 import yaml
 import re
 import os.path
+import itertools
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,10 @@ class PackageDirective(SphinxDirective):
         'bootstrap': directives.flag
     }
 
+    def create_package_ref(self, target):
+        return F2LFSDomain.roles['ref']('f2lfs:ref', target, target,
+                                        self.lineno, self.state.inliner)
+
     def run(self):
         pkgname = self.arguments[0]
         if not validate_package_name(pkgname):
@@ -194,8 +199,11 @@ class PackageDirective(SphinxDirective):
             'bootstrap' in self.options
         )
 
+        node_list = []
+
         targetnode = nodes.target('', '', ids=['package-' + pkgname], ismod=True)
         self.state.document.note_explicit_target(targetnode)
+        node_list.append(targetnode)
 
         field_list = nodes.field_list()
         field_list += field('Name', text(package.name))
@@ -206,17 +214,27 @@ class PackageDirective(SphinxDirective):
         if package.deps or package.build_deps:
             deps_field, deps_blist = blist_field('Dependencies')
 
-            for dep in package.deps:
-                if isinstance(dep, tuple):
-                    deps_blist += list_item(text(' or '.join(dep)))
-                else:
-                    deps_blist += list_item(text(dep))
+            for dep, build_time in itertools.chain(
+                map(lambda dep: (dep, False), package.deps),
+                map(lambda dep: (dep, True), package.build_deps)
+            ):
+                dep_item = nodes.list_item()
+                # reference node must be wrapped with TextElement otherwise html5
+                # builder fails with AssertionError
+                dep_item_paragraph = nodes.paragraph()
 
-            for dep in package.build_deps:
-                if isinstance(dep, tuple):
-                    deps_blist += list_item(text(' or '.join(dep) + ' (build-time)'))
-                else:
-                    deps_blist += list_item(text(dep + ' (build-time)'))
+                for i, operand in enumerate(dep if isinstance(dep, tuple) else [dep]):
+                    if i > 0:
+                        dep_item_paragraph += text(' or ')
+                    ref_nodes, messages = self.create_package_ref(operand)
+                    dep_item_paragraph += ref_nodes
+                    node_list.extend(messages)
+
+                if build_time:
+                    dep_item_paragraph += text(' (build-time)')
+
+                dep_item += dep_item_paragraph
+                deps_blist += dep_item
 
             field_list += deps_field
 
@@ -275,10 +293,12 @@ class PackageDirective(SphinxDirective):
 
             field_list += sources_field
 
+        node_list.append(field_list)
+
         self.env.get_domain('f2lfs').note_package(package, (self.env.docname, self.lineno))
         self.env.ref_context['f2lfs:package'] = package
 
-        return [targetnode, field_list]
+        return node_list
 
 class BuildStepDirective(SphinxDirective):
     has_content = True
