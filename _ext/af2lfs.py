@@ -195,6 +195,7 @@ class PackageDirective(SphinxDirective):
         )
 
         targetnode = nodes.target('', '', ids=['package-' + pkgname], ismod=True)
+        self.state.document.note_explicit_target(targetnode)
 
         field_list = nodes.field_list()
         field_list += field('Name', text(package.name))
