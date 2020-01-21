@@ -392,7 +392,7 @@ class F2LFSDomain(Domain):
         todocname, package = self.packages[target]
         targetid = 'package-' + package.name
         return make_refnode(builder, fromdocname, todocname, targetid, contnode,
-                            'Package ' + package.name)
+                            package.name + ' (package)')
 
 def setup(app):
     app.add_domain(F2LFSDomain)
