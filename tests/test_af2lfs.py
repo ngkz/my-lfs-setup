@@ -217,9 +217,9 @@ def test_f2lfs_buildstep_doctree(app):
        $ foo
     ''')
     doctree = restructuredtext.parse(app, text)
-    assert_node(doctree[3],
+    assert_node(doctree[4],
                 [nodes.literal_block, '$ foo'])
-    assert_node(doctree[3], language='console')
+    assert_node(doctree[4], language='console')
 
 def test_f2lfs_package_doctree(app):
     text = textwrap.dedent('''\
@@ -247,22 +247,25 @@ def test_f2lfs_package_doctree(app):
     ''')
 
     doctree = restructuredtext.parse(app, text)
-    assert_node(doctree[1], nodes.target, refid='package-pkg1', ismod=True)
-    assert_node(doctree[2],
+    assert_node(doctree[1], nodes.target, ids=['package-pkg1'], ismod=True)
+    assert_node(doctree[2], addnodes.index, entries=[('single', 'pkg1 (package)', 'package-pkg1', '', None)])
+    assert_node(doctree[3],
                 [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
                                                    [nodes.field_body, 'pkg1'])],
                                     [nodes.field, ([nodes.field_name, 'Version'],
                                                    [nodes.field_body, '1.0.0'])])])
-    assert_node(doctree[3], nodes.target, refid='package-pkg2', ismod=True)
-    assert_node(doctree[4],
+    assert_node(doctree[4], nodes.target, ids=['package-pkg2'], ismod=True)
+    assert_node(doctree[5], addnodes.index, entries=[('single', 'pkg2 (package)', 'package-pkg2', '', None)])
+    assert_node(doctree[6],
                 [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
                                                    [nodes.field_body, 'pkg2'])],
                                     [nodes.field, ([nodes.field_name, 'Version'],
                                                    [nodes.field_body, '1.0.0'])],
                                     [nodes.field, ([nodes.field_name, 'License'],
                                                    [nodes.field_body, 'license'])])])
-    assert_node(doctree[5], nodes.target, refid='package-pkg3', ismod=True)
-    assert_node(doctree[6],
+    assert_node(doctree[7], nodes.target, ids=['package-pkg3'], ismod=True)
+    assert_node(doctree[8], addnodes.index, entries=[('single', 'pkg3 (package)', 'package-pkg3', '', None)])
+    assert_node(doctree[9],
                 [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
                                                    [nodes.field_body, 'pkg3'])],
                                     [nodes.field, ([nodes.field_name, 'Version'],
@@ -272,8 +275,9 @@ def test_f2lfs_package_doctree(app):
                                                                                                                                ' or ',
                                                                                                                                [addnodes.pending_xref, nodes.literal, 'dep1-2'])],
                                                                                           [nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep2']])])])])
-    assert_node(doctree[7], nodes.target, refid='package-pkg4', ismod=True)
-    assert_node(doctree[8],
+    assert_node(doctree[10], nodes.target, ids=['package-pkg4'], ismod=True)
+    assert_node(doctree[11], addnodes.index, entries=[('single', 'pkg4 (package)', 'package-pkg4', '', None)])
+    assert_node(doctree[12],
                 [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
                                                    [nodes.field_body, 'pkg4'])],
                                     [nodes.field, ([nodes.field_name, 'Version'],
@@ -285,8 +289,9 @@ def test_f2lfs_package_doctree(app):
                                                                                                                                ' (build-time)')],
                                                                                           [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
                                                                                                                                ' (build-time)')])])])])
-    assert_node(doctree[9], nodes.target, refid='package-pkg5', ismod=True)
-    assert_node(doctree[10],
+    assert_node(doctree[13], nodes.target, ids=['package-pkg5'], ismod=True)
+    assert_node(doctree[14], addnodes.index, entries=[('single', 'pkg5 (package)', 'package-pkg5', '', None)])
+    assert_node(doctree[15],
                 [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
                                                    [nodes.field_body, 'pkg5'])],
                                     [nodes.field, ([nodes.field_name, 'Version'],
@@ -310,12 +315,12 @@ def test_f2lfs_package_doctree(app):
                                                                                                                                            ' (commit ',
                                                                                                                                            [nodes.literal, 'src4-commit'],
                                                                                                                                            ')')])])])])
-    assert_node(doctree[10][2][1][0][0][0][0][0], refuri='src1')
-    assert_node(doctree[10][2][1][0][0][0][0][2], refuri='src1-sig')
-    assert_node(doctree[10][2][1][0][0][0][0][5], reftarget='keyrings/src1-key')
-    assert_node(doctree[10][2][1][0][1][0][0][0], refuri='src2')
-    assert_node(doctree[10][2][1][0][2][0][0][0], refuri='src3')
-    assert_node(doctree[10][2][1][0][3][0][0][0], refuri='src4')
+    assert_node(doctree[15][2][1][0][0][0][0][0], refuri='src1')
+    assert_node(doctree[15][2][1][0][0][0][0][2], refuri='src1-sig')
+    assert_node(doctree[15][2][1][0][0][0][0][5], reftarget='keyrings/src1-key')
+    assert_node(doctree[15][2][1][0][1][0][0][0], refuri='src2')
+    assert_node(doctree[15][2][1][0][2][0][0][0], refuri='src3')
+    assert_node(doctree[15][2][1][0][3][0][0][0], refuri='src4')
 
 def test_f2lfs_package_ref(app):
     text = textwrap.dedent('''\
@@ -326,7 +331,7 @@ def test_f2lfs_package_ref(app):
     ''')
 
     doctree = restructuredtext.parse(app, text)
-    assert_node(doctree[3][0], [addnodes.pending_xref, nodes.literal, 'pkg1'])
-    assert_node(doctree[3][0],
+    assert_node(doctree[4][0], [addnodes.pending_xref, nodes.literal, 'pkg1'])
+    assert_node(doctree[4][0],
                 refdoc='index', refdomain='f2lfs', refexplicit=False,
                 reftarget='pkg1', reftype='ref', refwarn=False)

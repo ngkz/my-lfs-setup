@@ -209,6 +209,9 @@ class PackageDirective(SphinxDirective):
         self.state.document.note_explicit_target(targetnode)
         node_list.append(targetnode)
 
+        node_list.append(addnodes.index(
+            entries=[('single', pkgname + ' (package)', package.id, '', None)]))
+
         field_list = nodes.field_list()
         field_list += field('Name', text(package.name))
         field_list += field('Version', text(package.version))
