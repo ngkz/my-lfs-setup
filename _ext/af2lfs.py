@@ -53,6 +53,10 @@ class Package:
     def __repr__(self):
         return "<Package '{}'>".format(self.name)
 
+    @property
+    def id(self):
+        return 'package-' + self.name
+
 class BuildStep:
     def __init__(self, command, expected_output):
         self.command = command
@@ -201,7 +205,7 @@ class PackageDirective(SphinxDirective):
 
         node_list = []
 
-        targetnode = nodes.target('', '', ids=['package-' + pkgname], ismod=True)
+        targetnode = nodes.target('', '', ids=[package.id], ismod=True)
         self.state.document.note_explicit_target(targetnode)
         node_list.append(targetnode)
 
@@ -390,7 +394,7 @@ class F2LFSDomain(Domain):
         if not target in self.packages:
             return None
         todocname, package = self.packages[target]
-        targetid = 'package-' + package.name
+        targetid = package.id
         return make_refnode(builder, fromdocname, todocname, targetid, contnode,
                             package.name + ' (package)')
 
