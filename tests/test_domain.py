@@ -189,6 +189,13 @@ def test_xref(app):
     assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
                              internal=True)
 
+    doctree = restructuredtext.parse(app, ':f2lfs:pkg:`pkg1`', 'anotherpage')
+    app.env.resolve_references(doctree, 'anotherpage', app.builder)
+    refnodes = list(doctree.traverse(nodes.reference))
+    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0], refuri='index.html#package-pkg1',
+                             reftitle='pkg1 (package)', internal=True)
+
 def test_any_xref(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: pkg1 1.0.0
