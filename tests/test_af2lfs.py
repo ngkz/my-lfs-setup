@@ -327,11 +327,11 @@ def test_f2lfs_package_ref(app):
     paragraph to supress warning
 
     .. f2lfs:package:: pkg1 1.0.0
-    :f2lfs:ref:`pkg1`
+    :f2lfs:pkg:`pkg1`
     ''')
 
     doctree = restructuredtext.parse(app, text)
     assert_node(doctree[4][0], [addnodes.pending_xref, nodes.literal, 'pkg1'])
     assert_node(doctree[4][0],
                 refdoc='index', refdomain='f2lfs', refexplicit=False,
-                reftarget='pkg1', reftype='ref', refwarn=False)
+                reftarget='pkg1', reftype='pkg', refwarn=False)

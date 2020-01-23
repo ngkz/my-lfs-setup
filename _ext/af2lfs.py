@@ -185,7 +185,7 @@ class PackageDirective(SphinxDirective):
     }
 
     def create_package_ref(self, target):
-        return F2LFSDomain.roles['ref']('f2lfs:ref', target, target,
+        return F2LFSDomain.roles['pkg']('f2lfs:pkg', target, target,
                                         self.lineno, self.state.inliner)
 
     def run(self):
@@ -352,7 +352,7 @@ class F2LFSDomain(Domain):
     name = 'f2lfs'
     label = 'F2LFS'
     roles = {
-        'ref': XRefRole()
+        'pkg': XRefRole()
     }
     directives = {
         'package': PackageDirective,
