@@ -401,6 +401,14 @@ class F2LFSDomain(Domain):
         return make_refnode(builder, fromdocname, todocname, targetid, contnode,
                             package.name + ' (package)')
 
+    def resolve_any_xref(self, env, fromdocname, builder, target, node, contnode):
+        refnode = self.resolve_xref(env, fromdocname, builder, 'pkg', target,
+                                    node, contnode)
+        if refnode is None:
+            return []
+        else:
+            return [('f2lfs:pkg', refnode)]
+
     def get_full_qualified_name(self, node):
         return node.get('reftarget')
 

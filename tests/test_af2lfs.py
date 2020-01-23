@@ -337,6 +337,22 @@ def test_f2lfs_package_ref(app):
     assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
                              internal=True)
 
+def test_f2lfs_package_any_ref(app):
+    text = textwrap.dedent('''\
+    paragraph to supress warning
+
+    .. f2lfs:package:: pkg1 1.0.0
+
+    :any:`pkg1`
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    app.env.resolve_references(doctree, 'index', app.builder)
+    refnodes = list(doctree.traverse(nodes.reference))
+    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
+                             internal=True)
+
 def test_f2lfs_domain_get_full_qualified_name():
     env = Mock(domaindata={})
     domain = F2LFSDomain(env)
