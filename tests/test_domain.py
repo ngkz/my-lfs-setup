@@ -8,10 +8,51 @@ from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
 from af2lfs import F2LFSDomain, Package
 
-@pytest.mark.sphinx('dummy', testroot='domain')
-def test_f2lfs_domain(app):
-    app.builder.build_all()
+def test_packages(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo 1.3.37
+       :license: WTFPL
+       :deps: - bar OR baz
+              - qux
+       :build-deps: - quux
+       :sources: - http: http://example.com/src1.tar.xz
+                   gpgsig: http://example.com/src1.tar.xz.sig
+                   gpgkey: src1-key.gpg
+                 - http: http://example.com/src2.patch
+                   sha256sum: DEADBEEFDEADBEEFDEADBEEFDEADBEEF
+                 - git: git://example.com/src3.git
+                   branch: branch_or_tag
+                 - git: https://example.com/src4.git
+                   commit: deadbeef
+       :bootstrap:
 
+    .. f2lfs:buildstep::
+
+       $ foo block 1 command 1
+
+    .. f2lfs:buildstep::
+
+       $ foo block 2 command 1
+       foo block 2 command 1 expected output
+       # foo block 2 command 2 line 1 \\
+       > foo block 2 command 2 line 2
+       foo block 2 command 2 expected output line 1
+       foo block 2 command 2 expected output line 2
+
+    .. f2lfs:package:: bar 31.3.37
+
+    .. f2lfs:buildstep::
+
+       $ bar
+
+    .. f2lfs:package:: baz
+
+    .. f2lfs:package:: qux
+
+    .. f2lfs:package:: quux
+    ''')
+
+    restructuredtext.parse(app, text)
     packages = app.env.get_domain('f2lfs').packages
 
     assert 'foo' in packages
@@ -95,65 +136,7 @@ foo block 2 command 2 expected output line 2'''
     assert 'qux' in packages
     assert 'quux' in packages
 
-@pytest.mark.sphinx('dummy', testroot='domain-error-check')
-def test_f2lfs_domain_error_check(app, warning):
-    app.builder.build_all()
-
-    assert 'index.rst:3: WARNING: buildstep directive must come after corresponding package directive' in warning.getvalue()
-    assert 'index.rst:10: WARNING: command continuation must come after command' in warning.getvalue()
-    assert 'index.rst:15: WARNING: expected output must come after corresponding command' in warning.getvalue()
-    assert 'index.rst:20: WARNING: Content block expected for the "f2lfs:buildstep" directive; none found.' in warning.getvalue()
-    assert '''index.rst:24: WARNING: Error in "package" directive:
-1 argument(s) required, 0 supplied.''' in warning.getvalue()
-    assert '''index.rst:27: WARNING: Error in "package" directive:
-maximum 2 argument(s) allowed, 3 supplied.''' in warning.getvalue()
-    assert 'index.rst:30: WARNING: invalid package name' in warning.getvalue()
-    assert 'index.rst:31: WARNING: invalid package name' in warning.getvalue()
-    assert r'''index.rst:34: WARNING: Error in "package" directive:
-invalid option value: (option: "deps"; value: '{')
-malformed YAML:''' in warning.getvalue()
-    assert r'''index.rst:38: WARNING: Error in "package" directive:
-invalid option value: (option: "deps"; value: '{}')
-this option must be YAML list.''' in warning.getvalue()
-    assert r'''index.rst:42: WARNING: Error in "package" directive:
-invalid option value: (option: "deps"; value: '- {}')
-dependency name must be string.''' in warning.getvalue()
-    assert r'''index.rst:45: WARNING: Error in "package" directive:
-invalid option value: (option: "deps"; value: '- OR')
-invalid dependency name.''' in warning.getvalue()
-    assert r'''index.rst:47: WARNING: Error in "package" directive:
-invalid option value: (option: "deps"; value: '- "@^\'&"')
-invalid dependency name.''' in warning.getvalue()
-    assert r'''index.rst:50: WARNING: Error in "package" directive:
-invalid option value: (option: "deps"; value: '- A B')
-OR condition must be delimited with 'OR'.''' in warning.getvalue()
-    assert r'''index.rst:54: WARNING: Error in "package" directive:
-invalid option value: (option: "build-deps"; value: '{')
-malformed YAML:''' in warning.getvalue()
-    assert r'''index.rst:58: WARNING: Error in "package" directive:
-invalid option value: (option: "sources"; value: '{')
-malformed YAML:''' in warning.getvalue()
-    assert r'''index.rst:62: WARNING: Error in "package" directive:
-invalid option value: (option: "sources"; value: '{}')
-this option must be YAML list.''' in warning.getvalue()
-    assert r'''index.rst:66: WARNING: Error in "package" directive:
-invalid option value: (option: "sources"; value: '- a')
-source entry must be a hash.''' in warning.getvalue()
-    assert r'''index.rst:70: WARNING: Error in "package" directive:
-invalid option value: (option: "sources"; value: '- http: a\n  git: a')
-only one source url can be specified per entry.''' in warning.getvalue()
-    assert r'''index.rst:76: WARNING: Error in "package" directive:
-invalid option value: (option: "sources"; value: '- {}')
-source url must be specified.''' in warning.getvalue()
-    assert r'''index.rst:80: WARNING: Error in "package" directive:
-invalid option value: (option: "sources"; value: '- http: a\n  branch: a')
-unexpected key 'branch'.''' in warning.getvalue()
-    assert r'''index.rst:86: WARNING: Error in "package" directive:
-invalid option value: (option: "sources"; value: '- git: a\n  sha256sum: a')
-unexpected key 'sha256sum'.''' in warning.getvalue()
-    assert "index.rst:93: WARNING: duplicate package declaration of 'baz', also defined in 'index'" in warning.getvalue()
-
-def test_f2lfs_domain_clear_doc():
+def test_clear_doc():
     env = Mock(domaindata={}, docname='docname')
     domain = F2LFSDomain(env)
     domain.note_package(Package('pkgname', '0.0.0', None, [], [], [], False), 'index')
@@ -161,7 +144,7 @@ def test_f2lfs_domain_clear_doc():
     assert not 'pkgname' in domain.packages
 
 @mock.patch('af2lfs.logger')
-def test_f2lfs_domain_merge_domaindata(logger):
+def test_merge_domaindata(logger):
     env = Mock(domaindata={
         'f2lfs': {
             'packages': {
@@ -193,7 +176,56 @@ def test_f2lfs_domain_merge_domaindata(logger):
         "duplicate package declaration of 'foo', also defined in 'doc1'",
         location='doc2')
 
-def test_f2lfs_buildstep_should_not_append_steps_partially(app, warning):
+def test_xref(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: pkg1 1.0.0
+    :f2lfs:pkg:`pkg1`
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    app.env.resolve_references(doctree, 'index', app.builder)
+    refnodes = list(doctree.traverse(nodes.reference))
+    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
+                             internal=True)
+
+def test_any_xref(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: pkg1 1.0.0
+
+    :any:`pkg1`
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    app.env.resolve_references(doctree, 'index', app.builder)
+    refnodes = list(doctree.traverse(nodes.reference))
+    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
+                             internal=True)
+
+def test_get_full_qualified_name():
+    env = Mock(domaindata={})
+    domain = F2LFSDomain(env)
+
+    # normal references
+    node = nodes.reference()
+    assert domain.get_full_qualified_name(node) is None
+
+    # simple reference to packages
+    node = nodes.reference(reftarget='pkgname')
+    assert domain.get_full_qualified_name(node) == 'pkgname'
+
+def test_get_objects(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: pkg1 1.0.0
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    assert list(app.env.get_domain('f2lfs').get_objects()) == [
+        ('pkg1', 'pkg1', 'package', 'index', 'package-pkg1', 1)
+    ]
+
+def test_buildstep_should_not_append_steps_partially(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo
     .. f2lfs:buildstep::
@@ -205,12 +237,53 @@ def test_f2lfs_buildstep_should_not_append_steps_partially(app, warning):
     restructuredtext.parse(app, text)
     domain = app.env.get_domain('f2lfs')
     assert domain.packages['foo'][1].build_steps == []
-    assert 'WARNING: command continuation must come after command' in warning.getvalue()
+    assert 'WARNING: command continuation must come after command' \
+        in warning.getvalue()
 
-def test_f2lfs_buildstep_doctree(app):
+def test_buildstep_should_check_it_comes_after_package_definition(app, warning):
     text = textwrap.dedent('''\
-    paragraph to supress warning
+    .. f2lfs:buildstep::
 
+        $ foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: buildstep directive must come after corresponding package directive' \
+        in warning.getvalue()
+
+
+def test_buildstep_should_check_command_continuation_comes_after_command(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:buildstep::
+
+       > foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: command continuation must come after command' \
+        in warning.getvalue()
+
+def test_buildstep_should_check_expected_output_comes_after_command(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:buildstep::
+
+       foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: expected output must come after corresponding command' \
+        in warning.getvalue()
+
+def test_buildstep_should_check_content_exists(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:buildstep::
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: Content block expected for the "f2lfs:buildstep" directive; none found.' \
+        in warning.getvalue()
+
+def test_buildstep_doctree(app):
+    text = textwrap.dedent('''\
     .. f2lfs:package:: foo
     .. f2lfs:buildstep::
 
@@ -221,9 +294,209 @@ def test_f2lfs_buildstep_doctree(app):
     assert_node(codeblocks[0], [nodes.literal_block, '$ foo'])
     assert_node(codeblocks[0], language='console')
 
-def test_f2lfs_package_doctree(app):
+def test_package_should_check_number_of_arguments_less(app, warning):
+    restructuredtext.parse(app, '.. f2lfs:package::')
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        1 argument(s) required, 0 supplied.''') in warning.getvalue()
+
+def test_package_should_check_number_of_arguments_more(app, warning):
+    restructuredtext.parse(app, '.. f2lfs:package:: bar 0.0.0 qux')
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        maximum 2 argument(s) allowed, 3 supplied.''') in warning.getvalue()
+
+def test_package_should_check_package_name_validity_1(app, warning):
+    restructuredtext.parse(app, '.. f2lfs:package:: OR')
+    assert 'WARNING: invalid package name' in warning.getvalue()
+
+def test_package_should_check_package_name_validity_2(app, warning):
+    restructuredtext.parse(app, r'''.. f2lfs:package:: "!^@'&%$#`"''')
+    assert 'WARNING: invalid package name' in warning.getvalue()
+
+def test_package_should_handle_invalid_yaml_in_deps(app, warning):
     text = textwrap.dedent('''\
-    paragraph to supress warning
+    .. f2lfs:package:: bar
+       :deps: {
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "deps"; value: '{')
+        malformed YAML:
+        ''') in warning.getvalue()
+
+def test_package_should_check_deps_type(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :deps: {}
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "deps"; value: '{}')
+        this option must be YAML list.
+        ''') in warning.getvalue()
+
+def test_package_should_check_deps_item_type(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :deps: - {}
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "deps"; value: '- {}')
+        dependency name must be string.
+        ''') in warning.getvalue()
+
+def test_package_should_check_deps_name_validity_1(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :deps: - OR
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "deps"; value: '- OR')
+        invalid dependency name.
+        ''') in warning.getvalue()
+
+def test_package_should_check_deps_name_validity_2(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :deps: - "@^'&"
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "deps"; value: '- "@^\\'&"')
+        invalid dependency name.
+        ''') in warning.getvalue()
+
+def test_package_should_check_deps_or_condition_delimiter(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :deps: - A B
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "deps"; value: '- A B')
+        OR condition must be delimited with 'OR'.
+        ''') in warning.getvalue()
+
+def test_package_should_also_check_build_deps(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :build-deps: {
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "build-deps"; value: '{')
+        malformed YAML:
+        ''') in warning.getvalue()
+
+def test_package_should_handle_invalid_yaml_in_sources(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources: {
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "sources"; value: '{')
+        malformed YAML:
+        ''') in warning.getvalue()
+
+def test_package_should_check_sources_type(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources: {}
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "sources"; value: '{}')
+        this option must be YAML list.
+        ''') in warning.getvalue()
+
+def test_package_should_check_sources_item_type(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources: - a
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "sources"; value: '- a')
+        source entry must be a hash.
+        ''') in warning.getvalue()
+
+def test_package_should_check_source_has_only_one_url(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - http: a
+          git: a
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "sources"; value: '- http: a\\n  git: a')
+        only one source url can be specified per entry.
+        ''') in warning.getvalue()
+
+def test_package_should_check_source_has_one_url(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources: - {}
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "sources"; value: '- {}')
+        source url must be specified.
+        ''') in warning.getvalue()
+
+def test_package_should_not_accept_branch_opt_in_http_source(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - http: a
+          branch: a
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "sources"; value: '- http: a\\n  branch: a')
+        unexpected key 'branch'.
+        ''') in warning.getvalue()
+
+def test_package_should_not_accept_sha256sum_opt_in_git_source(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - git: a
+          sha256sum: a
+    ''')
+    restructuredtext.parse(app, text)
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:package" directive:
+        invalid option value: (option: "sources"; value: '- git: a\\n  sha256sum: a')
+        unexpected key 'sha256sum'.
+        ''') in warning.getvalue()
+
+def test_package_should_not_allow_duplicate_declaration(app, warning):
+    restructuredtext.parse(app, '.. f2lfs:package:: baz', 'foo')
+    restructuredtext.parse(app, '.. f2lfs:package:: baz', 'bar')
+    assert "WARNING: duplicate package declaration of 'baz', also defined in 'foo'" \
+        in warning.getvalue()
+
+def test_package_doctree(app):
+    text = textwrap.dedent('''\
+    paragraph to prevent field list disappear
 
     .. f2lfs:package:: pkg1 1.0.0
     .. f2lfs:package:: pkg2 1.0.0
@@ -321,58 +594,3 @@ def test_f2lfs_package_doctree(app):
     assert_node(doctree[15][2][1][0][1][0][0][0], refuri='src2')
     assert_node(doctree[15][2][1][0][2][0][0][0], refuri='src3')
     assert_node(doctree[15][2][1][0][3][0][0][0], refuri='src4')
-
-def test_f2lfs_package_ref(app):
-    text = textwrap.dedent('''\
-    paragraph to supress warning
-
-    .. f2lfs:package:: pkg1 1.0.0
-    :f2lfs:pkg:`pkg1`
-    ''')
-
-    doctree = restructuredtext.parse(app, text)
-    app.env.resolve_references(doctree, 'index', app.builder)
-    refnodes = list(doctree.traverse(nodes.reference))
-    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
-    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
-                             internal=True)
-
-def test_f2lfs_package_any_ref(app):
-    text = textwrap.dedent('''\
-    paragraph to supress warning
-
-    .. f2lfs:package:: pkg1 1.0.0
-
-    :any:`pkg1`
-    ''')
-
-    doctree = restructuredtext.parse(app, text)
-    app.env.resolve_references(doctree, 'index', app.builder)
-    refnodes = list(doctree.traverse(nodes.reference))
-    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
-    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
-                             internal=True)
-
-def test_f2lfs_domain_get_full_qualified_name():
-    env = Mock(domaindata={})
-    domain = F2LFSDomain(env)
-
-    # normal references
-    node = nodes.reference()
-    assert domain.get_full_qualified_name(node) is None
-
-    # simple reference to packages
-    node = nodes.reference(reftarget='pkgname')
-    assert domain.get_full_qualified_name(node) == 'pkgname'
-
-def test_f2lfs_domain_get_objects(app):
-    text = textwrap.dedent('''\
-    paragraph to supress warning
-
-    .. f2lfs:package:: pkg1 1.0.0
-    ''')
-
-    doctree = restructuredtext.parse(app, text)
-    assert list(app.env.get_domain('f2lfs').get_objects()) == [
-        ('pkg1', 'pkg1', 'package', 'index', 'package-pkg1', 1)
-    ]
