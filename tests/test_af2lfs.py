@@ -217,9 +217,9 @@ def test_f2lfs_buildstep_doctree(app):
        $ foo
     ''')
     doctree = restructuredtext.parse(app, text)
-    assert_node(doctree[4],
-                [nodes.literal_block, '$ foo'])
-    assert_node(doctree[4], language='console')
+    codeblocks = list(doctree.traverse(nodes.literal_block))
+    assert_node(codeblocks[0], [nodes.literal_block, '$ foo'])
+    assert_node(codeblocks[0], language='console')
 
 def test_f2lfs_package_doctree(app):
     text = textwrap.dedent('''\
@@ -331,8 +331,9 @@ def test_f2lfs_package_ref(app):
     ''')
 
     doctree = restructuredtext.parse(app, text)
-    assert_node(doctree[4][0], [addnodes.pending_xref, nodes.literal, 'pkg1'])
-    assert_node(doctree[4][0],
+    refnodes = list(doctree.traverse(addnodes.pending_xref))
+    assert_node(refnodes[0], [addnodes.pending_xref, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0],
                 refdoc='index', refdomain='f2lfs', reftarget='pkg1', reftype='pkg')
 
 def test_f2lfs_domain_get_full_qualified_name():
