@@ -335,3 +335,15 @@ def test_f2lfs_package_ref(app):
     assert_node(doctree[4][0],
                 refdoc='index', refdomain='f2lfs', refexplicit=False,
                 reftarget='pkg1', reftype='pkg', refwarn=False)
+
+def test_f2lfs_domain_get_full_qualified_name():
+    env = Mock(domaindata={})
+    domain = F2LFSDomain(env)
+
+    # normal references
+    node = nodes.reference()
+    assert domain.get_full_qualified_name(node) is None
+
+    # simple reference to packages
+    node = nodes.reference(reftarget='pkgname')
+    assert domain.get_full_qualified_name(node) == 'pkgname'

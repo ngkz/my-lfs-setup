@@ -401,6 +401,9 @@ class F2LFSDomain(Domain):
         return make_refnode(builder, fromdocname, todocname, targetid, contnode,
                             package.name + ' (package)')
 
+    def get_full_qualified_name(self, node):
+        return node.get('reftarget')
+
 def setup(app):
     app.add_domain(F2LFSDomain)
 
