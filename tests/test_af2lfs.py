@@ -364,3 +364,15 @@ def test_f2lfs_domain_get_full_qualified_name():
     # simple reference to packages
     node = nodes.reference(reftarget='pkgname')
     assert domain.get_full_qualified_name(node) == 'pkgname'
+
+def test_f2lfs_domain_get_objects(app):
+    text = textwrap.dedent('''\
+    paragraph to supress warning
+
+    .. f2lfs:package:: pkg1 1.0.0
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    assert list(app.env.get_domain('f2lfs').get_objects()) == [
+        ('pkg1', 'pkg1', 'package', 'index', 'package-pkg1', 1)
+    ]

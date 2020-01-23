@@ -1,7 +1,7 @@
 from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.directives import SphinxDirective
-from sphinx.domains import Domain
+from sphinx.domains import Domain, ObjType
 from sphinx.roles import XRefRole
 from sphinx.util import logging
 from sphinx.util.nodes import make_refnode
@@ -351,6 +351,9 @@ class BuildStepDirective(SphinxDirective):
 class F2LFSDomain(Domain):
     name = 'f2lfs'
     label = 'F2LFS'
+    object_types = {
+        'package': ObjType('Package', 'pkg')
+    }
     roles = {
         'pkg': XRefRole()
     }
@@ -411,6 +414,10 @@ class F2LFSDomain(Domain):
 
     def get_full_qualified_name(self, node):
         return node.get('reftarget')
+
+    def get_objects(self):
+        for docname, package in self.packages.values():
+            yield (package.name, package.name, 'package', docname, package.id, 1)
 
 def setup(app):
     app.add_domain(F2LFSDomain)
