@@ -467,7 +467,7 @@ def test_package_should_check_source_has_one_url(app, warning):
         source url must be specified.
         ''') in warning.getvalue()
 
-def test_package_should_not_accept_branch_opt_in_http_source(app, warning):
+def test_package_should_not_accept_git_opt_in_http_source(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: bar
        :sources:
@@ -481,7 +481,7 @@ def test_package_should_not_accept_branch_opt_in_http_source(app, warning):
         unexpected key 'branch'.
         ''') in warning.getvalue()
 
-def test_package_should_not_accept_sha256sum_opt_in_git_source(app, warning):
+def test_package_should_not_accept_http_opt_in_git_source(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: bar
        :sources:
