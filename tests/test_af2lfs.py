@@ -331,10 +331,11 @@ def test_f2lfs_package_ref(app):
     ''')
 
     doctree = restructuredtext.parse(app, text)
-    refnodes = list(doctree.traverse(addnodes.pending_xref))
-    assert_node(refnodes[0], [addnodes.pending_xref, nodes.literal, 'pkg1'])
-    assert_node(refnodes[0],
-                refdoc='index', refdomain='f2lfs', reftarget='pkg1', reftype='pkg')
+    app.env.resolve_references(doctree, 'index', app.builder)
+    refnodes = list(doctree.traverse(nodes.reference))
+    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
+                             internal=True)
 
 def test_f2lfs_domain_get_full_qualified_name():
     env = Mock(domaindata={})
