@@ -46,16 +46,6 @@ def test_packages(app):
        foo block 2 command 2 expected output line 2
 
     .. f2lfs:package:: bar 31.3.37
-
-    .. f2lfs:buildstep::
-
-       $ bar
-
-    .. f2lfs:package:: baz
-
-    .. f2lfs:package:: qux
-
-    .. f2lfs:package:: quux
     ''')
 
     restructuredtext.parse(app, text)
@@ -130,26 +120,7 @@ foo block 2 command 2 expected output line 2'''
     assert bar.build_deps == []
     assert bar.sources == []
     assert not bar.bootstrap
-
-    assert len(bar.build_steps) == 1
-
-    step1 = bar.build_steps[0]
-    assert step1.command == 'bar'
-    assert step1.expected_output is None
-
-    assert 'baz' in packages
-    baz = packages['baz'][1]
-    assert baz.name == 'baz'
-    assert baz.version == '0.0.0'
-    assert baz.license is None
-    assert baz.deps == []
-    assert baz.build_deps == []
-    assert baz.sources == []
-    assert not baz.bootstrap
-    assert baz.build_steps == []
-
-    assert 'qux' in packages
-    assert 'quux' in packages
+    assert bar.build_steps == []
 
 def test_clear_doc():
     env = Mock(domaindata={}, docname='docname')
