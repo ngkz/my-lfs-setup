@@ -78,7 +78,7 @@ def dependency(value):
         raise ValueError('malformed YAML:\n' + str(e))
 
     if not isinstance(deps, list):
-        raise ValueError('this option must be YAML list')
+        raise ValueError('this option must be a list')
 
     parsed = []
     for dep in deps:
@@ -108,7 +108,7 @@ def sources(value):
         raise ValueError('malformed YAML:\n' + str(e))
 
     if not isinstance(sources, list):
-        raise ValueError('this option must be YAML list')
+        raise ValueError('this option must be a list')
 
     result = []
 

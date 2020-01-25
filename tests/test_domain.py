@@ -339,11 +339,7 @@ def test_package_should_check_deps_type(app, warning):
        :deps: {}
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "deps"; value: '{}')
-        this option must be YAML list.
-        ''') in warning.getvalue()
+    assert 'this option must be a list.' in warning.getvalue()
 
 def test_package_should_check_deps_item_type(app, warning):
     text = textwrap.dedent('''\
@@ -423,11 +419,7 @@ def test_package_should_check_sources_type(app, warning):
        :sources: {}
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "sources"; value: '{}')
-        this option must be YAML list.
-        ''') in warning.getvalue()
+    assert 'this option must be a list.' in warning.getvalue()
 
 def test_package_should_check_sources_item_type(app, warning):
     text = textwrap.dedent('''\
