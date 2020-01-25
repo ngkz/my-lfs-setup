@@ -327,11 +327,7 @@ def test_package_should_handle_invalid_yaml_in_deps(app, warning):
        :deps: {
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "deps"; value: '{')
-        malformed YAML:
-        ''') in warning.getvalue()
+    assert 'malformed YAML:' in warning.getvalue()
 
 def test_package_should_check_deps_type(app, warning):
     text = textwrap.dedent('''\
@@ -347,11 +343,7 @@ def test_package_should_check_deps_item_type(app, warning):
        :deps: - {}
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "deps"; value: '- {}')
-        dependency name must be string.
-        ''') in warning.getvalue()
+    assert 'dependency name must be string.' in warning.getvalue()
 
 def test_package_should_check_deps_name_validity_1(app, warning):
     text = textwrap.dedent('''\
@@ -359,11 +351,7 @@ def test_package_should_check_deps_name_validity_1(app, warning):
        :deps: - OR
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "deps"; value: '- OR')
-        invalid dependency name.
-        ''') in warning.getvalue()
+    assert 'invalid dependency name.'in warning.getvalue()
 
 def test_package_should_check_deps_name_validity_2(app, warning):
     text = textwrap.dedent('''\
@@ -371,11 +359,7 @@ def test_package_should_check_deps_name_validity_2(app, warning):
        :deps: - "@^'&"
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "deps"; value: '- "@^\\'&"')
-        invalid dependency name.
-        ''') in warning.getvalue()
+    assert 'invalid dependency name.' in warning.getvalue()
 
 def test_package_should_check_deps_or_condition_delimiter(app, warning):
     text = textwrap.dedent('''\
@@ -383,11 +367,7 @@ def test_package_should_check_deps_or_condition_delimiter(app, warning):
        :deps: - A B
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "deps"; value: '- A B')
-        OR condition must be delimited with 'OR'.
-        ''') in warning.getvalue()
+    assert "OR condition must be delimited with 'OR'." in warning.getvalue()
 
 def test_package_should_also_check_build_deps(app, warning):
     text = textwrap.dedent('''\
@@ -395,11 +375,7 @@ def test_package_should_also_check_build_deps(app, warning):
        :build-deps: {
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "build-deps"; value: '{')
-        malformed YAML:
-        ''') in warning.getvalue()
+    assert 'malformed YAML:' in warning.getvalue()
 
 def test_package_should_handle_invalid_yaml_in_sources(app, warning):
     text = textwrap.dedent('''\
@@ -407,11 +383,7 @@ def test_package_should_handle_invalid_yaml_in_sources(app, warning):
        :sources: {
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "sources"; value: '{')
-        malformed YAML:
-        ''') in warning.getvalue()
+    assert 'malformed YAML:' in warning.getvalue()
 
 def test_package_should_check_sources_type(app, warning):
     text = textwrap.dedent('''\
@@ -427,11 +399,7 @@ def test_package_should_check_sources_item_type(app, warning):
        :sources: - a
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "sources"; value: '- a')
-        source entry must be a hash.
-        ''') in warning.getvalue()
+    assert 'source entry must be a hash.' in warning.getvalue()
 
 def test_package_should_check_source_has_only_one_url(app, warning):
     text = textwrap.dedent('''\
@@ -441,11 +409,7 @@ def test_package_should_check_source_has_only_one_url(app, warning):
           git: a
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "sources"; value: '- http: a\\n  git: a')
-        only one source url can be specified per entry.
-        ''') in warning.getvalue()
+    assert 'only one source url can be specified per entry.' in warning.getvalue()
 
 def test_package_should_check_source_has_one_url(app, warning):
     text = textwrap.dedent('''\
@@ -453,11 +417,7 @@ def test_package_should_check_source_has_one_url(app, warning):
        :sources: - {}
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "sources"; value: '- {}')
-        source url must be specified.
-        ''') in warning.getvalue()
+    assert 'source url must be specified.' in warning.getvalue()
 
 def test_package_should_not_accept_git_opt_in_http_source(app, warning):
     text = textwrap.dedent('''\
