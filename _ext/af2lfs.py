@@ -101,6 +101,39 @@ def dependency(value):
 
     return parsed
 
+SOURCE_SPEC = {
+    'http': {
+        'options': {
+            'sha256sum': {},
+            'gpgsig': {
+                'requires': ('gpgkey',)
+            },
+            'gpgkey': {
+                'requires': ('gpgsig',)
+            }
+        },
+        'requires_at_least_one': ('sha256sum', 'gpgsig')
+    },
+    'git': {
+        'options': {
+            'tag': {
+                'conflicts_with': ('commit', 'branch')
+            },
+            'commit': {
+                'conflicts_with': ('tag',),
+            },
+            'branch': {
+                'conflicts_with': ('tag',),
+                'requires': ('commit',)
+            },
+            'sha256sum': {
+                'required': True,
+            }
+        },
+        'requires_at_least_one': ('tag', 'commit', 'branch')
+    }
+}
+
 def sources(value):
     try:
         sources = yaml.safe_load(value)
@@ -112,44 +145,60 @@ def sources(value):
 
     result = []
 
-    for source_in in sources:
-        if not isinstance(source_in, dict):
+    for source in sources:
+        if not isinstance(source, dict):
             raise ValueError('source entry must be a hash')
 
-        source_out = dict(source_in)
+        #transform {'TYPE': 'URL'} into {'type': 'TYPE', 'url': 'URL'}
+        for reserved_key in ('type', 'url'):
+            if reserved_key in source:
+                raise ValueError("invalid option '{}'".format(reserved_key))
 
-        _type = None
-        url = None
+        url_seen = False
 
-        for key, value in source_in.items():
-            if not key in ('http', 'git'):
-                continue
+        for key, value in list(source.items()):
+            if key in SOURCE_SPEC:
+                if url_seen:
+                    raise ValueError('only one source url can be specified per entry')
+                source['type'] = key
+                source['url'] = value
+                del source[key]
+                url_seen = True
 
-            if not _type is None:
-                raise ValueError('only one source url can be specified per entry')
-            del source_out[key]
-            _type = key
-            url = value
-
-        if _type is None:
+        if not url_seen:
             raise ValueError('source url must be specified')
 
-        branch_or_commit_seen = False
+        #check options
+        opt_specs = SOURCE_SPEC[source['type']]
+        for opt_name, opt_value in source.items():
+            if opt_name in ('type', 'url'):
+                continue
 
-        for key, value in source_out.items():
-            if _type == 'http':
-                if not key in ('gpgsig', 'gpgkey', 'sha256sum'):
-                    raise ValueError("unexpected key '{}'".format(key))
-            elif _type == 'git':
-                if not key in ('branch', 'commit'):
-                    raise ValueError("unexpected key '{}'".format(key))
-                if branch_or_commit_seen:
-                    raise ValueError("only one of 'branch' or 'commit' can be specified")
-                branch_or_commit_seen = True
+            opt_spec = opt_specs['options'].get(opt_name)
+            if opt_spec is None:
+                raise ValueError("invalid option '{}'".format(opt_name))
 
-        source_out['type'] = _type
-        source_out['url'] = url
-        result.append(source_out)
+            conflicts_with = opt_spec.get('conflicts_with', [])
+            for conflict_opt_name in conflicts_with:
+                if conflict_opt_name in source:
+                    raise ValueError("option '{}' conflicts with '{}'".format(opt_name, conflict_opt_name))
+
+            requires = opt_spec.get('requires', [])
+            for required_opt_name in requires:
+                if not required_opt_name in source:
+                    raise ValueError("option '{}' requires '{}'".format(opt_name, required_opt_name))
+
+        for opt_name, opt_spec in opt_specs['options'].items():
+            if opt_spec.get('required', False) and not opt_name in source:
+                raise ValueError("option '{}' is required".format(opt_name))
+
+        requires_at_least_one = opt_specs.get('requires_at_least_one', [])
+        if len(requires_at_least_one) > 0 and \
+                not any(map(lambda x: x in source, requires_at_least_one)):
+            raise ValueError('at least one of {} is required' \
+                .format(', '.join(map(lambda x: "'{}'".format(x), requires_at_least_one))))
+
+        result.append(source)
 
     return result
 
@@ -250,52 +299,24 @@ class PackageDirective(SphinxDirective):
 
             for source in package.sources:
                 source_item = nodes.list_item()
-                source_line_block = nodes.line_block()
 
-                url_line = nodes.line()
-                url_line += nodes.reference(source['url'], source['url'],
+                url_paragraph = nodes.paragraph()
+                url_paragraph += nodes.reference(source['url'], source['url'],
                                                  refuri=source['url'])
 
                 branch = source.get('branch')
                 if not branch is None:
-                    url_line += text(' (branch ')
-                    url_line += nodes.literal(branch, branch)
-                    url_line += text(')')
+                    url_paragraph += text(' (branch ')
+                    url_paragraph += nodes.literal(branch, branch)
+                    url_paragraph += text(')')
 
-                commit = source.get('commit')
-                if not commit is None:
-                    url_line += text(' (commit ')
-                    url_line += nodes.literal(commit, commit)
-                    url_line += text(')')
+                tag = source.get('tag')
+                if not tag is None:
+                    url_paragraph += text(' (tag ')
+                    url_paragraph += nodes.literal(tag, tag)
+                    url_paragraph += text(')')
 
-                gpgsig = source.get('gpgsig')
-                if not gpgsig is None:
-                    url_line += text(' (')
-                    url_line += nodes.reference('sig', 'sig', refuri=gpgsig)
-                    url_line += text(')')
-
-                gpgkey = source.get('gpgkey')
-                if not gpgkey is None:
-                    url_line += text(' (')
-                    url_line += addnodes.download_reference(
-                        'key', 'key',
-                        reftarget=os.path.relpath(
-                            os.path.join(self.env.srcdir, 'keyrings', gpgkey),
-                            os.path.join(self.env.doc2path(self.env.docname), '..')
-                        )
-                    )
-                    url_line += text(')')
-
-                source_line_block += url_line
-
-                sha256sum = source.get('sha256sum')
-                if not sha256sum is None:
-                    sum_line = nodes.line()
-                    sum_line += text('SHA256: ')
-                    sum_line += nodes.literal(sha256sum, sha256sum, classes=['hash'])
-                    source_line_block += sum_line
-
-                source_item += source_line_block
+                source_item += url_paragraph
                 sources_blist += source_item
 
             field_list += sources_field

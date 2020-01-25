@@ -21,9 +21,15 @@ def test_packages(app):
                  - http: http://example.com/src2.patch
                    sha256sum: DEADBEEFDEADBEEFDEADBEEFDEADBEEF
                  - git: git://example.com/src3.git
-                   branch: branch_or_tag
-                 - git: https://example.com/src4.git
+                   tag: src3-tag
+                   sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
+                 - git: git://example.com/src4.git
+                   branch: src4-branch
                    commit: deadbeef
+                   sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
+                 - git: https://example.com/src5.git
+                   commit: feedbabe
+                   sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
        :bootstrap:
 
     .. f2lfs:buildstep::
@@ -80,12 +86,21 @@ def test_packages(app):
         {
             'type': 'git',
             'url': 'git://example.com/src3.git',
-            'branch': 'branch_or_tag'
+            'tag': 'src3-tag',
+            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
         },
         {
             'type': 'git',
-            'url': 'https://example.com/src4.git',
-            'commit': 'deadbeef'
+            'url': 'git://example.com/src4.git',
+            'branch': 'src4-branch',
+            'commit': 'deadbeef',
+            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
+        },
+        {
+            'type': 'git',
+            'url': 'https://example.com/src5.git',
+            'commit': 'feedbabe',
+            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
         }
     ]
     assert foo.bootstrap
@@ -401,6 +416,24 @@ def test_package_should_check_sources_item_type(app, warning):
     restructuredtext.parse(app, text)
     assert 'source entry must be a hash.' in warning.getvalue()
 
+def test_package_should_check_reserved_source_option_name_1(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - type: a
+    ''')
+    restructuredtext.parse(app, text)
+    assert "invalid option 'type'." in warning.getvalue()
+
+def test_package_should_check_reserved_source_option_name_2(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - url: a
+    ''')
+    restructuredtext.parse(app, text)
+    assert "invalid option 'url'." in warning.getvalue()
+
 def test_package_should_check_source_has_only_one_url(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: bar
@@ -419,33 +452,101 @@ def test_package_should_check_source_has_one_url(app, warning):
     restructuredtext.parse(app, text)
     assert 'source url must be specified.' in warning.getvalue()
 
-def test_package_should_not_accept_git_opt_in_http_source(app, warning):
+def test_package_should_not_accept_unknown_option(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: bar
        :sources:
         - http: a
-          branch: a
+          invalid_option: a
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "sources"; value: '- http: a\\n  branch: a')
-        unexpected key 'branch'.
-        ''') in warning.getvalue()
+    assert "invalid option 'invalid_option'." in warning.getvalue()
 
-def test_package_should_not_accept_http_opt_in_git_source(app, warning):
+def test_package_should_not_accept_http_source_gpgsig_without_gpgkey(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - http: a
+          gpgsig: b
+    ''')
+    restructuredtext.parse(app, text)
+    assert "option 'gpgsig' requires 'gpgkey'." in warning.getvalue()
+
+def test_package_should_not_accept_http_source_gpgkey_without_gpgsig(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - http: a
+          gpgkey: b
+    ''')
+    restructuredtext.parse(app, text)
+    assert "option 'gpgkey' requires 'gpgsig'." in warning.getvalue()
+
+def test_package_should_not_accept_http_source_lacks_checksum_and_signature(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - http: a
+    ''')
+    restructuredtext.parse(app, text)
+    assert "at least one of 'sha256sum', 'gpgsig' is required." in warning.getvalue()
+
+def test_package_should_not_accept_git_source_has_both_of_tag_and_commit(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: bar
        :sources:
         - git: a
-          sha256sum: a
+          commit: commit
+          tag: tag
+          sha256sum: sum
     ''')
     restructuredtext.parse(app, text)
-    assert textwrap.dedent('''\
-        WARNING: Error in "f2lfs:package" directive:
-        invalid option value: (option: "sources"; value: '- git: a\\n  sha256sum: a')
-        unexpected key 'sha256sum'.
-        ''') in warning.getvalue()
+    assert "option 'tag' conflicts with 'commit'." in warning.getvalue() or \
+           "option 'commit' conflicts with 'tag'." in warning.getvalue()
+
+def test_package_should_not_accept_git_source_has_both_of_tag_and_branch(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - git: a
+          tag: tag
+          branch: branch
+          sha256sum: sum
+    ''')
+    restructuredtext.parse(app, text)
+    assert "option 'tag' conflicts with 'branch'." in warning.getvalue() or \
+           "option 'branch' conflicts with 'tag'." in warning.getvalue()
+
+def test_package_should_not_accept_git_source_has_branch_without_commit(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - git: a
+          branch: branch
+          sha256sum: sum
+    ''')
+    restructuredtext.parse(app, text)
+    assert "option 'branch' requires 'commit'." in warning.getvalue()
+
+def test_package_should_not_accept_git_source_without_sha256(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - git: a
+          tag: tag
+    ''')
+    restructuredtext.parse(app, text)
+    assert "option 'sha256sum' is required." in warning.getvalue()
+
+def test_package_should_not_accept_git_source_lacks_revision(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :sources:
+        - git: a
+          sha256sum: sum
+    ''')
+    restructuredtext.parse(app, text)
+    assert "at least one of 'tag', 'commit', 'branch' is required." in warning.getvalue()
 
 def test_package_should_not_allow_duplicate_declaration(app, warning):
     restructuredtext.parse(app, '.. f2lfs:package:: baz', 'foo')
@@ -468,14 +569,17 @@ def test_package_doctree(app):
                     - builddep2
     .. f2lfs:package:: pkg5 1.0.0
        :sources: - http: src1
-                   gpgsig: src1-sig
-                   gpgkey: src1-key
-                 - http: src2
+                   sha256sum: src1-sha256
+                 - git: src2
+                   commit: src2-commit
                    sha256sum: src2-sha256
                  - git: src3
                    branch: src3-branch
+                   commit: src3-commit
+                   sha256sum: src3-sha256
                  - git: src4
-                   commit: src4-commit
+                   tag: src4-tag
+                   sha256sum: src4-sha256
     ''')
 
     doctree = restructuredtext.parse(app, text)
@@ -529,27 +633,17 @@ def test_package_doctree(app):
                                     [nodes.field, ([nodes.field_name, 'Version'],
                                                    [nodes.field_body, '1.0.0'])],
                                     [nodes.field, ([nodes.field_name, 'Sources'],
-                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.line_block, nodes.line, ([nodes.reference, 'src1'],
-                                                                                                                                           ' (',
-                                                                                                                                           [nodes.reference, 'sig'],
-                                                                                                                                           ')',
-                                                                                                                                           ' (',
-                                                                                                                                           [addnodes.download_reference, 'key'],
-                                                                                                                                           ')')],
-                                                                                          [nodes.list_item, nodes.line_block, ([nodes.line, nodes.reference, 'src2'],
-                                                                                                                               [nodes.line, ('SHA256: ',
-                                                                                                                                             [nodes.literal, 'src2-sha256'])])],
-                                                                                          [nodes.list_item, nodes.line_block, nodes.line, ([nodes.reference, 'src3'],
-                                                                                                                                           ' (branch ',
-                                                                                                                                           [nodes.literal, 'src3-branch'],
-                                                                                                                                           ')')],
-                                                                                          [nodes.list_item, nodes.line_block, nodes.line, ([nodes.reference, 'src4'],
-                                                                                                                                           ' (commit ',
-                                                                                                                                           [nodes.literal, 'src4-commit'],
-                                                                                                                                           ')')])])])])
-    assert_node(doctree[15][2][1][0][0][0][0][0], refuri='src1')
-    assert_node(doctree[15][2][1][0][0][0][0][2], refuri='src1-sig')
-    assert_node(doctree[15][2][1][0][0][0][0][5], reftarget='keyrings/src1-key')
-    assert_node(doctree[15][2][1][0][1][0][0][0], refuri='src2')
-    assert_node(doctree[15][2][1][0][2][0][0][0], refuri='src3')
-    assert_node(doctree[15][2][1][0][3][0][0][0], refuri='src4')
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, nodes.reference, 'src1'],
+                                                                                          [nodes.list_item, nodes.paragraph, nodes.reference, 'src2'],
+                                                                                          [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src3'],
+                                                                                                                              ' (branch ',
+                                                                                                                              [nodes.literal, 'src3-branch'],
+                                                                                                                              ')')],
+                                                                                          [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src4'],
+                                                                                                                               ' (tag ',
+                                                                                                                               [nodes.literal, 'src4-tag'],
+                                                                                                                               ')')])])])])
+    assert_node(doctree[15][2][1][0][0][0][0], refuri='src1')
+    assert_node(doctree[15][2][1][0][1][0][0], refuri='src2')
+    assert_node(doctree[15][2][1][0][2][0][0], refuri='src3')
+    assert_node(doctree[15][2][1][0][3][0][0], refuri='src4')
