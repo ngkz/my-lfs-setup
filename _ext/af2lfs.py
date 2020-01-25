@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.directives import SphinxDirective

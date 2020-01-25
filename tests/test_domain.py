@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 from unittest import mock
 from unittest.mock import Mock
 import textwrap
