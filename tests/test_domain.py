@@ -7,7 +7,7 @@ from docutils import nodes
 from sphinx import addnodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
-from af2lfs import F2LFSDomain, Package
+from af2lfs.domain import F2LFSDomain, Package
 
 def test_packages(app):
     text = textwrap.dedent('''\
@@ -130,7 +130,7 @@ def test_clear_doc():
     domain.clear_doc('docname')
     assert not 'pkgname' in domain.packages
 
-@mock.patch('af2lfs.logger')
+@mock.patch('af2lfs.domain.logger')
 def test_merge_domaindata(logger):
     env = Mock(domaindata={
         'f2lfs': {

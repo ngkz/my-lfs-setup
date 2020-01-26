@@ -440,12 +440,3 @@ class F2LFSDomain(Domain):
     def get_objects(self):
         for docname, package in self.packages.values():
             yield (package.name, package.name, 'package', docname, package.id, 1)
-
-def setup(app):
-    app.add_domain(F2LFSDomain)
-
-    return {
-        'version': '0.1',
-        'parallel_read_safe': True,
-        'parallel_write_save': True
-    }
