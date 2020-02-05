@@ -87,7 +87,7 @@ html_theme = 'alabaster'
 html_theme_options = {
     'fixed_sidebar': True,
     'show_relbars': True,
-    'logo': 'logo.png',
+    'logo': 'logo.svg',
     'logo_name': True,
     'logo_text_align': 'center'
 }
