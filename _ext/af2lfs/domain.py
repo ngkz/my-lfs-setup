@@ -11,6 +11,7 @@ import yaml
 import re
 import os.path
 import itertools
+import collections
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,8 @@ class LookaheadIterator:
             raise StopIteration
 
         return self._lookahead
+
+Dependency = collections.namedtuple('Dependency', ['name'])
 
 class Package:
     def __init__(self, name, version, license, deps, build_deps, sources, bootstrap):
@@ -70,7 +73,7 @@ class BuildStep:
         return rep
 
 def validate_package_name(name):
-    return name != 'OR' and (not re.search('[^a-zA-Z0-9_-]', name))
+    return not re.search('[^a-zA-Z0-9_-]', name)
 
 def dependency(value):
     try:
@@ -81,26 +84,16 @@ def dependency(value):
     if not isinstance(deps, list):
         raise ValueError('this option must be a list')
 
-    parsed = []
-    for dep in deps:
+    def process_dep(dep):
         if not isinstance(dep, str):
             raise ValueError('dependency name must be string')
 
-        dep_or = []
-        for i, token in enumerate(dep.split()):
-            if i % 2 == 0:
-                if not validate_package_name(token):
-                    raise ValueError('invalid dependency name')
-                dep_or.append(token)
-            else:
-                if token != 'OR':
-                    raise ValueError("OR condition must be delimited with 'OR'")
-        if len(dep_or) == 1:
-            parsed.append(dep_or[0])
-        else:
-            parsed.append(tuple(dep_or))
+        if not validate_package_name(dep):
+            raise ValueError('invalid dependency name')
 
-    return parsed
+        return Dependency(dep)
+
+    return [process_dep(dep) for dep in deps]
 
 SOURCE_SPEC = {
     'http': {
@@ -280,12 +273,9 @@ class PackageDirective(SphinxDirective):
                 # builder fails with AssertionError
                 dep_item_paragraph = nodes.paragraph()
 
-                for i, operand in enumerate(dep if isinstance(dep, tuple) else [dep]):
-                    if i > 0:
-                        dep_item_paragraph += text(' or ')
-                    ref_nodes, messages = self.create_package_ref(operand)
-                    dep_item_paragraph += ref_nodes
-                    node_list.extend(messages)
+                ref_nodes, messages = self.create_package_ref(dep.name)
+                dep_item_paragraph += ref_nodes
+                node_list.extend(messages)
 
                 if build_time:
                     dep_item_paragraph += text(' (build-time)')

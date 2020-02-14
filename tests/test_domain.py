@@ -7,13 +7,14 @@ from docutils import nodes
 from sphinx import addnodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
-from af2lfs.domain import F2LFSDomain, Package
+from af2lfs.domain import F2LFSDomain, Package, Dependency
 
 def test_packages(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo 1.3.37
        :license: WTFPL
-       :deps: - bar OR baz
+       :deps: - bar
+              - baz
               - qux
        :build-deps: - quux
        :sources: - http: http://example.com/src1.tar.xz
@@ -58,10 +59,11 @@ def test_packages(app):
     assert foo.version == '1.3.37'
     assert foo.license == 'WTFPL'
     assert foo.deps == [
-        ('bar', 'baz'),
-        'qux'
+        Dependency(name='bar'),
+        Dependency(name='baz'),
+        Dependency(name='qux')
     ]
-    assert foo.build_deps == ['quux']
+    assert foo.build_deps == [Dependency('quux')]
     assert foo.sources == [
         {
             'type': 'http',
@@ -300,11 +302,7 @@ def test_package_should_check_number_of_arguments_more(app, warning):
         WARNING: Error in "f2lfs:package" directive:
         maximum 2 argument(s) allowed, 3 supplied.''') in warning.getvalue()
 
-def test_package_should_check_package_name_validity_1(app, warning):
-    restructuredtext.parse(app, '.. f2lfs:package:: OR')
-    assert 'WARNING: invalid package name' in warning.getvalue()
-
-def test_package_should_check_package_name_validity_2(app, warning):
+def test_package_should_check_package_name_validity(app, warning):
     restructuredtext.parse(app, r'''.. f2lfs:package:: "!^@'&%$#`"''')
     assert 'WARNING: invalid package name' in warning.getvalue()
 
@@ -332,29 +330,13 @@ def test_package_should_check_deps_item_type(app, warning):
     restructuredtext.parse(app, text)
     assert 'dependency name must be string.' in warning.getvalue()
 
-def test_package_should_check_deps_name_validity_1(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :deps: - OR
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'invalid dependency name.'in warning.getvalue()
-
-def test_package_should_check_deps_name_validity_2(app, warning):
+def test_package_should_check_deps_name_validity(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: bar
        :deps: - "@^'&"
     ''')
     restructuredtext.parse(app, text)
     assert 'invalid dependency name.' in warning.getvalue()
-
-def test_package_should_check_deps_or_condition_delimiter(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :deps: - A B
-    ''')
-    restructuredtext.parse(app, text)
-    assert "OR condition must be delimited with 'OR'." in warning.getvalue()
 
 def test_package_should_also_check_build_deps(app, warning):
     text = textwrap.dedent('''\
@@ -534,10 +516,10 @@ def test_package_doctree(app):
     .. f2lfs:package:: pkg2 1.0.0
        :license: license
     .. f2lfs:package:: pkg3 1.0.0
-       :deps: - dep1-1 OR dep1-2
+       :deps: - dep1
               - dep2
     .. f2lfs:package:: pkg4 1.0.0
-       :build-deps: - builddep1-1 OR builddep1-2
+       :build-deps: - builddep1
                     - builddep2
     .. f2lfs:package:: pkg5 1.0.0
        :sources: - http: src1
@@ -579,9 +561,7 @@ def test_package_doctree(app):
                                     [nodes.field, ([nodes.field_name, 'Version'],
                                                    [nodes.field_body, '1.0.0'])],
                                     [nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep1-1'],
-                                                                                                                               ' or ',
-                                                                                                                               [addnodes.pending_xref, nodes.literal, 'dep1-2'])],
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep1']],
                                                                                           [nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep2']])])])])
     assert_node(doctree[10], nodes.target, ids=['package-pkg4'], ismod=True)
     assert_node(doctree[11], addnodes.index, entries=[('single', 'pkg4 (package)', 'package-pkg4', '', None)])
@@ -591,12 +571,10 @@ def test_package_doctree(app):
                                     [nodes.field, ([nodes.field_name, 'Version'],
                                                    [nodes.field_body, '1.0.0'])],
                                     [nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep1-1'],
-                                                                                                                               ' or ',
-                                                                                                                               [addnodes.pending_xref, nodes.literal, 'builddep1-2'],
-                                                                                                                               ' (build-time)')],
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep1'],
+                                                                                                                              ' (build-time)')],
                                                                                           [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
-                                                                                                                               ' (build-time)')])])])])
+                                                                                                                              ' (build-time)')])])])])
     assert_node(doctree[13], nodes.target, ids=['package-pkg5'], ismod=True)
     assert_node(doctree[14], addnodes.index, entries=[('single', 'pkg5 (package)', 'package-pkg5', '', None)])
     assert_node(doctree[15],
