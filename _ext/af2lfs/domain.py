@@ -41,7 +41,7 @@ class LookaheadIterator:
 
         return self._lookahead
 
-Dependency = collections.namedtuple('Dependency', ['name'])
+Dependency = collections.namedtuple('Dependency', ['name', 'when_bootstrap'], defaults=[None])
 
 class Package:
     def __init__(self, name, version, license, deps, build_deps, sources, bootstrap):
@@ -85,13 +85,27 @@ def dependency(value):
         raise ValueError('this option must be a list')
 
     def process_dep(dep):
-        if not isinstance(dep, str):
-            raise ValueError('dependency name must be string')
+        when_bootstrap = None
 
-        if not validate_package_name(dep):
+        if isinstance(dep, str):
+            dep_name = dep
+        elif isinstance(dep, dict):
+            for key in dep.keys():
+                if not key in ("name", "when-bootstrap"):
+                    raise ValueError("invalid dependency key '{}'".format(key))
+
+            dep_name = dep.get('name')
+            if dep_name is None:
+                raise ValueError('dependency name must be specified')
+
+            when_bootstrap = dep.get('when-bootstrap')
+        else:
+            raise ValueError('dependency entry must be string or hash')
+
+        if not validate_package_name(dep_name):
             raise ValueError('invalid dependency name')
 
-        return Dependency(dep)
+        return Dependency(dep_name, when_bootstrap)
 
     return [process_dep(dep) for dep in deps]
 
@@ -277,8 +291,19 @@ class PackageDirective(SphinxDirective):
                 dep_item_paragraph += ref_nodes
                 node_list.extend(messages)
 
+                desc = []
+
                 if build_time:
-                    dep_item_paragraph += text(' (build-time)')
+                    desc.append('build-time')
+
+                if not dep.when_bootstrap is None:
+                    if dep.when_bootstrap:
+                        desc.append("when bootstrapping")
+                    else:
+                        desc.append("unless bootstrapping")
+
+                if desc:
+                    dep_item_paragraph += text(' (' + ', '.join(desc) + ')')
 
                 dep_item += dep_item_paragraph
                 deps_blist += dep_item

@@ -14,8 +14,10 @@ def test_packages(app):
     .. f2lfs:package:: foo 1.3.37
        :license: WTFPL
        :deps: - bar
-              - baz
-              - qux
+              - name: baz
+                when-bootstrap: yes
+              - name: qux
+                when-bootstrap: no
        :build-deps: - quux
        :sources: - http: http://example.com/src1.tar.xz
                    gpgsig: http://example.com/src1.tar.xz.sig
@@ -59,9 +61,9 @@ def test_packages(app):
     assert foo.version == '1.3.37'
     assert foo.license == 'WTFPL'
     assert foo.deps == [
-        Dependency(name='bar'),
-        Dependency(name='baz'),
-        Dependency(name='qux')
+        Dependency(name='bar', when_bootstrap=None),
+        Dependency(name='baz', when_bootstrap=True),
+        Dependency(name='qux', when_bootstrap=False)
     ]
     assert foo.build_deps == [Dependency('quux')]
     assert foo.sources == [
@@ -325,10 +327,26 @@ def test_package_should_check_deps_type(app, warning):
 def test_package_should_check_deps_item_type(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: bar
-       :deps: - {}
+       :deps: - []
     ''')
     restructuredtext.parse(app, text)
-    assert 'dependency name must be string.' in warning.getvalue()
+    assert 'dependency entry must be string or hash.' in warning.getvalue()
+
+def test_package_should_check_deps_item_keys(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :deps: - a: b
+    ''')
+    restructuredtext.parse(app, text)
+    assert "invalid dependency key 'a'." in warning.getvalue()
+
+def test_package_should_check_deps_item_mandantory_key(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: bar
+       :deps: - when-bootstrap: no
+    ''')
+    restructuredtext.parse(app, text)
+    assert "dependency name must be specified." in warning.getvalue()
 
 def test_package_should_check_deps_name_validity(app, warning):
     text = textwrap.dedent('''\
@@ -517,10 +535,16 @@ def test_package_doctree(app):
        :license: license
     .. f2lfs:package:: pkg3 1.0.0
        :deps: - dep1
-              - dep2
+              - name: dep2
+                when-bootstrap: yes
+              - name: dep3
+                when-bootstrap: no
     .. f2lfs:package:: pkg4 1.0.0
        :build-deps: - builddep1
-                    - builddep2
+                    - name: builddep2
+                      when-bootstrap: yes
+                    - name: builddep3
+                      when-bootstrap: no
     .. f2lfs:package:: pkg5 1.0.0
        :sources: - http: src1
                    sha256sum: src1-sha256
@@ -562,7 +586,10 @@ def test_package_doctree(app):
                                                    [nodes.field_body, '1.0.0'])],
                                     [nodes.field, ([nodes.field_name, 'Dependencies'],
                                                    [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep1']],
-                                                                                          [nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep2']])])])])
+                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
+                                                                                                                              ' (when bootstrapping)')],
+                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep3'],
+                                                                                                                              ' (unless bootstrapping)')])])])])
     assert_node(doctree[10], nodes.target, ids=['package-pkg4'], ismod=True)
     assert_node(doctree[11], addnodes.index, entries=[('single', 'pkg4 (package)', 'package-pkg4', '', None)])
     assert_node(doctree[12],
@@ -574,7 +601,9 @@ def test_package_doctree(app):
                                                    [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep1'],
                                                                                                                               ' (build-time)')],
                                                                                           [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
-                                                                                                                              ' (build-time)')])])])])
+                                                                                                                              ' (build-time, when bootstrapping)')],
+                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
+                                                                                                                              ' (build-time, unless bootstrapping)')])])])])
     assert_node(doctree[13], nodes.target, ids=['package-pkg5'], ismod=True)
     assert_node(doctree[14], addnodes.index, entries=[('single', 'pkg5 (package)', 'package-pkg5', '', None)])
     assert_node(doctree[15],
