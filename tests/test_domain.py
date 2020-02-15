@@ -110,6 +110,12 @@ def test_package_defaults(app):
     assert foo.sources == []
     assert not foo.bootstrap
     assert foo.build_steps == []
+    assert foo.pre_install_steps == []
+    assert foo.post_install_steps == []
+    assert foo.pre_upgrade_steps == []
+    assert foo.post_upgrade_steps == []
+    assert foo.pre_remove_steps == []
+    assert foo.post_remove_steps == []
 
 def test_script_buildstep(app):
     text = textwrap.dedent('''\
@@ -153,6 +159,75 @@ def test_script_buildstep(app):
 foo block 2 command 2 line 2'''
     assert step3.expected_output == '''foo block 2 command 2 expected output line 1
 foo block 2 command 2 expected output line 2'''
+
+def test_script_hook(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo
+
+    .. f2lfs:pre-install::
+
+       $ pre-install command
+       pre-install output
+
+    .. f2lfs:post-install::
+
+       $ post-install command
+       post-install output
+
+    .. f2lfs:pre-upgrade::
+
+       $ pre-upgrade command
+       pre-upgrade output
+
+    .. f2lfs:post-upgrade::
+
+       $ post-upgrade command
+       post-upgrade output
+
+    .. f2lfs:pre-remove::
+
+       $ pre-remove command
+       pre-remove output
+
+    .. f2lfs:post-remove::
+
+       $ post-remove command
+       post-remove output
+    ''')
+
+    restructuredtext.parse(app, text)
+
+    foo = app.env.get_domain('f2lfs').packages['foo'][1]
+
+    assert len(foo.pre_install_steps) == 1
+    step = foo.pre_install_steps[0]
+    assert step.command == 'pre-install command'
+    assert step.expected_output == 'pre-install output'
+
+    assert len(foo.post_install_steps) == 1
+    step = foo.post_install_steps[0]
+    assert step.command == 'post-install command'
+    assert step.expected_output == 'post-install output'
+
+    assert len(foo.pre_upgrade_steps) == 1
+    step = foo.pre_upgrade_steps[0]
+    assert step.command == 'pre-upgrade command'
+    assert step.expected_output == 'pre-upgrade output'
+
+    assert len(foo.post_upgrade_steps) == 1
+    step = foo.post_upgrade_steps[0]
+    assert step.command == 'post-upgrade command'
+    assert step.expected_output == 'post-upgrade output'
+
+    assert len(foo.pre_remove_steps) == 1
+    step = foo.pre_remove_steps[0]
+    assert step.command == 'pre-remove command'
+    assert step.expected_output == 'pre-remove output'
+
+    assert len(foo.post_remove_steps) == 1
+    step = foo.post_remove_steps[0]
+    assert step.command == 'post-remove command'
+    assert step.expected_output == 'post-remove output'
 
 def test_clear_doc():
     env = Mock(domaindata={}, docname='docname')

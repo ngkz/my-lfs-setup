@@ -57,6 +57,12 @@ class Package:
         self.sources = sources
         self.bootstrap = bootstrap
         self.build_steps = []
+        self.pre_install_steps = []
+        self.post_install_steps = []
+        self.pre_upgrade_steps = []
+        self.post_upgrade_steps = []
+        self.pre_remove_steps = []
+        self.post_remove_steps = []
 
     def __repr__(self):
         return "<Package '{}'>".format(self.name)
@@ -403,6 +409,18 @@ class ScriptDirective(SphinxDirective):
 
         if name == 'buildstep':
             package.build_steps.extend(steps)
+        elif name == 'pre-install':
+            package.pre_install_steps.extend(steps)
+        elif name == 'post-install':
+            package.post_install_steps.extend(steps)
+        elif name == 'pre-upgrade':
+            package.pre_upgrade_steps.extend(steps)
+        elif name == 'post-upgrade':
+            package.post_upgrade_steps.extend(steps)
+        elif name == 'pre-remove':
+            package.pre_remove_steps.extend(steps)
+        elif name == 'post-remove':
+            package.post_remove_steps.extend(steps)
         else:
             raise RuntimeError("something went wrong")
 
@@ -422,7 +440,13 @@ class F2LFSDomain(Domain):
     }
     directives = {
         'package': PackageDirective,
-        'buildstep': ScriptDirective
+        'buildstep': ScriptDirective,
+        'pre-install': ScriptDirective,
+        'post-install': ScriptDirective,
+        'pre-upgrade': ScriptDirective,
+        'post-upgrade': ScriptDirective,
+        'pre-remove': ScriptDirective,
+        'post-remove': ScriptDirective,
     }
     initial_data = {
         'packages': {}
