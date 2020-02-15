@@ -147,7 +147,8 @@ SOURCE_SPEC = {
             }
         },
         'requires_at_least_one': ('tag', 'commit', 'branch')
-    }
+    },
+    'local': {},
 }
 
 def sources(value):
@@ -185,12 +186,14 @@ def sources(value):
             raise ValueError('source url must be specified')
 
         #check options
-        opt_specs = SOURCE_SPEC[source['type']]
+        source_spec = SOURCE_SPEC[source['type']]
+        source_spec_options = source_spec.get('options', {})
+
         for opt_name, opt_value in source.items():
             if opt_name in ('type', 'url'):
                 continue
 
-            opt_spec = opt_specs['options'].get(opt_name)
+            opt_spec = source_spec_options.get(opt_name)
             if opt_spec is None:
                 raise ValueError("invalid option '{}'".format(opt_name))
 
@@ -204,11 +207,11 @@ def sources(value):
                 if not required_opt_name in source:
                     raise ValueError("option '{}' requires '{}'".format(opt_name, required_opt_name))
 
-        for opt_name, opt_spec in opt_specs['options'].items():
+        for opt_name, opt_spec in source_spec_options.items():
             if opt_spec.get('required', False) and not opt_name in source:
                 raise ValueError("option '{}' is required".format(opt_name))
 
-        requires_at_least_one = opt_specs.get('requires_at_least_one', [])
+        requires_at_least_one = source_spec.get('requires_at_least_one', [])
         if len(requires_at_least_one) > 0 and \
                 not any(map(lambda x: x in source, requires_at_least_one)):
             raise ValueError('at least one of {} is required' \
@@ -258,13 +261,22 @@ class PackageDirective(SphinxDirective):
         if not validate_package_name(pkgname):
             raise self.error('invalid package name')
 
+        sources = self.options.get('sources', [])
+        for source in sources:
+            if source['type'] == 'local':
+                #resolve local file path
+                source['abs_url'] = os.path.join(
+                    os.path.dirname(self.env.doc2path(self.env.docname)),
+                    source['url']
+                )
+
         package = Package(
             pkgname,
             self.arguments[1] if len(self.arguments) >= 2 else '0.0.0', #package version
             self.options.get('license', None),
             self.options.get('deps', []),
             self.options.get('build-deps', []),
-            self.options.get('sources', []),
+            sources,
             'bootstrap' in self.options
         )
 

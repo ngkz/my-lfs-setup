@@ -36,6 +36,7 @@ def test_packages(app):
                  - git: https://example.com/src5.git
                    commit: feedbabe
                    sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
+                 - local: foobar
        :bootstrap:
 
     .. f2lfs:buildstep::
@@ -99,6 +100,11 @@ def test_packages(app):
             'url': 'https://example.com/src5.git',
             'commit': 'feedbabe',
             'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
+        },
+        {
+            'type': 'local',
+            'url': 'foobar',
+            'abs_url': app.srcdir / 'foobar'
         }
     ]
     assert foo.bootstrap
