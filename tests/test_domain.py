@@ -383,6 +383,7 @@ def test_package_doctree(app):
                  - git: src4
                    tag: src4-tag
                    sha256sum: src4-sha256
+                 - local: localfile
     ''')
 
     doctree = restructuredtext.parse(app, text)
@@ -446,7 +447,8 @@ def test_package_doctree(app):
                                                                                           [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src4'],
                                                                                                                                ' (tag ',
                                                                                                                                [nodes.literal, 'src4-tag'],
-                                                                                                                               ')')])])])])
+                                                                                                                               ')')],
+                                                                                          [nodes.list_item, nodes.paragraph, addnodes.download_reference, nodes.literal, 'localfile'])])])])
     assert_node(doctree[15][2][1][0][0][0][0], refuri='src1')
     assert_node(doctree[15][2][1][0][1][0][0], refuri='src2')
     assert_node(doctree[15][2][1][0][2][0][0], refuri='src3')

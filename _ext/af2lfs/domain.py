@@ -7,6 +7,7 @@ from sphinx.roles import XRefRole
 from sphinx.util import logging
 from sphinx.util.nodes import make_refnode
 from sphinx import addnodes
+from docutils.parsers.rst import roles
 import yaml
 import re
 import os.path
@@ -343,20 +344,33 @@ class PackageDirective(SphinxDirective):
                 source_item = nodes.list_item()
 
                 url_paragraph = nodes.paragraph()
-                url_paragraph += nodes.reference(source['url'], source['url'],
-                                                 refuri=source['url'])
+                if source['type'] != 'local':
+                    url_paragraph += nodes.reference(source['url'], source['url'],
+                                                     refuri=source['url'])
 
-                branch = source.get('branch')
-                if not branch is None:
-                    url_paragraph += text(' (branch ')
-                    url_paragraph += nodes.literal(branch, branch)
-                    url_paragraph += text(')')
+                    branch = source.get('branch')
+                    if not branch is None:
+                        url_paragraph += text(' (branch ')
+                        url_paragraph += nodes.literal(branch, branch)
+                        url_paragraph += text(')')
 
-                tag = source.get('tag')
-                if not tag is None:
-                    url_paragraph += text(' (tag ')
-                    url_paragraph += nodes.literal(tag, tag)
-                    url_paragraph += text(')')
+                    tag = source.get('tag')
+                    if not tag is None:
+                        url_paragraph += text(' (tag ')
+                        url_paragraph += nodes.literal(tag, tag)
+                        url_paragraph += text(')')
+                else:
+                    role_fn, messages = roles.role(
+                        'download', self.state_machine.language, self.lineno,
+                        self.state.reporter
+                    )
+                    node_list.extend(messages)
+
+                    ref_nodes, messages = role_fn('download', source['url'], source['url'],
+                                                  self.lineno, self.state.inliner)
+                    node_list.extend(messages)
+
+                    url_paragraph += ref_nodes
 
                 source_item += url_paragraph
                 sources_blist += source_item
