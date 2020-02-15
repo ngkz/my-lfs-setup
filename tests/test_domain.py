@@ -117,283 +117,6 @@ def test_package_defaults(app):
     assert foo.pre_remove_steps == []
     assert foo.post_remove_steps == []
 
-def test_script_buildstep(app):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: foo
-
-    .. f2lfs:buildstep::
-
-       $ foo block 1 command 1
-
-    .. f2lfs:buildstep::
-
-       $ foo block 2 command 1
-       foo block 2 command 1 expected output
-       # foo block 2 command 2 line 1 \\
-       > foo block 2 command 2 line 2
-       foo block 2 command 2 expected output line 1
-       foo block 2 command 2 expected output line 2
-    ''')
-
-    restructuredtext.parse(app, text)
-
-    packages = app.env.get_domain('f2lfs').packages
-
-    assert len(packages) == 1
-    assert 'foo' in packages
-
-    foo = packages['foo'][1]
-
-    assert len(foo.build_steps) == 3
-
-    step1 = foo.build_steps[0]
-    assert step1.command == 'foo block 1 command 1'
-    assert step1.expected_output is None
-
-    step2 = foo.build_steps[1]
-    assert step2.command == 'foo block 2 command 1'
-    assert step2.expected_output == 'foo block 2 command 1 expected output'
-
-    step3 = foo.build_steps[2]
-    assert step3.command == r'''foo block 2 command 2 line 1 \
-foo block 2 command 2 line 2'''
-    assert step3.expected_output == '''foo block 2 command 2 expected output line 1
-foo block 2 command 2 expected output line 2'''
-
-def test_script_hook(app):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: foo
-
-    .. f2lfs:pre-install::
-
-       $ pre-install command
-       pre-install output
-
-    .. f2lfs:post-install::
-
-       $ post-install command
-       post-install output
-
-    .. f2lfs:pre-upgrade::
-
-       $ pre-upgrade command
-       pre-upgrade output
-
-    .. f2lfs:post-upgrade::
-
-       $ post-upgrade command
-       post-upgrade output
-
-    .. f2lfs:pre-remove::
-
-       $ pre-remove command
-       pre-remove output
-
-    .. f2lfs:post-remove::
-
-       $ post-remove command
-       post-remove output
-    ''')
-
-    restructuredtext.parse(app, text)
-
-    foo = app.env.get_domain('f2lfs').packages['foo'][1]
-
-    assert len(foo.pre_install_steps) == 1
-    step = foo.pre_install_steps[0]
-    assert step.command == 'pre-install command'
-    assert step.expected_output == 'pre-install output'
-
-    assert len(foo.post_install_steps) == 1
-    step = foo.post_install_steps[0]
-    assert step.command == 'post-install command'
-    assert step.expected_output == 'post-install output'
-
-    assert len(foo.pre_upgrade_steps) == 1
-    step = foo.pre_upgrade_steps[0]
-    assert step.command == 'pre-upgrade command'
-    assert step.expected_output == 'pre-upgrade output'
-
-    assert len(foo.post_upgrade_steps) == 1
-    step = foo.post_upgrade_steps[0]
-    assert step.command == 'post-upgrade command'
-    assert step.expected_output == 'post-upgrade output'
-
-    assert len(foo.pre_remove_steps) == 1
-    step = foo.pre_remove_steps[0]
-    assert step.command == 'pre-remove command'
-    assert step.expected_output == 'pre-remove output'
-
-    assert len(foo.post_remove_steps) == 1
-    step = foo.post_remove_steps[0]
-    assert step.command == 'post-remove command'
-    assert step.expected_output == 'post-remove output'
-
-def test_clear_doc():
-    env = Mock(domaindata={}, docname='docname')
-    domain = F2LFSDomain(env)
-    domain.note_package(Package('pkgname', '0.0.0', None, [], [], [], False), 'index')
-    domain.clear_doc('docname')
-    assert not 'pkgname' in domain.packages
-
-@mock.patch('af2lfs.domain.logger')
-def test_merge_domaindata(logger):
-    env = Mock(domaindata={
-        'f2lfs': {
-            'packages': {
-                'foo': ('doc1', Package('foo', '0.0.0', None, [], [], [], False))
-            },
-            'version': F2LFSDomain.data_version
-        }
-    })
-    domain = F2LFSDomain(env)
-    domain.merge_domaindata(['doc1', 'doc2'], {
-        'packages': {
-            'foo': ('doc2', Package('foo', '0.0.0', None, [], [], [], False)),
-            'bar': ('doc1', Package('bar', '0.0.0', None, [], [], [], False)),
-            'qux': ('doc3', Package('qux', '0.0.0', None, [], [], [], False))
-        }
-    })
-
-    assert 'foo' in domain.packages
-    assert domain.packages['foo'][0] == 'doc2'
-    assert domain.packages['foo'][1].name == 'foo'
-
-    assert 'bar' in domain.packages
-    assert domain.packages['bar'][0] == 'doc1'
-    assert domain.packages['bar'][1].name == 'bar'
-
-    assert not 'qux' in domain.packages
-
-    logger.warning.assert_called_with(
-        "duplicate package declaration of 'foo', also defined in 'doc1'",
-        location='doc2')
-
-def test_xref(app):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: pkg1 1.0.0
-    :f2lfs:pkg:`pkg1`
-    ''')
-
-    doctree = restructuredtext.parse(app, text)
-    app.env.resolve_references(doctree, 'index', app.builder)
-    refnodes = list(doctree.traverse(nodes.reference))
-    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
-    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
-                             internal=True)
-
-    doctree = restructuredtext.parse(app, ':f2lfs:pkg:`pkg1`', 'anotherpage')
-    app.env.resolve_references(doctree, 'anotherpage', app.builder)
-    refnodes = list(doctree.traverse(nodes.reference))
-    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
-    assert_node(refnodes[0], refuri='index.html#package-pkg1',
-                             reftitle='pkg1 (package)', internal=True)
-
-def test_any_xref(app):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: pkg1 1.0.0
-
-    :any:`pkg1`
-    ''')
-
-    doctree = restructuredtext.parse(app, text)
-    app.env.resolve_references(doctree, 'index', app.builder)
-    refnodes = list(doctree.traverse(nodes.reference))
-    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
-    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
-                             internal=True)
-
-def test_get_full_qualified_name():
-    env = Mock(domaindata={})
-    domain = F2LFSDomain(env)
-
-    # normal references
-    node = nodes.reference()
-    assert domain.get_full_qualified_name(node) is None
-
-    # simple reference to packages
-    node = nodes.reference(reftarget='pkgname')
-    assert domain.get_full_qualified_name(node) == 'pkgname'
-
-def test_get_objects(app):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: pkg1 1.0.0
-    ''')
-
-    doctree = restructuredtext.parse(app, text)
-    assert list(app.env.get_domain('f2lfs').get_objects()) == [
-        ('pkg1', 'pkg1', 'package', 'index', 'package-pkg1', 1)
-    ]
-
-def test_script_should_not_append_steps_partially(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: foo
-    .. f2lfs:buildstep::
-
-       $ foo
-       bar
-       > foo
-    ''')
-    restructuredtext.parse(app, text)
-    domain = app.env.get_domain('f2lfs')
-    assert domain.packages['foo'][1].build_steps == []
-    assert 'WARNING: command continuation must come after command' \
-        in warning.getvalue()
-
-def test_script_should_check_it_comes_after_package_definition(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:buildstep::
-
-        $ foo
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'WARNING: buildstep must come after corresponding package directive' \
-        in warning.getvalue()
-
-
-def test_script_should_check_command_continuation_comes_after_command(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: foo 0.0.0
-    .. f2lfs:buildstep::
-
-       > foo
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'WARNING: command continuation must come after command' \
-        in warning.getvalue()
-
-def test_script_should_check_expected_output_comes_after_command(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: foo 0.0.0
-    .. f2lfs:buildstep::
-
-       foo
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'WARNING: expected output must come after corresponding command' \
-        in warning.getvalue()
-
-def test_script_should_check_content_exists(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: foo 0.0.0
-    .. f2lfs:buildstep::
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'WARNING: Content block expected for the "f2lfs:buildstep" directive; none found.' \
-        in warning.getvalue()
-
-def test_script_doctree(app):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: foo
-    .. f2lfs:buildstep::
-
-       $ foo
-    ''')
-    doctree = restructuredtext.parse(app, text)
-    codeblocks = list(doctree.traverse(nodes.literal_block))
-    assert_node(codeblocks[0], [nodes.literal_block, '$ foo'])
-    assert_node(codeblocks[0], language='console')
-
 def test_package_should_check_number_of_arguments_less(app, warning):
     restructuredtext.parse(app, '.. f2lfs:package::')
     assert textwrap.dedent('''\
@@ -728,3 +451,280 @@ def test_package_doctree(app):
     assert_node(doctree[15][2][1][0][1][0][0], refuri='src2')
     assert_node(doctree[15][2][1][0][2][0][0], refuri='src3')
     assert_node(doctree[15][2][1][0][3][0][0], refuri='src4')
+
+def test_script_buildstep(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo
+
+    .. f2lfs:buildstep::
+
+       $ foo block 1 command 1
+
+    .. f2lfs:buildstep::
+
+       $ foo block 2 command 1
+       foo block 2 command 1 expected output
+       # foo block 2 command 2 line 1 \\
+       > foo block 2 command 2 line 2
+       foo block 2 command 2 expected output line 1
+       foo block 2 command 2 expected output line 2
+    ''')
+
+    restructuredtext.parse(app, text)
+
+    packages = app.env.get_domain('f2lfs').packages
+
+    assert len(packages) == 1
+    assert 'foo' in packages
+
+    foo = packages['foo'][1]
+
+    assert len(foo.build_steps) == 3
+
+    step1 = foo.build_steps[0]
+    assert step1.command == 'foo block 1 command 1'
+    assert step1.expected_output is None
+
+    step2 = foo.build_steps[1]
+    assert step2.command == 'foo block 2 command 1'
+    assert step2.expected_output == 'foo block 2 command 1 expected output'
+
+    step3 = foo.build_steps[2]
+    assert step3.command == r'''foo block 2 command 2 line 1 \
+foo block 2 command 2 line 2'''
+    assert step3.expected_output == '''foo block 2 command 2 expected output line 1
+foo block 2 command 2 expected output line 2'''
+
+def test_script_hook(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo
+
+    .. f2lfs:pre-install::
+
+       $ pre-install command
+       pre-install output
+
+    .. f2lfs:post-install::
+
+       $ post-install command
+       post-install output
+
+    .. f2lfs:pre-upgrade::
+
+       $ pre-upgrade command
+       pre-upgrade output
+
+    .. f2lfs:post-upgrade::
+
+       $ post-upgrade command
+       post-upgrade output
+
+    .. f2lfs:pre-remove::
+
+       $ pre-remove command
+       pre-remove output
+
+    .. f2lfs:post-remove::
+
+       $ post-remove command
+       post-remove output
+    ''')
+
+    restructuredtext.parse(app, text)
+
+    foo = app.env.get_domain('f2lfs').packages['foo'][1]
+
+    assert len(foo.pre_install_steps) == 1
+    step = foo.pre_install_steps[0]
+    assert step.command == 'pre-install command'
+    assert step.expected_output == 'pre-install output'
+
+    assert len(foo.post_install_steps) == 1
+    step = foo.post_install_steps[0]
+    assert step.command == 'post-install command'
+    assert step.expected_output == 'post-install output'
+
+    assert len(foo.pre_upgrade_steps) == 1
+    step = foo.pre_upgrade_steps[0]
+    assert step.command == 'pre-upgrade command'
+    assert step.expected_output == 'pre-upgrade output'
+
+    assert len(foo.post_upgrade_steps) == 1
+    step = foo.post_upgrade_steps[0]
+    assert step.command == 'post-upgrade command'
+    assert step.expected_output == 'post-upgrade output'
+
+    assert len(foo.pre_remove_steps) == 1
+    step = foo.pre_remove_steps[0]
+    assert step.command == 'pre-remove command'
+    assert step.expected_output == 'pre-remove output'
+
+    assert len(foo.post_remove_steps) == 1
+    step = foo.post_remove_steps[0]
+    assert step.command == 'post-remove command'
+    assert step.expected_output == 'post-remove output'
+
+def test_script_should_not_append_steps_partially(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo
+    .. f2lfs:buildstep::
+
+       $ foo
+       bar
+       > foo
+    ''')
+    restructuredtext.parse(app, text)
+    domain = app.env.get_domain('f2lfs')
+    assert domain.packages['foo'][1].build_steps == []
+    assert 'WARNING: command continuation must come after command' \
+        in warning.getvalue()
+
+def test_script_should_check_it_comes_after_package_definition(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:buildstep::
+
+        $ foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: buildstep must come after corresponding package directive' \
+        in warning.getvalue()
+
+
+def test_script_should_check_command_continuation_comes_after_command(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:buildstep::
+
+       > foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: command continuation must come after command' \
+        in warning.getvalue()
+
+def test_script_should_check_expected_output_comes_after_command(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:buildstep::
+
+       foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: expected output must come after corresponding command' \
+        in warning.getvalue()
+
+def test_script_should_check_content_exists(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:buildstep::
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: Content block expected for the "f2lfs:buildstep" directive; none found.' \
+        in warning.getvalue()
+
+def test_script_doctree(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo
+    .. f2lfs:buildstep::
+
+       $ foo
+    ''')
+    doctree = restructuredtext.parse(app, text)
+    codeblocks = list(doctree.traverse(nodes.literal_block))
+    assert_node(codeblocks[0], [nodes.literal_block, '$ foo'])
+    assert_node(codeblocks[0], language='console')
+
+def test_clear_doc():
+    env = Mock(domaindata={}, docname='docname')
+    domain = F2LFSDomain(env)
+    domain.note_package(Package('pkgname', '0.0.0', None, [], [], [], False), 'index')
+    domain.clear_doc('docname')
+    assert not 'pkgname' in domain.packages
+
+@mock.patch('af2lfs.domain.logger')
+def test_merge_domaindata(logger):
+    env = Mock(domaindata={
+        'f2lfs': {
+            'packages': {
+                'foo': ('doc1', Package('foo', '0.0.0', None, [], [], [], False))
+            },
+            'version': F2LFSDomain.data_version
+        }
+    })
+    domain = F2LFSDomain(env)
+    domain.merge_domaindata(['doc1', 'doc2'], {
+        'packages': {
+            'foo': ('doc2', Package('foo', '0.0.0', None, [], [], [], False)),
+            'bar': ('doc1', Package('bar', '0.0.0', None, [], [], [], False)),
+            'qux': ('doc3', Package('qux', '0.0.0', None, [], [], [], False))
+        }
+    })
+
+    assert 'foo' in domain.packages
+    assert domain.packages['foo'][0] == 'doc2'
+    assert domain.packages['foo'][1].name == 'foo'
+
+    assert 'bar' in domain.packages
+    assert domain.packages['bar'][0] == 'doc1'
+    assert domain.packages['bar'][1].name == 'bar'
+
+    assert not 'qux' in domain.packages
+
+    logger.warning.assert_called_with(
+        "duplicate package declaration of 'foo', also defined in 'doc1'",
+        location='doc2')
+
+def test_xref(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: pkg1 1.0.0
+    :f2lfs:pkg:`pkg1`
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    app.env.resolve_references(doctree, 'index', app.builder)
+    refnodes = list(doctree.traverse(nodes.reference))
+    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
+                             internal=True)
+
+    doctree = restructuredtext.parse(app, ':f2lfs:pkg:`pkg1`', 'anotherpage')
+    app.env.resolve_references(doctree, 'anotherpage', app.builder)
+    refnodes = list(doctree.traverse(nodes.reference))
+    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0], refuri='index.html#package-pkg1',
+                             reftitle='pkg1 (package)', internal=True)
+
+def test_any_xref(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: pkg1 1.0.0
+
+    :any:`pkg1`
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    app.env.resolve_references(doctree, 'index', app.builder)
+    refnodes = list(doctree.traverse(nodes.reference))
+    assert_node(refnodes[0], [nodes.reference, nodes.literal, 'pkg1'])
+    assert_node(refnodes[0], refid='package-pkg1', reftitle='pkg1 (package)',
+                             internal=True)
+
+def test_get_full_qualified_name():
+    env = Mock(domaindata={})
+    domain = F2LFSDomain(env)
+
+    # normal references
+    node = nodes.reference()
+    assert domain.get_full_qualified_name(node) is None
+
+    # simple reference to packages
+    node = nodes.reference(reftarget='pkgname')
+    assert domain.get_full_qualified_name(node) == 'pkgname'
+
+def test_get_objects(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: pkg1 1.0.0
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    assert list(app.env.get_domain('f2lfs').get_objects()) == [
+        ('pkg1', 'pkg1', 'package', 'index', 'package-pkg1', 1)
+    ]
