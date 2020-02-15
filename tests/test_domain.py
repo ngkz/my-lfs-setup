@@ -9,7 +9,7 @@ from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
 from af2lfs.domain import F2LFSDomain, Package, Dependency
 
-def test_packages(app):
+def test_package(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo 1.3.37
        :license: WTFPL
@@ -38,21 +38,6 @@ def test_packages(app):
                    sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
                  - local: foobar
        :bootstrap:
-
-    .. f2lfs:buildstep::
-
-       $ foo block 1 command 1
-
-    .. f2lfs:buildstep::
-
-       $ foo block 2 command 1
-       foo block 2 command 1 expected output
-       # foo block 2 command 2 line 1 \\
-       > foo block 2 command 2 line 2
-       foo block 2 command 2 expected output line 1
-       foo block 2 command 2 expected output line 2
-
-    .. f2lfs:package:: bar 31.3.37
     ''')
 
     restructuredtext.parse(app, text)
@@ -109,6 +94,50 @@ def test_packages(app):
     ]
     assert foo.bootstrap
 
+def test_package_defaults(app):
+    restructuredtext.parse(app, '.. f2lfs:package:: foo 31.3.37')
+    packages = app.env.get_domain('f2lfs').packages
+
+    assert len(packages) == 1
+    assert 'foo' in packages
+
+    foo = packages['foo'][1]
+    assert foo.name == 'foo'
+    assert foo.version == '31.3.37'
+    assert foo.license is None
+    assert foo.deps == []
+    assert foo.build_deps == []
+    assert foo.sources == []
+    assert not foo.bootstrap
+    assert foo.build_steps == []
+
+def test_script_buildstep(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo
+
+    .. f2lfs:buildstep::
+
+       $ foo block 1 command 1
+
+    .. f2lfs:buildstep::
+
+       $ foo block 2 command 1
+       foo block 2 command 1 expected output
+       # foo block 2 command 2 line 1 \\
+       > foo block 2 command 2 line 2
+       foo block 2 command 2 expected output line 1
+       foo block 2 command 2 expected output line 2
+    ''')
+
+    restructuredtext.parse(app, text)
+
+    packages = app.env.get_domain('f2lfs').packages
+
+    assert len(packages) == 1
+    assert 'foo' in packages
+
+    foo = packages['foo'][1]
+
     assert len(foo.build_steps) == 3
 
     step1 = foo.build_steps[0]
@@ -124,17 +153,6 @@ def test_packages(app):
 foo block 2 command 2 line 2'''
     assert step3.expected_output == '''foo block 2 command 2 expected output line 1
 foo block 2 command 2 expected output line 2'''
-
-    assert 'bar' in packages
-    bar = packages['bar'][1]
-    assert bar.name == 'bar'
-    assert bar.version == '31.3.37'
-    assert bar.license is None
-    assert bar.deps == []
-    assert bar.build_deps == []
-    assert bar.sources == []
-    assert not bar.bootstrap
-    assert bar.build_steps == []
 
 def test_clear_doc():
     env = Mock(domaindata={}, docname='docname')
