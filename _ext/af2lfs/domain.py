@@ -41,7 +41,11 @@ class LookaheadIterator:
 
         return self._lookahead
 
-Dependency = collections.namedtuple('Dependency', ['name', 'when_bootstrap'], defaults=[None])
+Dependency = collections.namedtuple(
+    'Dependency',
+    ['name', 'when_bootstrap', 'rebuild_when_update'],
+    defaults=[None, True]
+)
 
 class Package:
     def __init__(self, name, version, license, deps, build_deps, sources, bootstrap):
@@ -85,27 +89,31 @@ def dependency(value):
         raise ValueError('this option must be a list')
 
     def process_dep(dep):
-        when_bootstrap = None
+        kwargs = {}
 
         if isinstance(dep, str):
             dep_name = dep
         elif isinstance(dep, dict):
             for key in dep.keys():
-                if not key in ("name", "when-bootstrap"):
+                if not key in ('name', 'when-bootstrap', 'rebuild-when-update'):
                     raise ValueError("invalid dependency key '{}'".format(key))
 
             dep_name = dep.get('name')
             if dep_name is None:
                 raise ValueError('dependency name must be specified')
 
-            when_bootstrap = dep.get('when-bootstrap')
+            if 'when-bootstrap' in dep:
+                kwargs['when_bootstrap'] = dep['when-bootstrap']
+
+            if 'rebuild-when-update' in dep:
+                kwargs['rebuild_when_update'] = dep['rebuild-when-update']
         else:
             raise ValueError('dependency entry must be string or hash')
 
         if not validate_package_name(dep_name):
             raise ValueError('invalid dependency name')
 
-        return Dependency(dep_name, when_bootstrap)
+        return Dependency(dep_name, **kwargs)
 
     return [process_dep(dep) for dep in deps]
 

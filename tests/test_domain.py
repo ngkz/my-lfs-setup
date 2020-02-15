@@ -18,7 +18,9 @@ def test_packages(app):
                 when-bootstrap: yes
               - name: qux
                 when-bootstrap: no
-       :build-deps: - quux
+              - name: quux
+                rebuild-when-update: no
+       :build-deps: - quuux
        :sources: - http: http://example.com/src1.tar.xz
                    gpgsig: http://example.com/src1.tar.xz.sig
                    gpgkey: src1-key.gpg
@@ -61,11 +63,12 @@ def test_packages(app):
     assert foo.version == '1.3.37'
     assert foo.license == 'WTFPL'
     assert foo.deps == [
-        Dependency(name='bar', when_bootstrap=None),
-        Dependency(name='baz', when_bootstrap=True),
-        Dependency(name='qux', when_bootstrap=False)
+        Dependency(name='bar', when_bootstrap=None, rebuild_when_update=True),
+        Dependency(name='baz', when_bootstrap=True, rebuild_when_update=True),
+        Dependency(name='qux', when_bootstrap=False, rebuild_when_update=True),
+        Dependency(name='quux', when_bootstrap=None, rebuild_when_update=False)
     ]
-    assert foo.build_deps == [Dependency('quux')]
+    assert foo.build_deps == [Dependency('quuux')]
     assert foo.sources == [
         {
             'type': 'http',
