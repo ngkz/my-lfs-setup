@@ -232,7 +232,7 @@ def test_get_objects(app):
         ('pkg1', 'pkg1', 'package', 'index', 'package-pkg1', 1)
     ]
 
-def test_buildstep_should_not_append_steps_partially(app, warning):
+def test_script_should_not_append_steps_partially(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo
     .. f2lfs:buildstep::
@@ -247,18 +247,18 @@ def test_buildstep_should_not_append_steps_partially(app, warning):
     assert 'WARNING: command continuation must come after command' \
         in warning.getvalue()
 
-def test_buildstep_should_check_it_comes_after_package_definition(app, warning):
+def test_script_should_check_it_comes_after_package_definition(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:buildstep::
 
         $ foo
     ''')
     restructuredtext.parse(app, text)
-    assert 'WARNING: buildstep directive must come after corresponding package directive' \
+    assert 'WARNING: buildstep must come after corresponding package directive' \
         in warning.getvalue()
 
 
-def test_buildstep_should_check_command_continuation_comes_after_command(app, warning):
+def test_script_should_check_command_continuation_comes_after_command(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo 0.0.0
     .. f2lfs:buildstep::
@@ -269,7 +269,7 @@ def test_buildstep_should_check_command_continuation_comes_after_command(app, wa
     assert 'WARNING: command continuation must come after command' \
         in warning.getvalue()
 
-def test_buildstep_should_check_expected_output_comes_after_command(app, warning):
+def test_script_should_check_expected_output_comes_after_command(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo 0.0.0
     .. f2lfs:buildstep::
@@ -280,7 +280,7 @@ def test_buildstep_should_check_expected_output_comes_after_command(app, warning
     assert 'WARNING: expected output must come after corresponding command' \
         in warning.getvalue()
 
-def test_buildstep_should_check_content_exists(app, warning):
+def test_script_should_check_content_exists(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo 0.0.0
     .. f2lfs:buildstep::
@@ -289,7 +289,7 @@ def test_buildstep_should_check_content_exists(app, warning):
     assert 'WARNING: Content block expected for the "f2lfs:buildstep" directive; none found.' \
         in warning.getvalue()
 
-def test_buildstep_doctree(app):
+def test_script_doctree(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo
     .. f2lfs:buildstep::

@@ -65,13 +65,13 @@ class Package:
     def id(self):
         return 'package-' + self.name
 
-class BuildStep:
+class ScriptStep:
     def __init__(self, command, expected_output):
         self.command = command
         self.expected_output = expected_output
 
     def __repr__(self):
-        rep = '<BuildStep>\n$ ' + self.command.replace('\n', '\n> ')
+        rep = '<ScriptStep>\n$ ' + self.command.replace('\n', '\n> ')
         if not self.expected_output is None:
             rep += '\n' + self.expected_output
         return rep
@@ -364,15 +364,18 @@ class PackageDirective(SphinxDirective):
 
         return node_list
 
-class BuildStepDirective(SphinxDirective):
+class ScriptDirective(SphinxDirective):
     has_content = True
 
     def run(self):
         self.assert_has_content()
 
+        name = self.name.split(':')[1]
+
         package = self.env.ref_context.get('f2lfs:package')
         if package is None:
-            raise self.error('buildstep directive must come after corresponding package directive')
+            raise self.error(name +
+                             ' must come after corresponding package directive')
 
         cursor = LookaheadIterator(iter(self.content))
         steps = []
@@ -393,12 +396,15 @@ class BuildStepDirective(SphinxDirective):
             while cursor.has_next and (not re.match(r'^(\$|#|>) ', cursor.peek())):
                 expected_output.append(next(cursor))
 
-            steps.append(BuildStep(
+            steps.append(ScriptStep(
                 '\n'.join(commands),
                 '\n'.join(expected_output) if expected_output else None
             ))
 
-        package.build_steps.extend(steps)
+        if name == 'buildstep':
+            package.build_steps.extend(steps)
+        else:
+            raise RuntimeError("something went wrong")
 
         text = '\n'.join(self.content)
         node = nodes.literal_block(text, text, language='console')
@@ -416,7 +422,7 @@ class F2LFSDomain(Domain):
     }
     directives = {
         'package': PackageDirective,
-        'buildstep': BuildStepDirective
+        'buildstep': ScriptDirective
     }
     initial_data = {
         'packages': {}
