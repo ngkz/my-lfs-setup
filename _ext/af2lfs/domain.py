@@ -12,7 +12,6 @@ import yaml
 import re
 import os.path
 import itertools
-import collections
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +41,16 @@ class LookaheadIterator:
 
         return self._lookahead
 
-Dependency = collections.namedtuple(
-    'Dependency',
-    ['name', 'when_bootstrap', 'rebuild_when_update'],
-    defaults=[None, True]
-)
+class Dependency:
+    def __init__(self, name, when_bootstrap = None, rebuild_when_update = True):
+        self.name = name
+        self.when_bootstrap = when_bootstrap
+        self.rebuild_when_update = rebuild_when_update
+
+    def __eq__(self, other):
+        return self.name == other.name and \
+               self.when_bootstrap == other.when_bootstrap and \
+                self.rebuild_when_update == other.rebuild_when_update
 
 class Package:
     def __init__(self, name, version, license, deps, build_deps, sources, bootstrap):
