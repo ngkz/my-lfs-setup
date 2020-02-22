@@ -444,7 +444,7 @@ class ScriptDirective(SphinxDirective):
         elif name == 'post-remove':
             package.post_remove_steps.extend(steps)
         else:
-            raise RuntimeError("something went wrong")
+            raise RuntimeError('something went wrong')
 
         prompt = ''
         if name == 'buildstep':
