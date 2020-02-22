@@ -44,7 +44,7 @@ def test_package(app):
     packages = app.env.get_domain('f2lfs').packages
 
     assert 'foo' in packages
-    foo = packages['foo'][1]
+    foo = packages['foo']
     assert foo.name == 'foo'
     assert foo.version == '1.3.37'
     assert foo.license == 'WTFPL'
@@ -93,6 +93,8 @@ def test_package(app):
         }
     ]
     assert foo.bootstrap
+    assert foo.docname == 'index'
+    assert foo.lineno == 1
 
 def test_package_defaults(app):
     restructuredtext.parse(app, '.. f2lfs:package:: foo 31.3.37')
@@ -101,7 +103,7 @@ def test_package_defaults(app):
     assert len(packages) == 1
     assert 'foo' in packages
 
-    foo = packages['foo'][1]
+    foo = packages['foo']
     assert foo.name == 'foo'
     assert foo.version == '31.3.37'
     assert foo.license is None
@@ -109,6 +111,8 @@ def test_package_defaults(app):
     assert foo.build_deps == []
     assert foo.sources == []
     assert not foo.bootstrap
+    assert foo.docname == 'index'
+    assert foo.lineno == 1
     assert foo.build_steps == []
     assert foo.pre_install_steps == []
     assert foo.post_install_steps == []
@@ -347,8 +351,8 @@ def test_package_should_not_accept_git_source_lacks_revision(app, warning):
 
 def test_package_should_not_allow_duplicate_declaration(app, warning):
     restructuredtext.parse(app, '.. f2lfs:package:: baz', 'foo')
-    restructuredtext.parse(app, '.. f2lfs:package:: baz', 'bar')
-    assert "WARNING: duplicate package declaration of 'baz', also defined in 'foo'" \
+    restructuredtext.parse(app, '\n.. f2lfs:package:: baz', 'bar')
+    assert "WARNING: duplicate package declaration of 'baz', also defined at line 1 of 'foo'" \
         in warning.getvalue()
 
 def test_package_doctree(app):
@@ -479,7 +483,7 @@ def test_script_buildstep(app):
     assert len(packages) == 1
     assert 'foo' in packages
 
-    foo = packages['foo'][1]
+    foo = packages['foo']
 
     assert len(foo.build_steps) == 3
 
@@ -534,7 +538,7 @@ def test_script_hook(app):
 
     restructuredtext.parse(app, text)
 
-    foo = app.env.get_domain('f2lfs').packages['foo'][1]
+    foo = app.env.get_domain('f2lfs').packages['foo']
 
     assert len(foo.pre_install_steps) == 1
     step = foo.pre_install_steps[0]
@@ -577,7 +581,7 @@ def test_script_should_not_append_steps_partially(app, warning):
     ''')
     restructuredtext.parse(app, text)
     domain = app.env.get_domain('f2lfs')
-    assert domain.packages['foo'][1].build_steps == []
+    assert domain.packages['foo'].build_steps == []
     assert 'WARNING: command continuation must come after command' \
         in warning.getvalue()
 
@@ -636,18 +640,20 @@ def test_script_doctree(app):
     assert_node(codeblocks[0], language='console')
 
 def test_clear_doc():
-    env = Mock(domaindata={}, docname='docname')
+    env = Mock(domaindata={})
     domain = F2LFSDomain(env)
-    domain.note_package(Package('pkgname', '0.0.0', None, [], [], [], False), 'index')
-    domain.clear_doc('docname')
-    assert not 'pkgname' in domain.packages
+    domain.note_package(Package('pkg1', '0.0.0', None, [], [], [], False, 'doc1', 1))
+    domain.note_package(Package('pkg2', '0.0.0', None, [], [], [], False, 'doc2', 1))
+    domain.clear_doc('doc1')
+    assert not 'pkg1' in domain.packages
+    assert 'pkg2' in domain.packages
 
 @mock.patch('af2lfs.domain.logger')
 def test_merge_domaindata(logger):
     env = Mock(domaindata={
         'f2lfs': {
             'packages': {
-                'foo': ('doc1', Package('foo', '0.0.0', None, [], [], [], False))
+                'foo': Package('foo', '0.0.0', None, [], [], [], False, 'doc1', 1)
             },
             'version': F2LFSDomain.data_version
         }
@@ -655,25 +661,27 @@ def test_merge_domaindata(logger):
     domain = F2LFSDomain(env)
     domain.merge_domaindata(['doc1', 'doc2'], {
         'packages': {
-            'foo': ('doc2', Package('foo', '0.0.0', None, [], [], [], False)),
-            'bar': ('doc1', Package('bar', '0.0.0', None, [], [], [], False)),
-            'qux': ('doc3', Package('qux', '0.0.0', None, [], [], [], False))
+            'foo': Package('foo', '0.0.0', None, [], [], [], False, 'doc2', 2),
+            'bar': Package('bar', '0.0.0', None, [], [], [], False, 'doc1', 1),
+            'qux': Package('qux', '0.0.0', None, [], [], [], False, 'doc3', 1)
         }
     })
 
     assert 'foo' in domain.packages
-    assert domain.packages['foo'][0] == 'doc2'
-    assert domain.packages['foo'][1].name == 'foo'
+    foo = domain.packages['foo']
+    assert foo.docname == 'doc2'
+    assert foo.name == 'foo'
 
     assert 'bar' in domain.packages
-    assert domain.packages['bar'][0] == 'doc1'
-    assert domain.packages['bar'][1].name == 'bar'
+    bar = domain.packages['bar']
+    assert bar.docname == 'doc1'
+    assert bar.name == 'bar'
 
     assert not 'qux' in domain.packages
 
     logger.warning.assert_called_with(
-        "duplicate package declaration of 'foo', also defined in 'doc1'",
-        location='doc2')
+        "duplicate package declaration of 'foo', also defined at line 1 of 'doc1'",
+        location=('doc2', 2))
 
 def test_xref(app):
     text = textwrap.dedent('''\

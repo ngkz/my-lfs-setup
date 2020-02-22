@@ -53,7 +53,7 @@ class Dependency:
                 self.rebuild_when_update == other.rebuild_when_update
 
 class Package:
-    def __init__(self, name, version, license, deps, build_deps, sources, bootstrap):
+    def __init__(self, name, version, license, deps, build_deps, sources, bootstrap, docname, lineno):
         self.name = name
         self.version = version
         self.license = license
@@ -61,6 +61,8 @@ class Package:
         self.build_deps = build_deps
         self.sources = sources
         self.bootstrap = bootstrap
+        self.docname = docname
+        self.lineno = lineno
         self.build_steps = []
         self.pre_install_steps = []
         self.post_install_steps = []
@@ -288,7 +290,9 @@ class PackageDirective(SphinxDirective):
             self.options.get('deps', []),
             self.options.get('build-deps', []),
             sources,
-            'bootstrap' in self.options
+            'bootstrap' in self.options,
+            self.env.docname,
+            self.lineno
         )
 
         node_list = []
@@ -383,7 +387,7 @@ class PackageDirective(SphinxDirective):
 
         node_list.append(field_list)
 
-        self.env.get_domain('f2lfs').note_package(package, (self.env.docname, self.lineno))
+        self.env.get_domain('f2lfs').note_package(package)
         self.env.ref_context['f2lfs:package'] = package
 
         return node_list
@@ -469,45 +473,50 @@ class F2LFSDomain(Domain):
     initial_data = {
         'packages': {}
     }
-    data_version = 1
+    data_version = 2
 
     @property
     def packages(self):
         return self.data['packages']
 
-    def note_package(self, package, location):
+    def note_package(self, package):
         if package.name in self.packages:
-            docname = self.packages[package.name][0]
-            logger.warning("duplicate package declaration of '{}', also defined in '{}'"
-                           .format(package.name, docname), location=location)
-        self.packages[package.name] = (self.env.docname, package)
+            existing_package = self.packages[package.name]
+            logger.warning(
+                "duplicate package declaration of '{}', also defined at line {} of '{}'"
+                .format(package.name, existing_package.lineno, existing_package.docname),
+                location=(package.docname, package.lineno))
+        self.packages[package.name] = package
 
     # Remove traces of a document in the domain-specific inventories.
     def clear_doc(self, docname):
-        for key, (pkg_docname, package) in list(self.packages.items()):
-            if pkg_docname == docname:
+        for key, package in list(self.packages.items()):
+            if package.docname == docname:
                 del self.packages[key]
 
     # Merge in data regarding docnames from a different domaindata inventory
     # (coming from a subprocess in parallel builds).
     def merge_domaindata(self, docnames, otherdata):
-        for their_docname, their_package in otherdata['packages'].values():
-            if their_docname in docnames:
-                if their_package.name in self.packages:
-                    our_docname = self.packages[their_package.name][0]
-                    logger.warning("duplicate package declaration of '{}', also defined in '{}'"
-                                   .format(their_package.name, our_docname),
-                                   location=their_docname)
-                self.packages[their_package.name] = (their_docname, their_package)
+        for their in otherdata['packages'].values():
+            if their.docname in docnames:
+                if their.name in self.packages:
+                    our = self.packages[their.name]
+                    logger.warning(
+                        "duplicate package declaration of '{}', also defined at line {} of '{}'"
+                        .format(their.name, our.lineno, our.docname),
+                        location=(their.docname, their.lineno))
+                self.packages[their.name] = their
 
     def resolve_xref(self, env, fromdocname, builder, typ, target, node,
                      contnode):
         if not target in self.packages:
             return None
-        todocname, package = self.packages[target]
-        targetid = package.id
+        target_pkg = self.packages[target]
+        todocname = target_pkg.docname
+        targetid = target_pkg.id
+        title = target_pkg.name + ' (package)'
         return make_refnode(builder, fromdocname, todocname, targetid, contnode,
-                            package.name + ' (package)')
+                            title)
 
     def resolve_any_xref(self, env, fromdocname, builder, target, node, contnode):
         refnode = self.resolve_xref(env, fromdocname, builder, 'pkg', target,
@@ -521,5 +530,5 @@ class F2LFSDomain(Domain):
         return node.get('reftarget')
 
     def get_objects(self):
-        for docname, package in self.packages.values():
-            yield (package.name, package.name, 'package', docname, package.id, 1)
+        for package in self.packages.values():
+            yield (package.name, package.name, 'package', package.docname, package.id, 1)
