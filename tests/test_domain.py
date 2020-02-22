@@ -632,12 +632,45 @@ def test_script_doctree(app):
     .. f2lfs:package:: foo
     .. f2lfs:buildstep::
 
-       $ foo
+       # foo
     ''')
     doctree = restructuredtext.parse(app, text)
     codeblocks = list(doctree.traverse(nodes.literal_block))
-    assert_node(codeblocks[0], [nodes.literal_block, '$ foo'])
-    assert_node(codeblocks[0], language='console')
+    assert_node(codeblocks[0], [nodes.literal_block, 'build# foo'])
+    assert_node(codeblocks[0], language='f2lfs-shell-session')
+
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo
+    .. f2lfs:buildstep::
+
+       # foo
+       > bar
+       baz
+       # qux
+       quux
+    ''')
+    doctree = restructuredtext.parse(app, text)
+    codeblocks = list(doctree.traverse(nodes.literal_block))
+    assert_node(codeblocks[0], [nodes.literal_block, textwrap.dedent('''\
+                                                                     build# foo
+                                                                     > bar
+                                                                     baz
+                                                                     build# qux
+                                                                     quux''')])
+    assert_node(codeblocks[0], language='f2lfs-shell-session')
+
+    for directive in ('pre-install', 'post-install', 'pre-upgrade', 'post-upgrade',
+                      'pre-remove', 'post-remove'):
+        text = textwrap.dedent('''\
+        .. f2lfs:package:: foo
+        .. f2lfs:{}::
+
+           # foo
+        '''.format(directive))
+        doctree = restructuredtext.parse(app, text)
+        codeblocks = list(doctree.traverse(nodes.literal_block))
+        assert_node(codeblocks[0], [nodes.literal_block, 'targetfs# foo'])
+        assert_node(codeblocks[0], language='f2lfs-shell-session')
 
 def test_clear_doc():
     env = Mock(domaindata={})

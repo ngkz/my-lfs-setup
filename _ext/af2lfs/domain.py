@@ -446,8 +446,25 @@ class ScriptDirective(SphinxDirective):
         else:
             raise RuntimeError("something went wrong")
 
-        text = '\n'.join(self.content)
-        node = nodes.literal_block(text, text, language='console')
+        prompt = ''
+        if name == 'buildstep':
+            prompt = 'build#'
+        elif name in ('pre-install', 'post-install', 'pre-upgrade', 'post-upgrade',
+                      'pre-remove', 'post-remove'):
+            prompt = 'targetfs#'
+        else:
+            raise RuntimeError('something went wrong')
+
+        text = ''
+        for i, step in enumerate(steps):
+            if i > 0:
+                text += '\n'
+            text += prompt + ' ' + step.command.replace('\n', '\n> ')
+            if not step.expected_output is None:
+                text += '\n'
+                text += step.expected_output
+
+        node = nodes.literal_block(text, text, language='f2lfs-shell-session')
         return [node]
 
 

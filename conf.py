@@ -68,7 +68,7 @@ language = None
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'env', '.git', 'tests']
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = None
+pygments_style = 'tango'
 
 # The name of default domain
 primary_domain = 'f2lfs'
