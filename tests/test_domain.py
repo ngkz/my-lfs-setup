@@ -12,6 +12,7 @@ from af2lfs.domain import F2LFSDomain, Package, Dependency
 def test_package(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo 1.3.37
+       :description: description
        :license: WTFPL
        :deps: - bar
               - name: baz
@@ -47,6 +48,7 @@ def test_package(app):
     foo = packages['foo']
     assert foo.name == 'foo'
     assert foo.version == '1.3.37'
+    assert foo.description == 'description'
     assert foo.license == 'WTFPL'
     assert foo.deps == [
         Dependency(name='bar', when_bootstrap=None, rebuild_when_update=True),
@@ -106,6 +108,7 @@ def test_package_defaults(app):
     foo = packages['foo']
     assert foo.name == 'foo'
     assert foo.version == '31.3.37'
+    assert foo.description is None
     assert foo.license is None
     assert foo.deps == []
     assert foo.build_deps == []
@@ -388,6 +391,8 @@ def test_package_doctree(app):
                    tag: src4-tag
                    sha256sum: src4-sha256
                  - local: localfile
+    .. f2lfs:package:: pkg6 1.0.0
+       :description: description
     ''')
 
     doctree = restructuredtext.parse(app, text)
@@ -457,6 +462,16 @@ def test_package_doctree(app):
     assert_node(doctree[15][2][1][0][1][0][0], refuri='src2')
     assert_node(doctree[15][2][1][0][2][0][0], refuri='src3')
     assert_node(doctree[15][2][1][0][3][0][0], refuri='src4')
+
+    assert_node(doctree[16], nodes.target, ids=['package-pkg6'], ismod=True)
+    assert_node(doctree[17], addnodes.index, entries=[('single', 'pkg6 (package)', 'package-pkg6', '', None)])
+    assert_node(doctree[18],
+                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
+                                                   [nodes.field_body, 'pkg6'])],
+                                    [nodes.field, ([nodes.field_name, 'Version'],
+                                                   [nodes.field_body, '1.0.0'])],
+                                    [nodes.field, ([nodes.field_name, 'Description'],
+                                                   [nodes.field_body, 'description'])])])
 
 def test_script_buildstep(app):
     text = textwrap.dedent('''\
@@ -675,8 +690,8 @@ def test_script_doctree(app):
 def test_clear_doc():
     env = Mock(domaindata={})
     domain = F2LFSDomain(env)
-    domain.note_package(Package('pkg1', '0.0.0', None, [], [], [], False, 'doc1', 1))
-    domain.note_package(Package('pkg2', '0.0.0', None, [], [], [], False, 'doc2', 1))
+    domain.note_package(Package('pkg1', '0.0.0', None, None, [], [], [], False, 'doc1', 1))
+    domain.note_package(Package('pkg2', '0.0.0', None, None, [], [], [], False, 'doc2', 1))
     domain.clear_doc('doc1')
     assert not 'pkg1' in domain.packages
     assert 'pkg2' in domain.packages
@@ -686,7 +701,7 @@ def test_merge_domaindata(logger):
     env = Mock(domaindata={
         'f2lfs': {
             'packages': {
-                'foo': Package('foo', '0.0.0', None, [], [], [], False, 'doc1', 1)
+                'foo': Package('foo', '0.0.0', None, None, [], [], [], False, 'doc1', 1)
             },
             'version': F2LFSDomain.data_version
         }
@@ -694,9 +709,9 @@ def test_merge_domaindata(logger):
     domain = F2LFSDomain(env)
     domain.merge_domaindata(['doc1', 'doc2'], {
         'packages': {
-            'foo': Package('foo', '0.0.0', None, [], [], [], False, 'doc2', 2),
-            'bar': Package('bar', '0.0.0', None, [], [], [], False, 'doc1', 1),
-            'qux': Package('qux', '0.0.0', None, [], [], [], False, 'doc3', 1)
+            'foo': Package('foo', '0.0.0', None, None, [], [], [], False, 'doc2', 2),
+            'bar': Package('bar', '0.0.0', None, None, [], [], [], False, 'doc1', 1),
+            'qux': Package('qux', '0.0.0', None, None, [], [], [], False, 'doc3', 1)
         }
     })
 

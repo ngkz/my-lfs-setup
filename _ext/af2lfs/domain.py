@@ -53,9 +53,10 @@ class Dependency:
                 self.rebuild_when_update == other.rebuild_when_update
 
 class Package:
-    def __init__(self, name, version, license, deps, build_deps, sources, bootstrap, docname, lineno):
+    def __init__(self, name, version, description, license, deps, build_deps, sources, bootstrap, docname, lineno):
         self.name = name
         self.version = version
+        self.description = description
         self.license = license
         self.deps = deps
         self.build_deps = build_deps
@@ -259,6 +260,7 @@ class PackageDirective(SphinxDirective):
     optional_arguments = 1
     option_spec = {
         'license': directives.unchanged,
+        'description': directives.unchanged,
         'deps': dependency,
         'build-deps': dependency,
         'sources': sources,
@@ -286,6 +288,7 @@ class PackageDirective(SphinxDirective):
         package = Package(
             pkgname,
             self.arguments[1] if len(self.arguments) >= 2 else '0.0.0', #package version
+            self.options.get('description', None),
             self.options.get('license', None),
             self.options.get('deps', []),
             self.options.get('build-deps', []),
@@ -307,6 +310,10 @@ class PackageDirective(SphinxDirective):
         field_list = nodes.field_list()
         field_list += field('Name', text(package.name))
         field_list += field('Version', text(package.version))
+
+        if not package.description is None:
+            field_list += field('Description', text(package.description))
+
         if not package.license is None:
             field_list += field('License', text(package.license))
 
