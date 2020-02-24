@@ -42,15 +42,13 @@ class LookaheadIterator:
         return self._lookahead
 
 class Dependency:
-    def __init__(self, name, when_bootstrap = None, rebuild_when_update = True):
+    def __init__(self, name, when_bootstrap = None):
         self.name = name
         self.when_bootstrap = when_bootstrap
-        self.rebuild_when_update = rebuild_when_update
 
     def __eq__(self, other):
         return self.name == other.name and \
-               self.when_bootstrap == other.when_bootstrap and \
-                self.rebuild_when_update == other.rebuild_when_update
+               self.when_bootstrap == other.when_bootstrap
 
 class Package:
     def __init__(self, name, version, description, license, deps, build_deps, sources, bootstrap, docname, lineno):
@@ -109,7 +107,7 @@ def dependency(value):
             dep_name = dep
         elif isinstance(dep, dict):
             for key in dep.keys():
-                if not key in ('name', 'when-bootstrap', 'rebuild-when-update'):
+                if not key in ('name', 'when-bootstrap'):
                     raise ValueError("invalid dependency key '{}'".format(key))
 
             dep_name = dep.get('name')
@@ -118,9 +116,6 @@ def dependency(value):
 
             if 'when-bootstrap' in dep:
                 kwargs['when_bootstrap'] = dep['when-bootstrap']
-
-            if 'rebuild-when-update' in dep:
-                kwargs['rebuild_when_update'] = dep['rebuild-when-update']
         else:
             raise ValueError('dependency entry must be string or hash')
 
