@@ -11,7 +11,6 @@ from docutils.parsers.rst import roles
 import yaml
 import re
 import os.path
-import itertools
 
 logger = logging.getLogger(__name__)
 
