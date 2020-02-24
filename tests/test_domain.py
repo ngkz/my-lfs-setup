@@ -674,8 +674,8 @@ def test_script_doctree(app):
 def test_clear_doc():
     env = Mock(domaindata={})
     domain = F2LFSDomain(env)
-    domain.note_package(Package('pkg1', '0.0.0', None, None, [], [], [], False, 'doc1', 1))
-    domain.note_package(Package('pkg2', '0.0.0', None, None, [], [], [], False, 'doc2', 1))
+    domain.note_package(Package('pkg1', 'doc1', 1))
+    domain.note_package(Package('pkg2', 'doc2', 1))
     domain.clear_doc('doc1')
     assert not 'pkg1' in domain.packages
     assert 'pkg2' in domain.packages
@@ -685,7 +685,7 @@ def test_merge_domaindata(logger):
     env = Mock(domaindata={
         'f2lfs': {
             'packages': {
-                'foo': Package('foo', '0.0.0', None, None, [], [], [], False, 'doc1', 1)
+                'foo': Package('foo', 'doc1', 1)
             },
             'version': F2LFSDomain.data_version
         }
@@ -693,9 +693,9 @@ def test_merge_domaindata(logger):
     domain = F2LFSDomain(env)
     domain.merge_domaindata(['doc1', 'doc2'], {
         'packages': {
-            'foo': Package('foo', '0.0.0', None, None, [], [], [], False, 'doc2', 2),
-            'bar': Package('bar', '0.0.0', None, None, [], [], [], False, 'doc1', 1),
-            'qux': Package('qux', '0.0.0', None, None, [], [], [], False, 'doc3', 1)
+            'foo': Package('foo', 'doc2', 2),
+            'bar': Package('bar', 'doc1', 1),
+            'qux': Package('qux', 'doc3', 1)
         }
     })
 

@@ -50,7 +50,9 @@ class Dependency:
                self.when_bootstrap == other.when_bootstrap
 
 class Package:
-    def __init__(self, name, version, description, license, deps, build_deps, sources, bootstrap, docname, lineno):
+    def __init__(self, name, docname, lineno, version = '0.0.0', description = None,
+                 license = None, deps = [], build_deps = [], sources = [],
+                 bootstrap = False):
         self.name = name
         self.version = version
         self.description = description
@@ -284,17 +286,29 @@ class PackageDirective(SphinxDirective):
                     source['url']
                 )
 
+        args = {}
+
+        if len(self.arguments) >= 2:
+            args['version'] = self.arguments[1]
+
+        for option in ('description', 'license', 'deps'):
+            value = self.options.get(option)
+            if not value is None:
+                args[option] = value
+
+        build_deps = self.options.get('build-deps')
+        if not build_deps is None:
+            args['build_deps'] = build_deps
+
+        if 'bootstrap' in self.options:
+            args['bootstrap'] = True
+
         package = Package(
-            pkgname,
-            self.arguments[1] if len(self.arguments) >= 2 else '0.0.0', #package version
-            self.options.get('description', None),
-            self.options.get('license', None),
-            self.options.get('deps', []),
-            self.options.get('build-deps', []),
-            sources,
-            'bootstrap' in self.options,
-            self.env.docname,
-            self.lineno
+            name=pkgname,
+            sources=sources,
+            docname=self.env.docname,
+            lineno=self.lineno,
+            **args
         )
 
         node_list = []
