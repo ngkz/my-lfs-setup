@@ -396,82 +396,70 @@ def test_package_doctree(app):
     ''')
 
     doctree = restructuredtext.parse(app, text)
-    assert_node(doctree[1], nodes.target, ids=['package-pkg1'], ismod=True)
-    assert_node(doctree[2], addnodes.index, entries=[('single', 'pkg1 (package)', 'package-pkg1', '', None)])
-    assert_node(doctree[3],
-                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
-                                                   [nodes.field_body, 'pkg1'])],
-                                    [nodes.field, ([nodes.field_name, 'Version'],
-                                                   [nodes.field_body, '1.0.0'])])])
-    assert_node(doctree[4], nodes.target, ids=['package-pkg2'], ismod=True)
-    assert_node(doctree[5], addnodes.index, entries=[('single', 'pkg2 (package)', 'package-pkg2', '', None)])
+    assert_node(doctree[1], addnodes.index, entries=[('single', 'pkg1 (package)', 'package-pkg1', '', None)])
+    assert_node(doctree[2],
+                [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg1'],
+                                                            [addnodes.desc_annotation, ' 1.0.0'])],
+                                 addnodes.desc_content)])
+    assert_node(doctree[2], domain='f2lfs', objtype='package', desctype='package', noindex=False)
+    assert_node(doctree[2][0], names=['package-pkg1'], ids=['package-pkg1'], first=True)
+    assert_node(doctree[3], addnodes.index, entries=[('single', 'pkg2 (package)', 'package-pkg2', '', None)])
+    assert_node(doctree[4],
+                [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg2'],
+                                                            [addnodes.desc_annotation, ' 1.0.0'])],
+                                 [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'License'],
+                                                                                         [nodes.field_body, 'license'])])])
+    assert_node(doctree[4][0], names=['package-pkg2'], ids=['package-pkg2'], first=True)
+    assert_node(doctree[5], addnodes.index, entries=[('single', 'pkg3 (package)', 'package-pkg3', '', None)])
     assert_node(doctree[6],
-                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
-                                                   [nodes.field_body, 'pkg2'])],
-                                    [nodes.field, ([nodes.field_name, 'Version'],
-                                                   [nodes.field_body, '1.0.0'])],
-                                    [nodes.field, ([nodes.field_name, 'License'],
-                                                   [nodes.field_body, 'license'])])])
-    assert_node(doctree[7], nodes.target, ids=['package-pkg3'], ismod=True)
-    assert_node(doctree[8], addnodes.index, entries=[('single', 'pkg3 (package)', 'package-pkg3', '', None)])
-    assert_node(doctree[9],
-                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
-                                                   [nodes.field_body, 'pkg3'])],
-                                    [nodes.field, ([nodes.field_name, 'Version'],
-                                                   [nodes.field_body, '1.0.0'])],
-                                    [nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep1']],
-                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
-                                                                                                                              ' (when bootstrapping)')],
-                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep3'],
-                                                                                                                              ' (unless bootstrapping)')])])])])
-    assert_node(doctree[10], nodes.target, ids=['package-pkg4'], ismod=True)
-    assert_node(doctree[11], addnodes.index, entries=[('single', 'pkg4 (package)', 'package-pkg4', '', None)])
+                [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg3'],
+                                                            [addnodes.desc_annotation, ' 1.0.0'])],
+                                 [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
+                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep1']],
+                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
+                                                                                                                                                                     ' (when bootstrapping)')],
+                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep3'],
+                                                                                                                                                                     ' (unless bootstrapping)')])])])])
+    assert_node(doctree[6][0], names=['package-pkg3'], ids=['package-pkg3'], first=True)
+    assert_node(doctree[7], addnodes.index, entries=[('single', 'pkg4 (package)', 'package-pkg4', '', None)])
+    assert_node(doctree[8],
+                [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg4'],
+                                                            [addnodes.desc_annotation, ' 1.0.0'])],
+                                 [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
+                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep1'],
+                                                                                                                                                                     ' (build-time)')],
+                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
+                                                                                                                                                                     ' (build-time, when bootstrapping)')],
+                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
+                                                                                                                                                                     ' (build-time, unless bootstrapping)')])])])])
+    assert_node(doctree[8][0], names=['package-pkg4'], ids=['package-pkg4'], first=True)
+    assert_node(doctree[9], addnodes.index, entries=[('single', 'pkg5 (package)', 'package-pkg5', '', None)])
+    assert_node(doctree[10],
+                [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg5'],
+                                                            [addnodes.desc_annotation, ' 1.0.0'])],
+                                 [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Sources'],
+                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, nodes.reference, 'src1'],
+                                                                                                                                [nodes.list_item, nodes.paragraph, nodes.reference, 'src2'],
+                                                                                                                                [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src3'],
+                                                                                                                                                                    ' (branch ',
+                                                                                                                                                                    [nodes.literal, 'src3-branch'],
+                                                                                                                                                                    ')')],
+                                                                                                                                [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src4'],
+                                                                                                                                                                    ' (tag ',
+                                                                                                                                                                    [nodes.literal, 'src4-tag'],
+                                                                                                                                                                    ')')],
+                                                                                                                                [nodes.list_item, nodes.paragraph, addnodes.download_reference, nodes.literal, 'localfile'])])])])
+    assert_node(doctree[10][0], names=['package-pkg5'], ids=['package-pkg5'], first=True)
+    assert_node(doctree[10][1][0][0][1][0][0][0][0], refuri='src1')
+    assert_node(doctree[10][1][0][0][1][0][1][0][0], refuri='src2')
+    assert_node(doctree[10][1][0][0][1][0][2][0][0], refuri='src3')
+    assert_node(doctree[10][1][0][0][1][0][3][0][0], refuri='src4')
+    assert_node(doctree[11], addnodes.index, entries=[('single', 'pkg6 (package)', 'package-pkg6', '', None)])
     assert_node(doctree[12],
-                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
-                                                   [nodes.field_body, 'pkg4'])],
-                                    [nodes.field, ([nodes.field_name, 'Version'],
-                                                   [nodes.field_body, '1.0.0'])],
-                                    [nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep1'],
-                                                                                                                              ' (build-time)')],
-                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
-                                                                                                                              ' (build-time, when bootstrapping)')],
-                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
-                                                                                                                              ' (build-time, unless bootstrapping)')])])])])
-    assert_node(doctree[13], nodes.target, ids=['package-pkg5'], ismod=True)
-    assert_node(doctree[14], addnodes.index, entries=[('single', 'pkg5 (package)', 'package-pkg5', '', None)])
-    assert_node(doctree[15],
-                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
-                                                   [nodes.field_body, 'pkg5'])],
-                                    [nodes.field, ([nodes.field_name, 'Version'],
-                                                   [nodes.field_body, '1.0.0'])],
-                                    [nodes.field, ([nodes.field_name, 'Sources'],
-                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, nodes.reference, 'src1'],
-                                                                                          [nodes.list_item, nodes.paragraph, nodes.reference, 'src2'],
-                                                                                          [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src3'],
-                                                                                                                              ' (branch ',
-                                                                                                                              [nodes.literal, 'src3-branch'],
-                                                                                                                              ')')],
-                                                                                          [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src4'],
-                                                                                                                               ' (tag ',
-                                                                                                                               [nodes.literal, 'src4-tag'],
-                                                                                                                               ')')],
-                                                                                          [nodes.list_item, nodes.paragraph, addnodes.download_reference, nodes.literal, 'localfile'])])])])
-    assert_node(doctree[15][2][1][0][0][0][0], refuri='src1')
-    assert_node(doctree[15][2][1][0][1][0][0], refuri='src2')
-    assert_node(doctree[15][2][1][0][2][0][0], refuri='src3')
-    assert_node(doctree[15][2][1][0][3][0][0], refuri='src4')
-
-    assert_node(doctree[16], nodes.target, ids=['package-pkg6'], ismod=True)
-    assert_node(doctree[17], addnodes.index, entries=[('single', 'pkg6 (package)', 'package-pkg6', '', None)])
-    assert_node(doctree[18],
-                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Name'],
-                                                   [nodes.field_body, 'pkg6'])],
-                                    [nodes.field, ([nodes.field_name, 'Version'],
-                                                   [nodes.field_body, '1.0.0'])],
-                                    [nodes.field, ([nodes.field_name, 'Description'],
-                                                   [nodes.field_body, 'description'])])])
+                [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg6'],
+                                                            [addnodes.desc_annotation, ' 1.0.0'])],
+                                 [addnodes.desc_content, nodes.paragraph, 'description'])])
+    assert_node(doctree[12][0], names=['package-pkg6'], ids=['package-pkg6'], first=True)
 
 def test_script_buildstep(app):
     text = textwrap.dedent('''\

@@ -255,6 +255,11 @@ def list_item(body):
     item += body
     return item
 
+def paragraph(content):
+    node = nodes.paragraph()
+    node += text(content)
+    return node
+
 class PackageDirective(SphinxDirective):
     required_arguments = 1
     optional_arguments = 1
@@ -300,19 +305,28 @@ class PackageDirective(SphinxDirective):
 
         node_list = []
 
-        targetnode = nodes.target('', '', ids=[package.id], ismod=True)
-        self.state.document.note_explicit_target(targetnode)
-        node_list.append(targetnode)
-
         node_list.append(addnodes.index(
             entries=[('single', pkgname + ' (package)', package.id, '', None)]))
 
-        field_list = nodes.field_list()
-        field_list += field('Name', text(package.name))
-        field_list += field('Version', text(package.version))
+        domain, objtype = self.name.split(':', 1)
+        desc_node = addnodes.desc()
+        desc_node['domain'] = domain
+        desc_node['objtype'] = desc_node['desctype'] = objtype
+        desc_node['noindex'] = False
+
+        desc_sig = addnodes.desc_signature('', '')
+        desc_sig['names'] = desc_sig['ids'] = [package.id]
+        desc_sig['first'] = True
+        desc_sig += addnodes.desc_name(package.name, package.name)
+        desc_sig += addnodes.desc_annotation(' ' + package.version, ' ' + package.version)
+        desc_node += desc_sig
+
+        desc_content = addnodes.desc_content()
 
         if not package.description is None:
-            field_list += field('Description', text(package.description))
+            desc_content += paragraph(package.description)
+
+        field_list = nodes.field_list()
 
         if not package.license is None:
             field_list += field('License', text(package.license))
@@ -392,8 +406,13 @@ class PackageDirective(SphinxDirective):
 
             field_list += sources_field
 
-        node_list.append(field_list)
+        if len(field_list) > 0:
+            desc_content += field_list
 
+        desc_node += desc_content
+        node_list.append(desc_node)
+
+        self.state.document.note_explicit_target(desc_sig)
         self.env.get_domain('f2lfs').note_package(package)
         self.env.ref_context['f2lfs:package'] = package
 
