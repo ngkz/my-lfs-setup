@@ -412,7 +412,7 @@ def test_package_doctree(app):
                 [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg3'],
                                                             [addnodes.desc_annotation, ' 1.0.0'])],
                                  [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, [addnodes.pending_xref, nodes.literal, 'dep1']],
+                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep1'],
                                                                                                                                 [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
                                                                                                                                                                      ' (when bootstrapping)')],
                                                                                                                                 [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep3'],
@@ -422,13 +422,12 @@ def test_package_doctree(app):
     assert_node(doctree[8],
                 [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg4'],
                                                             [addnodes.desc_annotation, ' 1.0.0'])],
-                                 [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep1'],
-                                                                                                                                                                     ' (build-time)')],
+                                 [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Build-time dependencies'],
+                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'builddep1'],
                                                                                                                                 [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
-                                                                                                                                                                     ' (build-time, when bootstrapping)')],
+                                                                                                                                                                     ' (when bootstrapping)')],
                                                                                                                                 [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
-                                                                                                                                                                     ' (build-time, unless bootstrapping)')])])])])
+                                                                                                                                                                     ' (unless bootstrapping)')])])])])
     assert_node(doctree[8][0], names=['package-pkg4'], ids=['package-pkg4'], first=True)
     assert_node(doctree[9], addnodes.index, entries=[('single', 'pkg5 (package)', 'package-pkg5', '', None)])
     assert_node(doctree[10],

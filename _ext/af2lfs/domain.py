@@ -326,13 +326,13 @@ class PackageDirective(SphinxDirective):
         if not package.license is None:
             field_list += field('License', text(package.license))
 
-        if package.deps or package.build_deps:
-            deps_field, deps_blist = blist_field('Dependencies')
+        def render_deps(field_list, title, deps):
+            deps_field, deps_blist = blist_field(title)
 
-            for dep, build_time in itertools.chain(
-                map(lambda dep: (dep, False), package.deps),
-                map(lambda dep: (dep, True), package.build_deps)
-            ):
+            if not deps:
+                return
+
+            for dep in deps:
                 dep_item = nodes.list_item()
                 # reference node must be wrapped with TextElement otherwise html5
                 # builder fails with AssertionError
@@ -342,24 +342,19 @@ class PackageDirective(SphinxDirective):
                 dep_item_paragraph += ref_nodes
                 node_list.extend(messages)
 
-                desc = []
-
-                if build_time:
-                    desc.append('build-time')
-
                 if not dep.when_bootstrap is None:
                     if dep.when_bootstrap:
-                        desc.append("when bootstrapping")
+                        dep_item_paragraph += text(" (when bootstrapping)")
                     else:
-                        desc.append("unless bootstrapping")
-
-                if desc:
-                    dep_item_paragraph += text(' (' + ', '.join(desc) + ')')
+                        dep_item_paragraph += text(" (unless bootstrapping)")
 
                 dep_item += dep_item_paragraph
                 deps_blist += dep_item
 
             field_list += deps_field
+
+        render_deps(field_list, 'Dependencies', package.deps)
+        render_deps(field_list, 'Build-time dependencies', package.build_deps)
 
         if package.sources:
             sources_field, sources_blist = blist_field('Sources')
