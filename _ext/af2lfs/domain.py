@@ -51,12 +51,10 @@ class Dependency:
 
 class Package:
     def __init__(self, name, docname, lineno, version = '0.0.0', description = None,
-                 license = None, deps = [], build_deps = [], sources = [],
-                 bootstrap = False):
+                 deps = [], build_deps = [], sources = [], bootstrap = False):
         self.name = name
         self.version = version
         self.description = description
-        self.license = license
         self.deps = deps
         self.build_deps = build_deps
         self.sources = sources
@@ -260,7 +258,6 @@ class PackageDirective(SphinxDirective):
     required_arguments = 1
     optional_arguments = 1
     option_spec = {
-        'license': directives.unchanged,
         'description': directives.unchanged,
         'deps': dependency,
         'build-deps': dependency,
@@ -291,7 +288,7 @@ class PackageDirective(SphinxDirective):
         if len(self.arguments) >= 2:
             args['version'] = self.arguments[1]
 
-        for option in ('description', 'license', 'deps'):
+        for option in ('description', 'deps'):
             value = self.options.get(option)
             if not value is None:
                 args[option] = value
@@ -335,9 +332,6 @@ class PackageDirective(SphinxDirective):
             desc_content += paragraph(package.description)
 
         field_list = nodes.field_list()
-
-        if not package.license is None:
-            field_list += field('License', text(package.license))
 
         def render_deps(field_list, title, deps):
             deps_field, deps_blist = blist_field(title)
