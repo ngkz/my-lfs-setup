@@ -3,6 +3,7 @@ from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.directives import SphinxDirective
 from sphinx.domains import Domain, ObjType
+from sphinx.errors import SphinxError
 from sphinx.roles import XRefRole
 from sphinx.util import logging
 from sphinx.util.nodes import make_refnode
@@ -13,6 +14,9 @@ import re
 import os.path
 
 logger = logging.getLogger(__name__)
+
+class AF2LFSError(SphinxError):
+    category = 'af2lfs error'
 
 class LookaheadIterator:
     def __init__(self, _iter):
@@ -49,19 +53,38 @@ class Dependency:
         return self.name == other.name and \
                self.when_bootstrap == other.when_bootstrap
 
-class Package:
-    def __init__(self, name, docname, lineno, version = '0.0.0', description = None,
-                 deps = [], build_deps = [], sources = [], bootstrap = False):
+class Build:
+    def __init__(self, name, docname, lineno, version = '0.0.0', build_deps = [],
+                 sources = [], bootstrap = False):
         self.name = name
         self.version = version
-        self.description = description
-        self.deps = deps
         self.build_deps = build_deps
         self.sources = sources
         self.bootstrap = bootstrap
         self.docname = docname
         self.lineno = lineno
         self.build_steps = []
+        self.packages = {}
+
+    def add_package(self, package):
+        existing_package = self.packages.get(package.name)
+        if not existing_package is None:
+            raise AF2LFSError(
+                "duplicate package declaration of '{0.name}' at line {0.lineno} of "
+                "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
+                .format(package, existing_package)
+            )
+
+        self.packages[package.name] = package
+
+class Package:
+    def __init__(self, name, build, docname, lineno, description = None, deps = []):
+        self.name = name
+        self.build = build
+        self.description = description
+        self.deps = deps
+        self.docname = docname
+        self.lineno = lineno
         self.pre_install_steps = []
         self.post_install_steps = []
         self.pre_upgrade_steps = []
@@ -69,8 +92,7 @@ class Package:
         self.pre_remove_steps = []
         self.post_remove_steps = []
 
-    def __repr__(self):
-        return "<Package '{}'>".format(self.name)
+        build.add_package(self)
 
     @property
     def id(self):
@@ -274,39 +296,56 @@ class PackageDirective(SphinxDirective):
         if not validate_package_name(pkgname):
             raise self.error('invalid package name')
 
-        sources = self.options.get('sources', [])
-        for source in sources:
-            if source['type'] == 'local':
-                #resolve local file path
-                source['abs_url'] = os.path.join(
-                    os.path.dirname(self.env.doc2path(self.env.docname)),
-                    source['url']
-                )
-
         args = {}
 
         if len(self.arguments) >= 2:
             args['version'] = self.arguments[1]
+
+        build_deps = self.options.get('build-deps')
+        if not build_deps is None:
+            args['build_deps'] = build_deps
+
+        sources = self.options.get('sources')
+        if not sources is None:
+            for source in sources:
+                if source['type'] == 'local':
+                    #resolve local file path
+                    source['abs_url'] = os.path.join(
+                        os.path.dirname(self.env.doc2path(self.env.docname)),
+                        source['url']
+                    )
+            args['sources'] = sources
+
+        if 'bootstrap' in self.options:
+            args['bootstrap'] = True
+
+        build = Build(
+            pkgname,
+            self.env.docname,
+            self.lineno,
+            **args
+        )
+
+        domain = self.env.get_domain('f2lfs')
+        domain.note_build(build)
+        self.env.ref_context['f2lfs:build'] = build
+
+        args = {}
 
         for option in ('description', 'deps'):
             value = self.options.get(option)
             if not value is None:
                 args[option] = value
 
-        build_deps = self.options.get('build-deps')
-        if not build_deps is None:
-            args['build_deps'] = build_deps
-
-        if 'bootstrap' in self.options:
-            args['bootstrap'] = True
-
         package = Package(
-            name=pkgname,
-            sources=sources,
-            docname=self.env.docname,
-            lineno=self.lineno,
+            pkgname,
+            build,
+            self.env.docname,
+            self.lineno,
             **args
         )
+
+        domain.note_package(package)
 
         node_list = []
 
@@ -323,7 +362,8 @@ class PackageDirective(SphinxDirective):
         desc_sig['names'] = desc_sig['ids'] = [package.id]
         desc_sig['first'] = True
         desc_sig += addnodes.desc_name(package.name, package.name)
-        desc_sig += addnodes.desc_annotation(' ' + package.version, ' ' + package.version)
+        desc_sig += addnodes.desc_annotation(' ' + build.version, ' ' + build.version)
+        self.state.document.note_explicit_target(desc_sig)
         desc_node += desc_sig
 
         desc_content = addnodes.desc_content()
@@ -361,12 +401,12 @@ class PackageDirective(SphinxDirective):
             field_list += deps_field
 
         render_deps(field_list, 'Dependencies', package.deps)
-        render_deps(field_list, 'Build-time dependencies', package.build_deps)
+        render_deps(field_list, 'Build-time dependencies', build.build_deps)
 
-        if package.sources:
+        if build.sources:
             sources_field, sources_blist = blist_field('Sources')
 
-            for source in package.sources:
+            for source in build.sources:
                 source_item = nodes.list_item()
 
                 url_paragraph = nodes.paragraph()
@@ -409,10 +449,6 @@ class PackageDirective(SphinxDirective):
         desc_node += desc_content
         node_list.append(desc_node)
 
-        self.state.document.note_explicit_target(desc_sig)
-        self.env.get_domain('f2lfs').note_package(package)
-        self.env.ref_context['f2lfs:package'] = package
-
         return node_list
 
 class ScriptDirective(SphinxDirective):
@@ -422,11 +458,6 @@ class ScriptDirective(SphinxDirective):
         self.assert_has_content()
 
         name = self.name.split(':')[1]
-
-        package = self.env.ref_context.get('f2lfs:package')
-        if package is None:
-            raise self.error(name +
-                             ' must come after corresponding package directive')
 
         cursor = LookaheadIterator(iter(self.content))
         steps = []
@@ -452,22 +483,32 @@ class ScriptDirective(SphinxDirective):
                 '\n'.join(expected_output) if expected_output else None
             ))
 
+
+        build = self.env.ref_context.get('f2lfs:build')
         if name == 'buildstep':
-            package.build_steps.extend(steps)
-        elif name == 'pre-install':
-            package.pre_install_steps.extend(steps)
-        elif name == 'post-install':
-            package.post_install_steps.extend(steps)
-        elif name == 'pre-upgrade':
-            package.pre_upgrade_steps.extend(steps)
-        elif name == 'post-upgrade':
-            package.post_upgrade_steps.extend(steps)
-        elif name == 'pre-remove':
-            package.pre_remove_steps.extend(steps)
-        elif name == 'post-remove':
-            package.post_remove_steps.extend(steps)
+            if build is None:
+                raise self.error(self.name +
+                                 ' must come after corresponding build definition')
+            build.build_steps.extend(steps)
         else:
-            raise RuntimeError('something went wrong')
+            if build is None or (not build.packages):
+                raise self.error(self.name +
+                                 ' must come after corresponding package definition')
+            package = next(iter(build.packages.values())) #FIXME
+            if name == 'pre-install':
+                package.pre_install_steps.extend(steps)
+            elif name == 'post-install':
+                package.post_install_steps.extend(steps)
+            elif name == 'pre-upgrade':
+                package.pre_upgrade_steps.extend(steps)
+            elif name == 'post-upgrade':
+                package.post_upgrade_steps.extend(steps)
+            elif name == 'pre-remove':
+                package.pre_remove_steps.extend(steps)
+            elif name == 'post-remove':
+                package.post_remove_steps.extend(steps)
+            else:
+                raise RuntimeError('something went wrong')
 
         prompt = ''
         if name == 'buildstep':
@@ -511,41 +552,58 @@ class F2LFSDomain(Domain):
         'post-remove': ScriptDirective,
     }
     initial_data = {
+        'builds': {},
         'packages': {}
     }
-    data_version = 2
+    data_version = 3
+
+    @property
+    def builds(self):
+        return self.data['builds']
 
     @property
     def packages(self):
         return self.data['packages']
 
+    def note_build(self, build):
+        existing_build = self.builds.get(build.name)
+        if not existing_build is None:
+            raise AF2LFSError(
+                "duplicate build declaration of '{0.name}' at line {0.lineno} of "
+                "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
+                .format(build, existing_build)
+            )
+
+        self.builds[build.name] = build
+
     def note_package(self, package):
-        if package.name in self.packages:
-            existing_package = self.packages[package.name]
-            logger.warning(
-                "duplicate package declaration of '{}', also defined at line {} of '{}'"
-                .format(package.name, existing_package.lineno, existing_package.docname),
-                location=(package.docname, package.lineno))
+        existing_package = self.packages.get(package.name)
+        if not existing_package is None:
+            raise AF2LFSError(
+                "duplicate package declaration of '{0.name}' at line {0.lineno} of "
+                "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
+                .format(package, existing_package)
+            )
+
         self.packages[package.name] = package
 
     # Remove traces of a document in the domain-specific inventories.
     def clear_doc(self, docname):
-        for key, package in list(self.packages.items()):
-            if package.docname == docname:
-                del self.packages[key]
+        for objects in (self.builds, self.packages):
+            for key, obj in list(objects.items()):
+                if obj.docname == docname:
+                    del objects[key]
 
     # Merge in data regarding docnames from a different domaindata inventory
     # (coming from a subprocess in parallel builds).
     def merge_domaindata(self, docnames, otherdata):
+        for their in otherdata['builds'].values():
+            if their.docname in docnames:
+                self.note_build(their)
+
         for their in otherdata['packages'].values():
             if their.docname in docnames:
-                if their.name in self.packages:
-                    our = self.packages[their.name]
-                    logger.warning(
-                        "duplicate package declaration of '{}', also defined at line {} of '{}'"
-                        .format(their.name, our.lineno, our.docname),
-                        location=(their.docname, their.lineno))
-                self.packages[their.name] = their
+                self.note_package(their)
 
     def resolve_xref(self, env, fromdocname, builder, typ, target, node,
                      contnode):

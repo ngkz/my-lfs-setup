@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from unittest import mock
 from unittest.mock import Mock
 import textwrap
 import pytest
@@ -7,7 +6,7 @@ from docutils import nodes
 from sphinx import addnodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
-from af2lfs.domain import F2LFSDomain, Package, Dependency
+from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, AF2LFSError
 
 def test_package(app):
     text = textwrap.dedent('''\
@@ -39,20 +38,19 @@ def test_package(app):
     ''')
 
     restructuredtext.parse(app, text)
+
+    builds = app.env.get_domain('f2lfs').builds
     packages = app.env.get_domain('f2lfs').packages
 
-    assert 'foo' in packages
-    foo = packages['foo']
-    assert foo.name == 'foo'
-    assert foo.version == '1.3.37'
-    assert foo.description == 'description'
-    assert foo.deps == [
-        Dependency(name='bar', when_bootstrap=None),
-        Dependency(name='baz', when_bootstrap=True),
-        Dependency(name='qux', when_bootstrap=False),
-    ]
-    assert foo.build_deps == [Dependency('quux')]
-    assert foo.sources == [
+    assert len(builds) == 1
+    assert len(packages) == 1
+    build_foo = builds['foo']
+    pkg_foo = packages['foo']
+
+    assert build_foo.name == 'foo'
+    assert build_foo.version == '1.3.37'
+    assert build_foo.build_deps == [Dependency('quux')]
+    assert build_foo.sources == [
         {
             'type': 'http',
             'url': 'http://example.com/src1.tar.xz',
@@ -89,34 +87,54 @@ def test_package(app):
             'abs_url': app.srcdir / 'foobar'
         }
     ]
-    assert foo.bootstrap
-    assert foo.docname == 'index'
-    assert foo.lineno == 1
+    assert build_foo.bootstrap
+    assert build_foo.docname == 'index'
+    assert build_foo.lineno == 1
+    assert build_foo.packages == {'foo': pkg_foo}
+
+    assert pkg_foo.name == 'foo'
+    assert pkg_foo.build is build_foo
+    assert pkg_foo.description == 'description'
+    assert pkg_foo.deps == [
+        Dependency(name='bar', when_bootstrap=None),
+        Dependency(name='baz', when_bootstrap=True),
+        Dependency(name='qux', when_bootstrap=False),
+    ]
+    assert pkg_foo.docname == 'index'
+    assert pkg_foo.lineno == 1
 
 def test_package_defaults(app):
-    restructuredtext.parse(app, '.. f2lfs:package:: foo 31.3.37')
+    restructuredtext.parse(app, '.. f2lfs:package:: foo')
+
+    builds = app.env.get_domain('f2lfs').builds
     packages = app.env.get_domain('f2lfs').packages
-
+    assert len(builds) == 1
     assert len(packages) == 1
-    assert 'foo' in packages
+    build_foo = builds['foo']
+    pkg_foo = packages['foo']
 
-    foo = packages['foo']
-    assert foo.name == 'foo'
-    assert foo.version == '31.3.37'
-    assert foo.description is None
-    assert foo.deps == []
-    assert foo.build_deps == []
-    assert foo.sources == []
-    assert not foo.bootstrap
-    assert foo.docname == 'index'
-    assert foo.lineno == 1
-    assert foo.build_steps == []
-    assert foo.pre_install_steps == []
-    assert foo.post_install_steps == []
-    assert foo.pre_upgrade_steps == []
-    assert foo.post_upgrade_steps == []
-    assert foo.pre_remove_steps == []
-    assert foo.post_remove_steps == []
+    assert build_foo.name == 'foo'
+    assert build_foo.version == '0.0.0'
+    assert build_foo.build_deps == []
+    assert build_foo.sources == []
+    assert not build_foo.bootstrap
+    assert build_foo.docname == 'index'
+    assert build_foo.lineno == 1
+    assert build_foo.build_steps == []
+    assert build_foo.packages == {'foo': pkg_foo}
+
+    assert pkg_foo.name == 'foo'
+    assert pkg_foo.build is build_foo
+    assert pkg_foo.description is None
+    assert pkg_foo.deps == []
+    assert pkg_foo.docname == 'index'
+    assert pkg_foo.lineno == 1
+    assert pkg_foo.pre_install_steps == []
+    assert pkg_foo.post_install_steps == []
+    assert pkg_foo.pre_upgrade_steps == []
+    assert pkg_foo.post_upgrade_steps == []
+    assert pkg_foo.pre_remove_steps == []
+    assert pkg_foo.post_remove_steps == []
 
 def test_package_should_check_number_of_arguments_less(app, warning):
     restructuredtext.parse(app, '.. f2lfs:package::')
@@ -346,11 +364,13 @@ def test_package_should_not_accept_git_source_lacks_revision(app, warning):
     restructuredtext.parse(app, text)
     assert "at least one of 'tag', 'commit', 'branch' is required." in warning.getvalue()
 
-def test_package_should_not_allow_duplicate_declaration(app, warning):
+def test_package_should_not_allow_duplicate_build_declaration(app, warning):
     restructuredtext.parse(app, '.. f2lfs:package:: baz', 'foo')
-    restructuredtext.parse(app, '\n.. f2lfs:package:: baz', 'bar')
-    assert "WARNING: duplicate package declaration of 'baz', also defined at line 1 of 'foo'" \
-        in warning.getvalue()
+
+    with pytest.raises(AF2LFSError) as excinfo:
+        restructuredtext.parse(app, '\n.. f2lfs:package:: baz', 'bar')
+
+    assert str(excinfo.value) == "duplicate build declaration of 'baz' at line 2 of 'bar', also defined at line 1 of 'foo'"
 
 def test_package_doctree(app):
     text = textwrap.dedent('''\
@@ -465,12 +485,7 @@ def test_script_buildstep(app):
 
     restructuredtext.parse(app, text)
 
-    packages = app.env.get_domain('f2lfs').packages
-
-    assert len(packages) == 1
-    assert 'foo' in packages
-
-    foo = packages['foo']
+    foo = app.env.get_domain('f2lfs').builds['foo']
 
     assert len(foo.build_steps) == 3
 
@@ -567,21 +582,29 @@ def test_script_should_not_append_steps_partially(app, warning):
        > foo
     ''')
     restructuredtext.parse(app, text)
-    domain = app.env.get_domain('f2lfs')
-    assert domain.packages['foo'].build_steps == []
+    assert app.env.get_domain('f2lfs').builds['foo'].build_steps == []
     assert 'WARNING: command continuation must come after command' \
         in warning.getvalue()
 
-def test_script_should_check_it_comes_after_package_definition(app, warning):
+def test_buildstep_should_check_it_comes_after_package_definition(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:buildstep::
 
         $ foo
     ''')
     restructuredtext.parse(app, text)
-    assert 'WARNING: buildstep must come after corresponding package directive' \
+    assert 'WARNING: f2lfs:buildstep must come after corresponding build definition' \
         in warning.getvalue()
 
+def test_package_hooks_should_check_it_comes_after_package_definition(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:pre-install::
+
+        $ foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: f2lfs:pre-install must come after corresponding package definition' \
+        in warning.getvalue()
 
 def test_script_should_check_command_continuation_comes_after_command(app, warning):
     text = textwrap.dedent('''\
@@ -627,7 +650,7 @@ def test_script_doctree(app):
     assert_node(codeblocks[0], language='f2lfs-shell-session')
 
     text = textwrap.dedent('''\
-    .. f2lfs:package:: foo
+    .. f2lfs:package:: bar
     .. f2lfs:buildstep::
 
        # foo
@@ -646,14 +669,14 @@ def test_script_doctree(app):
                                                                      quux''')])
     assert_node(codeblocks[0], language='f2lfs-shell-session')
 
-    for directive in ('pre-install', 'post-install', 'pre-upgrade', 'post-upgrade',
-                      'pre-remove', 'post-remove'):
+    for i, directive in enumerate(('pre-install', 'post-install', 'pre-upgrade',
+                                   'post-upgrade', 'pre-remove', 'post-remove')):
         text = textwrap.dedent('''\
-        .. f2lfs:package:: foo
+        .. f2lfs:package:: baz{}
         .. f2lfs:{}::
 
            # foo
-        '''.format(directive))
+        '''.format(i, directive))
         doctree = restructuredtext.parse(app, text)
         codeblocks = list(doctree.traverse(nodes.literal_block))
         assert_node(codeblocks[0], [nodes.literal_block, 'targetfs# foo'])
@@ -662,46 +685,132 @@ def test_script_doctree(app):
 def test_clear_doc():
     env = Mock(domaindata={})
     domain = F2LFSDomain(env)
-    domain.note_package(Package('pkg1', 'doc1', 1))
-    domain.note_package(Package('pkg2', 'doc2', 1))
+
+    doc1_build = Build('build1', 'doc1', 1)
+    doc2_build = Build('build2', 'doc2', 2)
+    domain.note_build(doc1_build)
+    domain.note_build(doc2_build)
+    domain.note_package(Package('pkg1', doc1_build, 'doc1', 1))
+    domain.note_package(Package('pkg2', doc2_build, 'doc2', 1))
+
     domain.clear_doc('doc1')
+
+    assert not 'build1' in domain.builds
+    assert 'build2' in domain.builds
     assert not 'pkg1' in domain.packages
     assert 'pkg2' in domain.packages
 
-@mock.patch('af2lfs.domain.logger')
-def test_merge_domaindata(logger):
+def test_merge_domaindata():
+    our_build_foo = Build('foo', 'doc1', 1)
+    our_pkg_foo = Package('foo', our_build_foo, 'doc1', 1)
     env = Mock(domaindata={
         'f2lfs': {
+            'builds': {'foo': our_build_foo},
+            'packages': {'foo': our_pkg_foo},
+            'version': F2LFSDomain.data_version
+        }
+    })
+    domain = F2LFSDomain(env)
+
+    their_build_bar = Build('bar', 'doc1', 1)
+    their_pkg_bar = Package('bar', their_build_bar, 'doc1', 1)
+
+    their_build_baz = Build('baz', 'doc2', 1)
+    their_pkg_baz = Package('baz', their_build_baz, 'doc2', 1)
+
+    their_build_qux = Build('qux', 'doc3', 1)
+    their_pkg_qux = Package('qux', their_build_qux, 'doc3', 1)
+
+    domain.merge_domaindata(['doc1', 'doc2'], {
+        'builds': {
+            'bar': their_build_bar,
+            'baz': their_build_baz,
+            'qux': their_build_qux
+        },
+        'packages': {
+            'bar': their_pkg_bar,
+            'baz': their_pkg_baz,
+            'qux': their_pkg_qux
+        }
+    })
+
+    assert 'foo' in domain.builds
+    build_foo = domain.builds['foo']
+    assert build_foo.docname == 'doc1'
+    assert build_foo.name == 'foo'
+
+    assert 'foo' in domain.packages
+    package_foo = domain.packages['foo']
+    assert package_foo.docname == 'doc1'
+    assert package_foo.name == 'foo'
+
+    assert 'bar' in domain.builds
+    build_bar = domain.builds['bar']
+    assert build_bar.docname == 'doc1'
+    assert build_bar.name == 'bar'
+
+    assert 'bar' in domain.packages
+    package_bar = domain.packages['bar']
+    assert package_bar.docname == 'doc1'
+    assert package_bar.name == 'bar'
+
+    assert 'baz' in domain.builds
+    build_baz = domain.builds['baz']
+    assert build_baz.docname == 'doc2'
+    assert build_baz.name == 'baz'
+
+    assert 'baz' in domain.packages
+    package_baz = domain.packages['baz']
+    assert package_baz.docname == 'doc2'
+    assert package_baz.name == 'baz'
+
+    assert not 'qux' in domain.builds
+    assert not 'qux' in domain.packages
+
+def test_merge_domaindata_builds_conflict():
+    env = Mock(domaindata={
+        'f2lfs': {
+            'builds': {'foo': Build('foo', 'doc1', 1)},
+            'packages': {},
+            'version': F2LFSDomain.data_version
+        }
+    })
+    domain = F2LFSDomain(env)
+
+    with pytest.raises(AF2LFSError) as excinfo:
+        domain.merge_domaindata(['doc2'], {
+            'builds': {'foo': Build('foo', 'doc2', 2)},
+            'packages': {}
+        })
+
+    assert str(excinfo.value) == "duplicate build declaration of 'foo' at line 2 of 'doc2', also defined at line 1 of 'doc1'"
+
+def test_merge_domaindata_packages_conflict():
+    our_build_foo = Build('foo', 'doc1', 1)
+    our_pkg_foo = Package('foo', our_build_foo, 'doc1', 1)
+    our_pkg_bar = Package('bar', our_build_foo, 'doc1', 1)
+    env = Mock(domaindata={
+        'f2lfs': {
+            'builds': {'foo': our_build_foo},
             'packages': {
-                'foo': Package('foo', 'doc1', 1)
+                'foo': our_pkg_foo,
+                'bar': our_pkg_bar
             },
             'version': F2LFSDomain.data_version
         }
     })
     domain = F2LFSDomain(env)
-    domain.merge_domaindata(['doc1', 'doc2'], {
-        'packages': {
-            'foo': Package('foo', 'doc2', 2),
-            'bar': Package('bar', 'doc1', 1),
-            'qux': Package('qux', 'doc3', 1)
-        }
-    })
 
-    assert 'foo' in domain.packages
-    foo = domain.packages['foo']
-    assert foo.docname == 'doc2'
-    assert foo.name == 'foo'
+    their_build_bar = Build('bar', 'doc2', 2)
+    their_pkg_bar = Package('bar', their_build_bar, 'doc2', 2)
 
-    assert 'bar' in domain.packages
-    bar = domain.packages['bar']
-    assert bar.docname == 'doc1'
-    assert bar.name == 'bar'
+    with pytest.raises(AF2LFSError) as excinfo:
+        domain.merge_domaindata(['doc2'], {
+            'builds': {'bar': their_build_bar},
+            'packages': {'bar': their_pkg_bar}
+        })
 
-    assert not 'qux' in domain.packages
-
-    logger.warning.assert_called_with(
-        "duplicate package declaration of 'foo', also defined at line 1 of 'doc1'",
-        location=('doc2', 2))
+    assert str(excinfo.value) == "duplicate package declaration of 'bar' at line 2 of 'doc2', also defined at line 1 of 'doc1'"
 
 def test_xref(app):
     text = textwrap.dedent('''\
