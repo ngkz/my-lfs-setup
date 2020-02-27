@@ -9,6 +9,113 @@ from sphinx.testing.util import assert_node
 from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, AF2LFSError, \
                           dependency, sources
 
+def test_build(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: foo 1.3.37
+       :build-deps: - bar
+       :sources: - http: http://example.com/src.tar.xz
+                   sha256sum: DEADBEEFDEADBEEFDEADBEEFDEADBEEF
+                 - local: src2
+       :bootstrap:
+    ''')
+
+    restructuredtext.parse(app, text)
+
+    builds = app.env.get_domain('f2lfs').builds
+    assert len(builds) == 1
+    foo = builds['foo']
+    assert foo.name == 'foo'
+    assert foo.version == '1.3.37'
+    assert foo.build_deps == [Dependency('bar')]
+    assert foo.sources == [
+        {
+            'type': 'http',
+            'url': 'http://example.com/src.tar.xz',
+            'sha256sum': 'DEADBEEFDEADBEEFDEADBEEFDEADBEEF'
+        },
+        {
+            'type': 'local',
+            'url': 'src2',
+            'abs_url': app.srcdir / 'src2'
+        }
+    ]
+    assert foo.bootstrap
+    assert foo.docname == 'index'
+    assert foo.lineno == 1
+    assert foo.packages == {}
+
+def test_build_should_check_number_of_arguments_less(app, warning):
+    restructuredtext.parse(app, '.. f2lfs:build::')
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:build" directive:
+        1 argument(s) required, 0 supplied.''') in warning.getvalue()
+
+def test_build_should_check_number_of_arguments_more(app, warning):
+    restructuredtext.parse(app, '.. f2lfs:build:: bar 0.0.0 qux')
+    assert textwrap.dedent('''\
+        WARNING: Error in "f2lfs:build" directive:
+        maximum 2 argument(s) allowed, 3 supplied.''') in warning.getvalue()
+
+def test_build_should_check_name_validity(app, warning):
+    restructuredtext.parse(app, r'''.. f2lfs:build:: "!^@'&%$#`"''')
+    assert 'WARNING: invalid name' in warning.getvalue()
+
+def test_build_should_not_allow_duplicate_declaration(app, warning):
+    restructuredtext.parse(app, '.. f2lfs:build:: baz', 'foo')
+
+    with pytest.raises(AF2LFSError) as excinfo:
+        restructuredtext.parse(app, '\n.. f2lfs:build:: baz', 'bar')
+
+    assert str(excinfo.value) == "duplicate build declaration of 'baz' at line 2 of 'bar', also defined at line 1 of 'foo'"
+
+def test_build_doctree(app):
+    text = textwrap.dedent('''\
+    paragraph to prevent field list disappear
+
+    .. f2lfs:build:: build1 1.0.0
+       :build-deps: - builddep1
+                    - name: builddep2
+                      when-bootstrap: yes
+                    - name: builddep3
+                      when-bootstrap: no
+    .. f2lfs:build:: build2
+       :sources: - http: src1
+                   sha256sum: src1-sha256
+                 - git: src2
+                   commit: src2-commit
+                   sha256sum: src2-sha256
+                 - git: src3
+                   branch: src3-branch
+                   commit: src3-commit
+                   sha256sum: src3-sha256
+                 - git: src4
+                   tag: src4-tag
+                   sha256sum: src4-sha256
+                 - local: localfile
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    assert_node(doctree[1],
+                [nodes.field_list, nodes.field, ([nodes.field_name, 'Build-time dependencies'],
+                                                 [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'builddep1'],
+                                                                                        [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
+                                                                                                                            ' (when bootstrapping)')],
+                                                                                        [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
+                                                                                                                            ' (unless bootstrapping)')])])])
+    assert_node(doctree[2],
+                [nodes.field_list, nodes.field, ([nodes.field_name, 'Sources'],
+                                                 [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, nodes.reference, 'src1'],
+                                                                                        [nodes.list_item, nodes.paragraph, nodes.reference, 'src2'],
+                                                                                        [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src3'],
+                                                                                                                            ' (branch ',
+                                                                                                                            [nodes.literal, 'src3-branch'],
+                                                                                                                            ')')],
+                                                                                        [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src4'],
+                                                                                                                            ' (tag ',
+                                                                                                                            [nodes.literal, 'src4-tag'],
+                                                                                                                            ')')],
+                                                                                        [nodes.list_item, nodes.paragraph, addnodes.download_reference, nodes.literal, 'localfile'])])])
+
 def test_package(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo 1.3.37
@@ -105,7 +212,7 @@ def test_package_should_check_number_of_arguments_more(app, warning):
 
 def test_package_should_check_package_name_validity(app, warning):
     restructuredtext.parse(app, r'''.. f2lfs:package:: "!^@'&%$#`"''')
-    assert 'WARNING: invalid package name' in warning.getvalue()
+    assert 'WARNING: invalid name' in warning.getvalue()
 
 def test_package_should_not_allow_duplicate_build_declaration(app, warning):
     restructuredtext.parse(app, '.. f2lfs:package:: baz', 'foo')

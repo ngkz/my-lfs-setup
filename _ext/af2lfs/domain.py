@@ -276,25 +276,87 @@ def paragraph(content):
     node += text(content)
     return node
 
-class PackageDirective(SphinxDirective):
-    required_arguments = 1
-    optional_arguments = 1
-    option_spec = {
-        'description': directives.unchanged,
-        'deps': dependency,
-        'build-deps': dependency,
-        'sources': sources,
-        'bootstrap': directives.flag
-    }
-
+class BuildMixin():
     def create_package_ref(self, target):
         return F2LFSDomain.roles['pkg']('f2lfs:pkg', target, target,
                                         self.lineno, self.state.inliner)
 
-    def run(self):
-        pkgname = self.arguments[0]
-        if not validate_package_name(pkgname):
-            raise self.error('invalid package name')
+    def render_deps(self, title, deps):
+        if not deps:
+            return ([], [])
+
+        messages_acc = []
+        deps_field, deps_blist = blist_field(title)
+
+        for dep in deps:
+            dep_item = nodes.list_item()
+            # reference node must be wrapped with TextElement otherwise html5
+            # builder fails with AssertionError
+            dep_item_paragraph = nodes.paragraph()
+
+            ref_nodes, messages = self.create_package_ref(dep.name)
+            dep_item_paragraph += ref_nodes
+            messages_acc.extend(messages)
+
+            if not dep.when_bootstrap is None:
+                if dep.when_bootstrap:
+                    dep_item_paragraph += text(" (when bootstrapping)")
+                else:
+                    dep_item_paragraph += text(" (unless bootstrapping)")
+
+            dep_item += dep_item_paragraph
+            deps_blist += dep_item
+
+        return ([deps_field], messages_acc)
+
+    def render_sources(self, sources):
+        if not sources:
+            return ([], [])
+
+        messages_acc = []
+        sources_field, sources_blist = blist_field('Sources')
+
+        for source in sources:
+            source_item = nodes.list_item()
+
+            url_paragraph = nodes.paragraph()
+            if source['type'] != 'local':
+                url_paragraph += nodes.reference(source['url'], source['url'],
+                                                 refuri=source['url'])
+
+                branch = source.get('branch')
+                if not branch is None:
+                    url_paragraph += text(' (branch ')
+                    url_paragraph += nodes.literal(branch, branch)
+                    url_paragraph += text(')')
+
+                tag = source.get('tag')
+                if not tag is None:
+                    url_paragraph += text(' (tag ')
+                    url_paragraph += nodes.literal(tag, tag)
+                    url_paragraph += text(')')
+            else:
+                role_fn, messages = roles.role(
+                    'download', self.state_machine.language, self.lineno,
+                    self.state.reporter
+                )
+                messages_acc.extend(messages)
+
+                ref_nodes, messages = role_fn('download', source['url'], source['url'],
+                                              self.lineno, self.state.inliner)
+                messages_acc.extend(messages)
+
+                url_paragraph += ref_nodes
+
+            source_item += url_paragraph
+            sources_blist += source_item
+
+        return ([sources_field], messages_acc)
+
+    def create_build(self):
+        name = self.arguments[0]
+        if not validate_package_name(name):
+            raise self.error('invalid name')
 
         args = {}
 
@@ -320,7 +382,7 @@ class PackageDirective(SphinxDirective):
             args['bootstrap'] = True
 
         build = Build(
-            pkgname,
+            name,
             self.env.docname,
             self.lineno,
             **args
@@ -329,6 +391,58 @@ class PackageDirective(SphinxDirective):
         domain = self.env.get_domain('f2lfs')
         domain.note_build(build)
         self.env.ref_context['f2lfs:build'] = build
+
+        return build
+
+class BuildDirective(SphinxDirective, BuildMixin):
+    required_arguments = 1
+    optional_arguments = 1
+    option_spec = {
+        'build-deps': dependency,
+        'sources': sources,
+        'bootstrap': directives.flag
+    }
+
+    def run(self):
+        build = self.create_build()
+
+        node_list = []
+        field_list = nodes.field_list()
+
+        deps_nodes, messages = self.render_deps('Build-time dependencies', build.build_deps)
+        field_list += deps_nodes
+        node_list.extend(messages)
+
+        sources_nodes, messages = self.render_sources(build.sources)
+        field_list += sources_nodes
+        node_list.extend(messages)
+
+        if len(field_list) > 0:
+            node_list.append(field_list)
+
+        return node_list
+
+class PackageDirective(SphinxDirective, BuildMixin):
+    required_arguments = 1
+    optional_arguments = 1
+    option_spec = {
+        'description': directives.unchanged,
+        'deps': dependency,
+        'build-deps': dependency,
+        'sources': sources,
+        'bootstrap': directives.flag
+    }
+
+    def create_package_ref(self, target):
+        return F2LFSDomain.roles['pkg']('f2lfs:pkg', target, target,
+                                        self.lineno, self.state.inliner)
+
+    def run(self):
+        build = self.create_build()
+
+        pkgname = self.arguments[0]
+        if not validate_package_name(pkgname):
+            raise self.error('invalid name')
 
         args = {}
 
@@ -345,6 +459,7 @@ class PackageDirective(SphinxDirective):
             **args
         )
 
+        domain = self.env.get_domain('f2lfs')
         domain.note_package(package)
 
         node_list = []
@@ -373,75 +488,17 @@ class PackageDirective(SphinxDirective):
 
         field_list = nodes.field_list()
 
-        def render_deps(field_list, title, deps):
-            deps_field, deps_blist = blist_field(title)
+        deps_nodes, messages = self.render_deps('Dependencies', package.deps)
+        field_list += deps_nodes
+        node_list.extend(messages)
 
-            if not deps:
-                return
+        build_deps_nodes, messages = self.render_deps('Build-time dependencies', build.build_deps)
+        field_list += build_deps_nodes
+        node_list.extend(messages)
 
-            for dep in deps:
-                dep_item = nodes.list_item()
-                # reference node must be wrapped with TextElement otherwise html5
-                # builder fails with AssertionError
-                dep_item_paragraph = nodes.paragraph()
-
-                ref_nodes, messages = self.create_package_ref(dep.name)
-                dep_item_paragraph += ref_nodes
-                node_list.extend(messages)
-
-                if not dep.when_bootstrap is None:
-                    if dep.when_bootstrap:
-                        dep_item_paragraph += text(" (when bootstrapping)")
-                    else:
-                        dep_item_paragraph += text(" (unless bootstrapping)")
-
-                dep_item += dep_item_paragraph
-                deps_blist += dep_item
-
-            field_list += deps_field
-
-        render_deps(field_list, 'Dependencies', package.deps)
-        render_deps(field_list, 'Build-time dependencies', build.build_deps)
-
-        if build.sources:
-            sources_field, sources_blist = blist_field('Sources')
-
-            for source in build.sources:
-                source_item = nodes.list_item()
-
-                url_paragraph = nodes.paragraph()
-                if source['type'] != 'local':
-                    url_paragraph += nodes.reference(source['url'], source['url'],
-                                                     refuri=source['url'])
-
-                    branch = source.get('branch')
-                    if not branch is None:
-                        url_paragraph += text(' (branch ')
-                        url_paragraph += nodes.literal(branch, branch)
-                        url_paragraph += text(')')
-
-                    tag = source.get('tag')
-                    if not tag is None:
-                        url_paragraph += text(' (tag ')
-                        url_paragraph += nodes.literal(tag, tag)
-                        url_paragraph += text(')')
-                else:
-                    role_fn, messages = roles.role(
-                        'download', self.state_machine.language, self.lineno,
-                        self.state.reporter
-                    )
-                    node_list.extend(messages)
-
-                    ref_nodes, messages = role_fn('download', source['url'], source['url'],
-                                                  self.lineno, self.state.inliner)
-                    node_list.extend(messages)
-
-                    url_paragraph += ref_nodes
-
-                source_item += url_paragraph
-                sources_blist += source_item
-
-            field_list += sources_field
+        sources_nodes, messages = self.render_sources(build.sources)
+        field_list += sources_nodes
+        node_list.extend(messages)
 
         if len(field_list) > 0:
             desc_content += field_list
@@ -542,6 +599,7 @@ class F2LFSDomain(Domain):
         'pkg': XRefRole()
     }
     directives = {
+        'build': BuildDirective,
         'package': PackageDirective,
         'buildstep': ScriptDirective,
         'pre-install': ScriptDirective,
