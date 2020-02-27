@@ -277,11 +277,11 @@ def paragraph(content):
     return node
 
 class BuildMixin():
-    def create_package_ref(self, target):
+    def _create_package_ref(self, target):
         return F2LFSDomain.roles['pkg']('f2lfs:pkg', target, target,
                                         self.lineno, self.state.inliner)
 
-    def render_deps(self, title, deps):
+    def _render_deps(self, title, deps):
         if not deps:
             return ([], [])
 
@@ -294,7 +294,7 @@ class BuildMixin():
             # builder fails with AssertionError
             dep_item_paragraph = nodes.paragraph()
 
-            ref_nodes, messages = self.create_package_ref(dep.name)
+            ref_nodes, messages = self._create_package_ref(dep.name)
             dep_item_paragraph += ref_nodes
             messages_acc.extend(messages)
 
@@ -309,7 +309,7 @@ class BuildMixin():
 
         return ([deps_field], messages_acc)
 
-    def render_sources(self, sources):
+    def _render_sources(self, sources):
         if not sources:
             return ([], [])
 
@@ -409,11 +409,11 @@ class BuildDirective(SphinxDirective, BuildMixin):
         node_list = []
         field_list = nodes.field_list()
 
-        deps_nodes, messages = self.render_deps('Build-time dependencies', build.build_deps)
+        deps_nodes, messages = self._render_deps('Build-time dependencies', build.build_deps)
         field_list += deps_nodes
         node_list.extend(messages)
 
-        sources_nodes, messages = self.render_sources(build.sources)
+        sources_nodes, messages = self._render_sources(build.sources)
         field_list += sources_nodes
         node_list.extend(messages)
 
@@ -484,15 +484,15 @@ class PackageDirective(SphinxDirective, BuildMixin):
 
         field_list = nodes.field_list()
 
-        deps_nodes, messages = self.render_deps('Dependencies', package.deps)
+        deps_nodes, messages = self._render_deps('Dependencies', package.deps)
         field_list += deps_nodes
         node_list.extend(messages)
 
-        build_deps_nodes, messages = self.render_deps('Build-time dependencies', build.build_deps)
+        build_deps_nodes, messages = self._render_deps('Build-time dependencies', build.build_deps)
         field_list += build_deps_nodes
         node_list.extend(messages)
 
-        sources_nodes, messages = self.render_sources(build.sources)
+        sources_nodes, messages = self._render_sources(build.sources)
         field_list += sources_nodes
         node_list.extend(messages)
 
