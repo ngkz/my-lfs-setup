@@ -433,10 +433,6 @@ class PackageDirective(SphinxDirective, BuildMixin):
         'bootstrap': directives.flag
     }
 
-    def create_package_ref(self, target):
-        return F2LFSDomain.roles['pkg']('f2lfs:pkg', target, target,
-                                        self.lineno, self.state.inliner)
-
     def run(self):
         build = self.create_build()
 
