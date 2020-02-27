@@ -6,34 +6,18 @@ from docutils import nodes
 from sphinx import addnodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
-from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, AF2LFSError
+from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, AF2LFSError, \
+                          dependency, sources
 
 def test_package(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo 1.3.37
        :description: description
        :deps: - bar
-              - name: baz
-                when-bootstrap: yes
-              - name: qux
-                when-bootstrap: no
-       :build-deps: - quux
+       :build-deps: - baz
        :sources: - http: http://example.com/src1.tar.xz
-                   gpgsig: http://example.com/src1.tar.xz.sig
-                   gpgkey: src1-key.gpg
-                 - http: http://example.com/src2.patch
                    sha256sum: DEADBEEFDEADBEEFDEADBEEFDEADBEEF
-                 - git: git://example.com/src3.git
-                   tag: src3-tag
-                   sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
-                 - git: git://example.com/src4.git
-                   branch: src4-branch
-                   commit: deadbeef
-                   sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
-                 - git: https://example.com/src5.git
-                   commit: feedbabe
-                   sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
-                 - local: foobar
+                 - local: src2
        :bootstrap:
     ''')
 
@@ -49,42 +33,17 @@ def test_package(app):
 
     assert build_foo.name == 'foo'
     assert build_foo.version == '1.3.37'
-    assert build_foo.build_deps == [Dependency('quux')]
+    assert build_foo.build_deps == [Dependency('baz')]
     assert build_foo.sources == [
         {
             'type': 'http',
             'url': 'http://example.com/src1.tar.xz',
-            'gpgsig': 'http://example.com/src1.tar.xz.sig',
-            'gpgkey': 'src1-key.gpg'
-        },
-        {
-            'type': 'http',
-            'url': 'http://example.com/src2.patch',
             'sha256sum': 'DEADBEEFDEADBEEFDEADBEEFDEADBEEF'
         },
         {
-            'type': 'git',
-            'url': 'git://example.com/src3.git',
-            'tag': 'src3-tag',
-            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
-        },
-        {
-            'type': 'git',
-            'url': 'git://example.com/src4.git',
-            'branch': 'src4-branch',
-            'commit': 'deadbeef',
-            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
-        },
-        {
-            'type': 'git',
-            'url': 'https://example.com/src5.git',
-            'commit': 'feedbabe',
-            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
-        },
-        {
             'type': 'local',
-            'url': 'foobar',
-            'abs_url': app.srcdir / 'foobar'
+            'url': 'src2',
+            'abs_url': app.srcdir / 'src2'
         }
     ]
     assert build_foo.bootstrap
@@ -95,11 +54,7 @@ def test_package(app):
     assert pkg_foo.name == 'foo'
     assert pkg_foo.build is build_foo
     assert pkg_foo.description == 'description'
-    assert pkg_foo.deps == [
-        Dependency(name='bar', when_bootstrap=None),
-        Dependency(name='baz', when_bootstrap=True),
-        Dependency(name='qux', when_bootstrap=False),
-    ]
+    assert pkg_foo.deps == [Dependency('bar')]
     assert pkg_foo.docname == 'index'
     assert pkg_foo.lineno == 1
 
@@ -151,218 +106,6 @@ def test_package_should_check_number_of_arguments_more(app, warning):
 def test_package_should_check_package_name_validity(app, warning):
     restructuredtext.parse(app, r'''.. f2lfs:package:: "!^@'&%$#`"''')
     assert 'WARNING: invalid package name' in warning.getvalue()
-
-def test_package_should_handle_invalid_yaml_in_deps(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :deps: {
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'malformed YAML:' in warning.getvalue()
-
-def test_package_should_check_deps_type(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :deps: {}
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'this option must be a list.' in warning.getvalue()
-
-def test_package_should_check_deps_item_type(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :deps: - []
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'dependency entry must be string or hash.' in warning.getvalue()
-
-def test_package_should_check_deps_item_keys(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :deps: - a: b
-    ''')
-    restructuredtext.parse(app, text)
-    assert "invalid dependency key 'a'." in warning.getvalue()
-
-def test_package_should_check_deps_item_mandantory_key(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :deps: - when-bootstrap: no
-    ''')
-    restructuredtext.parse(app, text)
-    assert "dependency name must be specified." in warning.getvalue()
-
-def test_package_should_check_deps_name_validity(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :deps: - "@^'&"
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'invalid dependency name.' in warning.getvalue()
-
-def test_package_should_also_check_build_deps(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :build-deps: {
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'malformed YAML:' in warning.getvalue()
-
-def test_package_should_handle_invalid_yaml_in_sources(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources: {
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'malformed YAML:' in warning.getvalue()
-
-def test_package_should_check_sources_type(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources: {}
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'this option must be a list.' in warning.getvalue()
-
-def test_package_should_check_sources_item_type(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources: - a
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'source entry must be a hash.' in warning.getvalue()
-
-def test_package_should_check_reserved_source_option_name_1(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - type: a
-    ''')
-    restructuredtext.parse(app, text)
-    assert "invalid option 'type'." in warning.getvalue()
-
-def test_package_should_check_reserved_source_option_name_2(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - url: a
-    ''')
-    restructuredtext.parse(app, text)
-    assert "invalid option 'url'." in warning.getvalue()
-
-def test_package_should_check_source_has_only_one_url(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - http: a
-          git: a
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'only one source url can be specified per entry.' in warning.getvalue()
-
-def test_package_should_check_source_has_one_url(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources: - {}
-    ''')
-    restructuredtext.parse(app, text)
-    assert 'source url must be specified.' in warning.getvalue()
-
-def test_package_should_not_accept_unknown_option(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - http: a
-          invalid_option: a
-    ''')
-    restructuredtext.parse(app, text)
-    assert "invalid option 'invalid_option'." in warning.getvalue()
-
-def test_package_should_not_accept_http_source_gpgsig_without_gpgkey(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - http: a
-          gpgsig: b
-    ''')
-    restructuredtext.parse(app, text)
-    assert "option 'gpgsig' requires 'gpgkey'." in warning.getvalue()
-
-def test_package_should_not_accept_http_source_gpgkey_without_gpgsig(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - http: a
-          gpgkey: b
-    ''')
-    restructuredtext.parse(app, text)
-    assert "option 'gpgkey' requires 'gpgsig'." in warning.getvalue()
-
-def test_package_should_not_accept_http_source_lacks_checksum_and_signature(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - http: a
-    ''')
-    restructuredtext.parse(app, text)
-    assert "at least one of 'sha256sum', 'gpgsig' is required." in warning.getvalue()
-
-def test_package_should_not_accept_git_source_has_both_of_tag_and_commit(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - git: a
-          commit: commit
-          tag: tag
-          sha256sum: sum
-    ''')
-    restructuredtext.parse(app, text)
-    assert "option 'tag' conflicts with 'commit'." in warning.getvalue() or \
-           "option 'commit' conflicts with 'tag'." in warning.getvalue()
-
-def test_package_should_not_accept_git_source_has_both_of_tag_and_branch(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - git: a
-          tag: tag
-          branch: branch
-          sha256sum: sum
-    ''')
-    restructuredtext.parse(app, text)
-    assert "option 'tag' conflicts with 'branch'." in warning.getvalue() or \
-           "option 'branch' conflicts with 'tag'." in warning.getvalue()
-
-def test_package_should_not_accept_git_source_has_branch_without_commit(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - git: a
-          branch: branch
-          sha256sum: sum
-    ''')
-    restructuredtext.parse(app, text)
-    assert "option 'branch' requires 'commit'." in warning.getvalue()
-
-def test_package_should_not_accept_git_source_without_sha256(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - git: a
-          tag: tag
-    ''')
-    restructuredtext.parse(app, text)
-    assert "option 'sha256sum' is required." in warning.getvalue()
-
-def test_package_should_not_accept_git_source_lacks_revision(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
-       :sources:
-        - git: a
-          sha256sum: sum
-    ''')
-    restructuredtext.parse(app, text)
-    assert "at least one of 'tag', 'commit', 'branch' is required." in warning.getvalue()
 
 def test_package_should_not_allow_duplicate_build_declaration(app, warning):
     restructuredtext.parse(app, '.. f2lfs:package:: baz', 'foo')
@@ -464,6 +207,237 @@ def test_package_doctree(app):
                                                             [addnodes.desc_annotation, ' 1.0.0'])],
                                  [addnodes.desc_content, nodes.paragraph, 'description'])])
     assert_node(doctree[10][0], names=['package-pkg5'], ids=['package-pkg5'], first=True)
+
+def test_dependency_parser():
+    assert dependency(textwrap.dedent('''\
+    - bar
+    - name: baz
+      when-bootstrap: yes
+    - name: qux
+      when-bootstrap: no
+    ''')) == [
+        Dependency(name='bar', when_bootstrap=None),
+        Dependency(name='baz', when_bootstrap=True),
+        Dependency(name='qux', when_bootstrap=False),
+    ]
+
+def test_dependency_parser_should_reject_invalid_yaml():
+    with pytest.raises(ValueError) as excinfo:
+        dependency('{')
+
+    assert 'malformed YAML:\n' in str(excinfo.value)
+
+def test_dependency_parser_should_check_type():
+    with pytest.raises(ValueError) as excinfo:
+        dependency('{}')
+
+    assert str(excinfo.value) == 'this option must be a list'
+
+def test_dependency_parser_should_check_deps_type():
+    with pytest.raises(ValueError) as excinfo:
+        dependency('- []')
+
+    assert str(excinfo.value) == 'dependency entry must be string or hash'
+
+def test_dependency_parser_should_check_deps_keys():
+    with pytest.raises(ValueError) as excinfo:
+        dependency('- a: b')
+
+    assert str(excinfo.value) == "invalid dependency key 'a'"
+
+def test_dependency_parser_should_check_deps_have_mandantory_key():
+    with pytest.raises(ValueError) as excinfo:
+        dependency('- when-bootstrap: no')
+
+    assert str(excinfo.value) == 'dependency name must be specified'
+
+def test_dependency_parser_should_check_deps_name_validity():
+    with pytest.raises(ValueError) as excinfo:
+        dependency('''- "@^'&"''')
+
+    assert str(excinfo.value) == 'invalid dependency name'
+
+def test_source_parser():
+    assert sources(textwrap.dedent('''\
+    - http: http://example.com/src1.tar.xz
+      gpgsig: http://example.com/src1.tar.xz.sig
+      gpgkey: src1-key.gpg
+    - http: http://example.com/src2.patch
+      sha256sum: DEADBEEFDEADBEEFDEADBEEFDEADBEEF
+    - git: git://example.com/src3.git
+      tag: src3-tag
+      sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
+    - git: git://example.com/src4.git
+      branch: src4-branch
+      commit: deadbeef
+      sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
+    - git: https://example.com/src5.git
+      commit: feedbabe
+      sha256sum: FEEDBABEFEEDBABEFEEDBABEFEEDBABE
+    - local: foobar
+    ''')) == [
+        {
+            'type': 'http',
+            'url': 'http://example.com/src1.tar.xz',
+            'gpgsig': 'http://example.com/src1.tar.xz.sig',
+            'gpgkey': 'src1-key.gpg'
+        },
+        {
+            'type': 'http',
+            'url': 'http://example.com/src2.patch',
+            'sha256sum': 'DEADBEEFDEADBEEFDEADBEEFDEADBEEF'
+        },
+        {
+            'type': 'git',
+            'url': 'git://example.com/src3.git',
+            'tag': 'src3-tag',
+            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
+        },
+        {
+            'type': 'git',
+            'url': 'git://example.com/src4.git',
+            'branch': 'src4-branch',
+            'commit': 'deadbeef',
+            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
+        },
+        {
+            'type': 'git',
+            'url': 'https://example.com/src5.git',
+            'commit': 'feedbabe',
+            'sha256sum': 'FEEDBABEFEEDBABEFEEDBABEFEEDBABE'
+        },
+        {
+            'type': 'local',
+            'url': 'foobar'
+        }
+    ]
+
+def test_source_parser_should_reject_invalid_yaml():
+    with pytest.raises(ValueError) as excinfo:
+        sources('{')
+
+    assert 'malformed YAML:\n' in str(excinfo.value)
+
+def test_source_parser_should_check_type():
+    with pytest.raises(ValueError) as excinfo:
+        sources('{}')
+
+    assert str(excinfo.value) == 'this option must be a list'
+
+def test_source_parser_should_check_item_type():
+    with pytest.raises(ValueError) as excinfo:
+        sources('- a')
+
+    assert str(excinfo.value) == 'source entry must be a hash'
+
+def test_source_parser_should_check_reserved_source_option_name():
+    with pytest.raises(ValueError) as excinfo:
+        sources('- type: a')
+
+    assert str(excinfo.value) == "invalid option 'type'"
+
+    with pytest.raises(ValueError) as excinfo:
+        sources('- url: a')
+
+    assert str(excinfo.value) == "invalid option 'url'"
+
+def test_source_parser_should_check_source_has_only_one_url():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - http: a
+          git: a
+        '''))
+
+    assert str(excinfo.value) == 'only one source url can be specified per entry'
+
+def test_source_parser_should_check_source_has_url():
+    with pytest.raises(ValueError) as excinfo:
+        sources('- {}')
+
+    assert str(excinfo.value) == 'source url must be specified'
+
+def test_source_parser_should_not_accept_unknown_option():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - http: a
+          invalid_option: a
+        '''))
+
+    assert str(excinfo.value) ==  "invalid option 'invalid_option'"
+
+def test_source_parser_should_not_accept_http_source_gpgsig_without_gpgkey():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - http: a
+          gpgsig: b
+        '''))
+
+    assert str(excinfo.value) == "option 'gpgsig' requires 'gpgkey'"
+
+def test_source_parser_should_not_accept_http_source_gpgkey_without_gpgsig():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - http: a
+          gpgkey: b
+        '''))
+
+    assert str(excinfo.value) == "option 'gpgkey' requires 'gpgsig'"
+
+def test_source_parser_should_not_accept_http_source_lacks_checksum_and_signature():
+    with pytest.raises(ValueError) as excinfo:
+        sources('- http: a')
+
+    assert str(excinfo.value) == "at least one of 'sha256sum', 'gpgsig' is required"
+
+def test_source_parser_should_not_accept_git_source_has_both_of_tag_and_commit():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - git: a
+          commit: commit
+          tag: tag
+          sha256sum: sum
+        '''))
+
+    assert str(excinfo.value) == "option 'tag' conflicts with 'commit'" or \
+           str(excinfo.value) == "option 'commit' conflicts with 'tag'"
+
+def test_source_parser_should_not_accept_git_source_has_both_of_tag_and_branch():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - git: a
+          tag: tag
+          branch: branch
+          sha256sum: sum
+        '''))
+
+    assert str(excinfo.value) == "option 'tag' conflicts with 'branch'" or \
+           str(excinfo.value) == "option 'branch' conflicts with 'tag'"
+
+def test_source_parser_should_not_accept_git_source_has_branch_without_commit():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - git: a
+          branch: branch
+          sha256sum: sum
+        '''))
+    assert str(excinfo.value) == "option 'branch' requires 'commit'"
+
+def test_source_parser_should_not_accept_git_source_without_sha256():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - git: a
+          tag: tag
+        '''))
+    assert str(excinfo.value) == "option 'sha256sum' is required"
+
+def test_source_parser_should_not_accept_git_source_lacks_revision():
+    with pytest.raises(ValueError) as excinfo:
+        sources(textwrap.dedent('''\
+        - git: a
+          sha256sum: sum
+        '''))
+
+    assert str(excinfo.value) == "at least one of 'tag', 'commit', 'branch' is required"
 
 def test_script_buildstep(app):
     text = textwrap.dedent('''\
