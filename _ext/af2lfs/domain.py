@@ -98,13 +98,13 @@ class Package:
     def id(self):
         return 'package-' + self.name
 
-class ScriptStep:
+class Command:
     def __init__(self, command, expected_output):
         self.command = command
         self.expected_output = expected_output
 
     def __repr__(self):
-        rep = '<ScriptStep>\n$ ' + self.command.replace('\n', '\n> ')
+        rep = '<Command>\n$ ' + self.command.replace('\n', '\n> ')
         if not self.expected_output is None:
             rep += '\n' + self.expected_output
         return rep
@@ -478,7 +478,7 @@ class ScriptDirective(SphinxDirective):
             while cursor.has_next and (not re.match(r'^(\$|#|>) ', cursor.peek())):
                 expected_output.append(next(cursor))
 
-            steps.append(ScriptStep(
+            steps.append(Command(
                 '\n'.join(commands),
                 '\n'.join(expected_output) if expected_output else None
             ))
