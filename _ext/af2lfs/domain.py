@@ -75,6 +75,7 @@ class Build:
                 .format(package, existing_package)
             )
 
+        assert package.build is self
         self.packages[package.name] = package
 
 class Package:
