@@ -104,12 +104,6 @@ class Command:
         self.command = command
         self.expected_output = expected_output
 
-    def __repr__(self):
-        rep = '<Command>\n$ ' + self.command.replace('\n', '\n> ')
-        if not self.expected_output is None:
-            rep += '\n' + self.expected_output
-        return rep
-
 def validate_package_name(name):
     return not re.search('[^a-zA-Z0-9_-]', name)
 
@@ -266,11 +260,6 @@ def text(text):
 def blist_field(name):
     blist = nodes.bullet_list()
     return (field(name, blist), blist)
-
-def list_item(body):
-    item = nodes.list_item()
-    item += body
-    return item
 
 def paragraph(content):
     node = nodes.paragraph()
