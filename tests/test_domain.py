@@ -36,7 +36,7 @@ def test_build(app):
         {
             'type': 'local',
             'url': 'src2',
-            'abs_url': app.srcdir / 'src2'
+            'abs_path': app.srcdir / 'src2'
         }
     ]
     assert foo.bootstrap
@@ -150,7 +150,7 @@ def test_package(app):
         {
             'type': 'local',
             'url': 'src2',
-            'abs_url': app.srcdir / 'src2'
+            'abs_path': app.srcdir / 'src2'
         }
     ]
     assert build_foo.bootstrap

@@ -362,7 +362,7 @@ class BuildMixin():
             for source in sources:
                 if source['type'] == 'local':
                     #resolve local file path
-                    source['abs_url'] = os.path.join(
+                    source['abs_path'] = os.path.join(
                         os.path.dirname(self.env.doc2path(self.env.docname)),
                         source['url']
                     )
