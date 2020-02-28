@@ -548,7 +548,7 @@ def test_source_parser_should_not_accept_git_source_lacks_revision():
 
 def test_script_buildstep(app):
     text = textwrap.dedent('''\
-    .. f2lfs:package:: foo
+    .. f2lfs:build:: foo
 
     .. f2lfs:buildstep::
 
@@ -655,7 +655,7 @@ def test_script_hook(app):
 
 def test_script_should_not_append_steps_partially(app, warning):
     text = textwrap.dedent('''\
-    .. f2lfs:package:: foo
+    .. f2lfs:build:: foo
     .. f2lfs:buildstep::
 
        $ foo
@@ -689,7 +689,7 @@ def test_package_hooks_should_check_it_comes_after_package_definition(app, warni
 
 def test_script_should_check_command_continuation_comes_after_command(app, warning):
     text = textwrap.dedent('''\
-    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:build:: foo
     .. f2lfs:buildstep::
 
        > foo
@@ -700,7 +700,7 @@ def test_script_should_check_command_continuation_comes_after_command(app, warni
 
 def test_script_should_check_expected_output_comes_after_command(app, warning):
     text = textwrap.dedent('''\
-    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:build:: foo
     .. f2lfs:buildstep::
 
        foo
@@ -711,7 +711,7 @@ def test_script_should_check_expected_output_comes_after_command(app, warning):
 
 def test_script_should_check_content_exists(app, warning):
     text = textwrap.dedent('''\
-    .. f2lfs:package:: foo 0.0.0
+    .. f2lfs:build:: foo
     .. f2lfs:buildstep::
     ''')
     restructuredtext.parse(app, text)
@@ -720,7 +720,7 @@ def test_script_should_check_content_exists(app, warning):
 
 def test_script_doctree(app):
     text = textwrap.dedent('''\
-    .. f2lfs:package:: foo
+    .. f2lfs:build:: foo
     .. f2lfs:buildstep::
 
        # foo
@@ -731,7 +731,7 @@ def test_script_doctree(app):
     assert_node(codeblocks[0], language='f2lfs-shell-session')
 
     text = textwrap.dedent('''\
-    .. f2lfs:package:: bar
+    .. f2lfs:build:: bar
     .. f2lfs:buildstep::
 
        # foo
