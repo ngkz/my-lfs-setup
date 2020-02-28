@@ -28,7 +28,10 @@ livehtml:
 test:
 	pytest tests/
 
-.PHONY: help Makefile serve livehtml test
+coverage:
+	pytest --cov-report=term-missing --cov=af2lfs tests/
+
+.PHONY: help Makefile serve livehtml test coverage
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
