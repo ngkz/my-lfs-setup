@@ -68,6 +68,18 @@ def test_build_should_not_allow_duplicate_declaration(app, warning):
 
     assert str(excinfo.value) == "duplicate build declaration of 'baz' at line 2 of 'bar', also defined at line 1 of 'foo'"
 
+def test_build_should_not_be_nested(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: foo
+
+        .. f2lfs:build:: bar
+    ''')
+
+    with pytest.raises(AF2LFSError) as excinfo:
+        restructuredtext.parse(app, text)
+
+    assert str(excinfo.value) == "f2lfs:build cannot be nested (line 3 of 'index')"
+
 def test_build_doctree(app):
     text = textwrap.dedent('''\
     paragraph to prevent field list disappear
@@ -214,13 +226,19 @@ def test_package_should_check_package_name_validity(app, warning):
     restructuredtext.parse(app, r'''.. f2lfs:package:: "!^@'&%$#`"''')
     assert 'WARNING: invalid name' in warning.getvalue()
 
-def test_package_should_not_allow_duplicate_build_declaration(app, warning):
-    restructuredtext.parse(app, '.. f2lfs:package:: baz', 'foo')
+def test_package_should_not_allow_duplicate_package_declaration(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: build
+
+       .. f2lfs:package:: pkg
+       .. f2lfs:package:: pkg
+    ''')
 
     with pytest.raises(AF2LFSError) as excinfo:
-        restructuredtext.parse(app, '\n.. f2lfs:package:: baz', 'bar')
+        restructuredtext.parse(app, text)
 
-    assert str(excinfo.value) == "duplicate build declaration of 'baz' at line 2 of 'bar', also defined at line 1 of 'foo'"
+    assert str(excinfo.value) == "duplicate package declaration of 'pkg' at line 4 " \
+                                 "of 'index', also defined at line 3 of 'index'"
 
 def test_package_doctree(app):
     text = textwrap.dedent('''\
@@ -327,6 +345,156 @@ def test_dependency_parser():
         Dependency(name='baz', when_bootstrap=True),
         Dependency(name='qux', when_bootstrap=False),
     ]
+
+def test_package_inside_build(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: build 1.3.37
+       :build-deps: - build-dep
+       :sources:
+        - http: http://example.com/src.tar.xz
+          sha256sum: DEADBEEFDEADBEEFDEADBEEFDEADBEEF
+       :bootstrap:
+
+       .. f2lfs:package:: pkg1
+          :description: pkg1 desc
+          :deps: - pkg1-dep
+    ''')
+
+    restructuredtext.parse(app, text)
+
+    builds = app.env.get_domain('f2lfs').builds
+    packages = app.env.get_domain('f2lfs').packages
+    assert len(builds) == 1
+    assert len(packages) == 1
+    build = builds['build']
+    pkg1 = packages['pkg1']
+
+    assert build.name == 'build'
+    assert build.version == '1.3.37'
+    assert build.build_deps == [Dependency('build-dep')]
+    assert build.sources == [
+        {
+            'type': 'http',
+            'url': 'http://example.com/src.tar.xz',
+            'sha256sum': 'DEADBEEFDEADBEEFDEADBEEFDEADBEEF'
+        }
+    ]
+    assert build.bootstrap
+    assert build.docname == 'index'
+    assert build.lineno == 1
+    assert build.packages == {'pkg1': pkg1}
+
+    assert pkg1.name == 'pkg1'
+    assert pkg1.build is build
+    assert pkg1.description == 'pkg1 desc'
+    assert pkg1.deps == [Dependency('pkg1-dep')]
+    assert pkg1.docname == 'index'
+    assert pkg1.lineno == 8
+
+def test_package_inside_build_doctree(app):
+    text = textwrap.dedent('''\
+    paragraph to prevent field list disappear
+
+    .. f2lfs:build:: build 1.3.37
+       :build-deps: - builddep1
+                    - name: builddep2
+                      when-bootstrap: yes
+                    - name: builddep3
+                      when-bootstrap: no
+       :sources: - http: src1
+                   sha256sum: src1-sha256
+                 - git: src2
+                   commit: src2-commit
+                   sha256sum: src2-sha256
+                 - git: src3
+                   branch: src3-branch
+                   commit: src3-commit
+                   sha256sum: src3-sha256
+                 - git: src4
+                   tag: src4-tag
+                   sha256sum: src4-sha256
+                 - local: localfile
+
+       .. f2lfs:package:: pkg1
+          :description: pkg1 desc
+          :deps: - dep1
+                 - name: dep2
+                   when-bootstrap: yes
+                 - name: dep3
+                   when-bootstrap: no
+
+       .. f2lfs:package:: pkg2
+    ''')
+
+    doctree = restructuredtext.parse(app, text)
+    print(doctree[1])
+    assert_node(doctree[1],
+                [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Build-time dependencies'],
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'builddep1'],
+                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
+                                                                                                                              ' (when bootstrapping)')],
+                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
+                                                                                                                              ' (unless bootstrapping)')])])],
+                                    [nodes.field, ([nodes.field_name, 'Sources'],
+                                                   [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, nodes.reference, 'src1'],
+                                                                                          [nodes.list_item, nodes.paragraph, nodes.reference, 'src2'],
+                                                                                          [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src3'],
+                                                                                                                              ' (branch ',
+                                                                                                                              [nodes.literal, 'src3-branch'],
+                                                                                                                              ')')],
+                                                                                          [nodes.list_item, nodes.paragraph, ([nodes.reference, 'src4'],
+                                                                                                                              ' (tag ',
+                                                                                                                              [nodes.literal, 'src4-tag'],
+                                                                                                                              ')')],
+                                                                                          [nodes.list_item, nodes.paragraph, addnodes.download_reference, nodes.literal, 'localfile'])])])])
+
+    assert_node(doctree[2], addnodes.index, entries=[('single', 'pkg1 (package)', 'package-pkg1', '', None)])
+    assert_node(doctree[3],
+                [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg1'],
+                                                            [addnodes.desc_annotation, ' 1.3.37'])],
+                                 [addnodes.desc_content, ([nodes.paragraph, 'pkg1 desc'],
+                                                          [nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
+                                                                                           [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep1'],
+                                                                                                                                  [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
+                                                                                                                                                                       ' (when bootstrapping)')],
+                                                                                                                                  [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep3'],
+                                                                                                                                                                       ' (unless bootstrapping)')])])])])])
+    assert_node(doctree[3], domain='f2lfs', objtype='package', desctype='package', noindex=False)
+    assert_node(doctree[3][0], names=['package-pkg1'], ids=['package-pkg1'], first=True)
+    assert_node(doctree[4], addnodes.index, entries=[('single', 'pkg2 (package)', 'package-pkg2', '', None)])
+    assert_node(doctree[5],
+                [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg2'],
+                                                            [addnodes.desc_annotation, ' 1.3.37'])],
+                                 addnodes.desc_content)])
+    assert_node(doctree[5], domain='f2lfs', objtype='package', desctype='package', noindex=False)
+    assert_node(doctree[5][0], names=['package-pkg2'], ids=['package-pkg2'], first=True)
+
+def test_package_inside_build_should_not_accept_version_specification(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: build
+
+       .. f2lfs:package:: pkg 0.0.0
+    ''')
+    restructuredtext.parse(app, text)
+
+    assert "WARNING: version must be specified at parent build directive" in warning.getvalue()
+
+def test_package_inside_build_should_not_accept_build_options(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: build
+
+       .. f2lfs:package:: pkg
+          :build-deps: - builddep
+       .. f2lfs:package:: pkg2
+          :sources: - local: foo
+       .. f2lfs:package:: pkg3
+          :bootstrap:
+    ''')
+    restructuredtext.parse(app, text)
+
+    assert "index.rst:3: WARNING: option 'build-deps' must be specified at parent build directive" in warning.getvalue()
+    assert "index.rst:5: WARNING: option 'sources' must be specified at parent build directive" in warning.getvalue()
+    assert "index.rst:7: WARNING: option 'bootstrap' must be specified at parent build directive" in warning.getvalue()
 
 def test_dependency_parser_should_reject_invalid_yaml():
     with pytest.raises(ValueError) as excinfo:

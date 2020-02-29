@@ -392,6 +392,7 @@ class BuildDirective(SphinxDirective, BuildMixin):
         'sources': sources,
         'bootstrap': directives.flag
     }
+    has_content = True
 
     def run(self):
         build = self.create_build()
@@ -410,6 +411,18 @@ class BuildDirective(SphinxDirective, BuildMixin):
         if len(field_list) > 0:
             node_list.append(field_list)
 
+        container = nodes.container()
+
+        if 'f2lfs:parent_build' in self.env.temp_data:
+            raise AF2LFSError("{} cannot be nested (line {} of '{}')".format(
+                self.name, self.lineno, self.env.docname))
+        self.env.temp_data['f2lfs:parent_build'] = build
+        self.state.nested_parse(self.content, self.content_offset, container)
+        del self.env.temp_data['f2lfs:parent_build']
+
+        if len(container) > 0:
+            node_list.extend(container.children)
+
         return node_list
 
 class PackageDirective(SphinxDirective, BuildMixin):
@@ -424,13 +437,26 @@ class PackageDirective(SphinxDirective, BuildMixin):
     }
 
     def run(self):
-        build = self.create_build()
-
         pkgname = self.arguments[0]
         if not validate_package_name(pkgname):
             raise self.error('invalid name')
 
+        parent_build = self.env.temp_data.get('f2lfs:parent_build')
+        if parent_build is None:
+            build = self.create_build()
+        else:
+            build = parent_build
+
         args = {}
+
+        if not parent_build is None:
+            if len(self.arguments) >= 2:
+                raise self.error('version must be specified at parent build directive')
+
+            for optname in self.options.keys():
+                if not optname in ('description', 'deps'):
+                    raise self.error("option '{}' must be specified at parent build directive"
+                                     .format(optname))
 
         for option in ('description', 'deps'):
             value = self.options.get(option)
@@ -478,13 +504,15 @@ class PackageDirective(SphinxDirective, BuildMixin):
         field_list += deps_nodes
         node_list.extend(messages)
 
-        build_deps_nodes, messages = self._render_deps('Build-time dependencies', build.build_deps)
-        field_list += build_deps_nodes
-        node_list.extend(messages)
+        if parent_build is None:
+            build_deps_nodes, messages = self._render_deps('Build-time dependencies', build.build_deps)
+            field_list += build_deps_nodes
+            node_list.extend(messages)
 
-        sources_nodes, messages = self._render_sources(build.sources)
-        field_list += sources_nodes
-        node_list.extend(messages)
+        if parent_build is None:
+            sources_nodes, messages = self._render_sources(build.sources)
+            field_list += sources_nodes
+            node_list.extend(messages)
 
         if len(field_list) > 0:
             desc_content += field_list
