@@ -525,13 +525,12 @@ class PackageDirective(SphinxDirective, BuildMixin):
 class ScriptDirective(SphinxDirective):
     has_content = True
 
-    def run(self):
-        self.assert_has_content()
+    def handle_commands(self, commands):
+        raise NotImplementedError('must be implemented in subclasses')
 
-        name = self.name.split(':')[1]
-
-        cursor = LookaheadIterator(iter(self.content))
-        steps = []
+    def parse_shell_session(self, session):
+        cursor = LookaheadIterator(iter(session))
+        commands = []
 
         while cursor.has_next:
             line = next(cursor)
@@ -541,67 +540,104 @@ class ScriptDirective(SphinxDirective):
             elif (not line.startswith('$ ')) and (not line.startswith('# ')):
                 raise self.error('expected output must come after corresponding command')
 
-            commands = [line[2:]]
+            command_lines = [line[2:]]
             while cursor.has_next and cursor.peek().startswith('> '):
-                commands.append(next(cursor)[2:])
+                command_lines.append(next(cursor)[2:])
 
             expected_output = []
             while cursor.has_next and (not re.match(r'^(\$|#|>) ', cursor.peek())):
                 expected_output.append(next(cursor))
 
-            steps.append(Command(
-                '\n'.join(commands),
+            commands.append(Command(
+                '\n'.join(command_lines),
                 '\n'.join(expected_output) if expected_output else None
             ))
 
+        return commands
 
-        build = self.env.ref_context.get('f2lfs:build')
-        if name == 'buildstep':
-            if build is None:
-                raise self.error(self.name +
-                                 ' must come after corresponding build definition')
-            build.build_steps.extend(steps)
-        else:
-            if build is None or (not build.packages):
-                raise self.error(self.name +
-                                 ' must come after corresponding package definition')
-            package = next(iter(build.packages.values())) #FIXME
-            if name == 'pre-install':
-                package.pre_install_steps.extend(steps)
-            elif name == 'post-install':
-                package.post_install_steps.extend(steps)
-            elif name == 'pre-upgrade':
-                package.pre_upgrade_steps.extend(steps)
-            elif name == 'post-upgrade':
-                package.post_upgrade_steps.extend(steps)
-            elif name == 'pre-remove':
-                package.pre_remove_steps.extend(steps)
-            elif name == 'post-remove':
-                package.post_remove_steps.extend(steps)
-            else:
-                raise RuntimeError('something went wrong')
-
-        prompt = ''
-        if name == 'buildstep':
-            prompt = 'build#'
-        elif name in ('pre-install', 'post-install', 'pre-upgrade', 'post-upgrade',
-                      'pre-remove', 'post-remove'):
-            prompt = 'targetfs#'
-        else:
-            raise RuntimeError('something went wrong')
-
+    def rebuild_shell_session(self, prompt, commands):
         text = ''
-        for i, step in enumerate(steps):
+        for i, command in enumerate(commands):
             if i > 0:
                 text += '\n'
-            text += prompt + ' ' + step.command.replace('\n', '\n> ')
-            if not step.expected_output is None:
+            text += prompt + ' ' + command.command.replace('\n', '\n> ')
+            if not command.expected_output is None:
                 text += '\n'
-                text += step.expected_output
+                text += command.expected_output
+        return text
 
+    @property
+    def prompt(self):
+        raise NotImplementedError('must be implemented in subclasses')
+
+    def run(self):
+        self.assert_has_content()
+
+        commands = self.parse_shell_session(self.content)
+        self.handle_commands(commands)
+
+        text = self.rebuild_shell_session(self.prompt, commands)
         node = nodes.literal_block(text, text, language='f2lfs-shell-session')
         return [node]
 
+class BuildStepDirective(ScriptDirective):
+    def handle_commands(self, commands):
+        build = self.env.ref_context.get('f2lfs:build')
+        if build is None:
+            raise self.error(self.name +
+                             ' must come after corresponding build definition')
+        build.build_steps.extend(commands)
+
+    @property
+    def prompt(self):
+        return 'build#'
+
+class InstallHookDirective(ScriptDirective):
+    optional_arguments = 1
+    final_argument_whitespace = True
+
+    def handle_commands(self, commands):
+        build = self.env.ref_context.get('f2lfs:build')
+        if build is None or (not build.packages):
+            raise self.error(self.name +
+                             ' must come after corresponding package definition')
+        if len(self.arguments) == 0:
+            if len(build.packages) == 1:
+                packages = list(build.packages.values())
+            else:
+                raise self.error('package name must be specified '
+                                 'when the build has multiple packages')
+        else:
+            packages = []
+            for pkgname in self.arguments[0].split():
+                package = build.packages.get(pkgname)
+                if package is None:
+                    raise self.error(
+                        "specified package '{}' does not exist in corresponding build"
+                        .format(pkgname))
+                else:
+                    packages.append(package)
+
+        name = self.name.split(':')[1]
+        for package in packages:
+            if name == 'pre-install':
+                package.pre_install_steps.extend(commands)
+            elif name == 'post-install':
+                package.post_install_steps.extend(commands)
+            elif name == 'pre-upgrade':
+                package.pre_upgrade_steps.extend(commands)
+            elif name == 'post-upgrade':
+                package.post_upgrade_steps.extend(commands)
+            elif name == 'pre-remove':
+                package.pre_remove_steps.extend(commands)
+            elif name == 'post-remove':
+                package.post_remove_steps.extend(commands)
+            else:
+                raise RuntimeError('something went wrong')
+
+    @property
+    def prompt(self):
+        return 'targetfs#'
 
 class F2LFSDomain(Domain):
     name = 'f2lfs'
@@ -615,13 +651,13 @@ class F2LFSDomain(Domain):
     directives = {
         'build': BuildDirective,
         'package': PackageDirective,
-        'buildstep': ScriptDirective,
-        'pre-install': ScriptDirective,
-        'post-install': ScriptDirective,
-        'pre-upgrade': ScriptDirective,
-        'post-upgrade': ScriptDirective,
-        'pre-remove': ScriptDirective,
-        'post-remove': ScriptDirective,
+        'buildstep': BuildStepDirective,
+        'pre-install': InstallHookDirective,
+        'post-install': InstallHookDirective,
+        'pre-upgrade': InstallHookDirective,
+        'post-upgrade': InstallHookDirective,
+        'pre-remove': InstallHookDirective,
+        'post-remove': InstallHookDirective,
     }
     initial_data = {
         'builds': {},

@@ -757,7 +757,7 @@ foo block 2 command 2 line 2'''
     assert step3.expected_output == '''foo block 2 command 2 expected output line 1
 foo block 2 command 2 expected output line 2'''
 
-def test_script_hook(app):
+def test_script_install_hooks(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: foo
 
@@ -826,6 +826,58 @@ def test_script_hook(app):
     assert step.command == 'post-remove command'
     assert step.expected_output == 'post-remove output'
 
+def test_script_install_hooks_multipackage(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: build
+
+        .. f2lfs:package:: pkg1
+        .. f2lfs:package:: pkg2
+
+    .. f2lfs:pre-install:: pkg1 pkg2
+
+       $ pre-install command
+       pre-install output
+
+    .. f2lfs:post-install:: pkg1
+
+       $ post-install command
+       post-install output
+
+    .. f2lfs:pre-upgrade:: pkg2
+
+       $ pre-upgrade command
+       pre-upgrade output
+    ''')
+
+    restructuredtext.parse(app, text)
+
+    pkg1 = app.env.get_domain('f2lfs').packages['pkg1']
+    pkg2 = app.env.get_domain('f2lfs').packages['pkg2']
+
+    assert len(pkg1.pre_install_steps) == 1
+    assert len(pkg2.pre_install_steps) == 1
+
+    step = pkg1.pre_install_steps[0]
+    assert step.command == 'pre-install command'
+    assert step.expected_output == 'pre-install output'
+
+    step = pkg2.pre_install_steps[0]
+    assert step.command == 'pre-install command'
+    assert step.expected_output == 'pre-install output'
+
+    assert len(pkg1.post_install_steps) == 1
+    assert len(pkg2.post_install_steps) == 0
+
+    step = pkg1.post_install_steps[0]
+    assert step.command == 'post-install command'
+    assert step.expected_output == 'post-install output'
+
+    assert len(pkg1.pre_upgrade_steps) == 0
+    assert len(pkg2.pre_upgrade_steps) == 1
+    step = pkg2.pre_upgrade_steps[0]
+    assert step.command == 'pre-upgrade command'
+    assert step.expected_output == 'pre-upgrade output'
+
 def test_script_should_not_append_steps_partially(app, warning):
     text = textwrap.dedent('''\
     .. f2lfs:build:: foo
@@ -889,6 +941,36 @@ def test_script_should_check_content_exists(app, warning):
     ''')
     restructuredtext.parse(app, text)
     assert 'WARNING: Content block expected for the "f2lfs:buildstep" directive; none found.' \
+        in warning.getvalue()
+
+def test_package_hooks_package_name_must_be_specified_when_the_build_has_multiple_packages(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: foo
+
+       .. f2lfs:package:: foo
+       .. f2lfs:package:: bar
+
+    .. f2lfs:pre-install::
+
+        $ foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: package name must be specified when the build has multiple packages' \
+        in warning.getvalue()
+
+def test_package_hooks_should_check_specified_package_existence(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: foo
+
+       .. f2lfs:package:: foo
+       .. f2lfs:package:: bar
+
+    .. f2lfs:pre-install:: baz
+
+        $ foo
+    ''')
+    restructuredtext.parse(app, text)
+    assert "WARNING: specified package 'baz' does not exist in corresponding build" \
         in warning.getvalue()
 
 def test_script_doctree(app):
