@@ -555,7 +555,7 @@ class ScriptDirective(SphinxDirective):
 
         return commands
 
-    def rebuild_shell_session(self, prompt, commands):
+    def shell_session_block(self, prompt, commands):
         text = ''
         for i, command in enumerate(commands):
             if i > 0:
@@ -564,21 +564,14 @@ class ScriptDirective(SphinxDirective):
             if not command.expected_output is None:
                 text += '\n'
                 text += command.expected_output
-        return text
 
-    @property
-    def prompt(self):
-        raise NotImplementedError('must be implemented in subclasses')
+        return nodes.literal_block(text, text, language='f2lfs-shell-session')
 
     def run(self):
         self.assert_has_content()
 
         commands = self.parse_shell_session(self.content)
-        self.handle_commands(commands)
-
-        text = self.rebuild_shell_session(self.prompt, commands)
-        node = nodes.literal_block(text, text, language='f2lfs-shell-session')
-        return [node]
+        return self.handle_commands(commands)
 
 class BuildStepDirective(ScriptDirective):
     def handle_commands(self, commands):
@@ -587,10 +580,7 @@ class BuildStepDirective(ScriptDirective):
             raise self.error(self.name +
                              ' must come after corresponding build definition')
         build.build_steps.extend(commands)
-
-    @property
-    def prompt(self):
-        return 'build#'
+        return [self.shell_session_block('build#', commands)]
 
 class InstallHookDirective(ScriptDirective):
     optional_arguments = 1
@@ -635,9 +625,7 @@ class InstallHookDirective(ScriptDirective):
             else:
                 raise RuntimeError('something went wrong')
 
-    @property
-    def prompt(self):
-        return 'targetfs#'
+        return [self.shell_session_block('targetfs#', commands)]
 
 class F2LFSDomain(Domain):
     name = 'f2lfs'
