@@ -60,7 +60,7 @@ def test_build_should_check_name_validity(app, warning):
     restructuredtext.parse(app, r'''.. f2lfs:build:: "!^@'&%$#`"''')
     assert 'WARNING: invalid name' in warning.getvalue()
 
-def test_build_should_not_allow_duplicate_declaration(app, warning):
+def test_build_should_not_allow_duplicate_declaration(app):
     restructuredtext.parse(app, '.. f2lfs:build:: baz', 'foo')
 
     with pytest.raises(AF2LFSError) as excinfo:
