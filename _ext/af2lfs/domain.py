@@ -92,6 +92,7 @@ class Package:
         self.post_upgrade_steps = []
         self.pre_remove_steps = []
         self.post_remove_steps = []
+        self.install = False
 
         build.add_package(self)
 
@@ -627,6 +628,41 @@ class InstallHookDirective(ScriptDirective):
 
         return [self.shell_session_block('targetfs#', commands)]
 
+class InstallDirective(SphinxDirective):
+    optional_arguments = 1
+    final_argument_whitespace = True
+
+    def run(self):
+        build = self.env.ref_context.get('f2lfs:build')
+        if build is None or (not build.packages):
+            raise self.error(self.name +
+                             ' must come after corresponding package definition')
+        if len(self.arguments) == 0:
+            packages = list(build.packages.values())
+        else:
+            packages = []
+            for pkgname in self.arguments[0].split():
+                package = build.packages.get(pkgname)
+                if package is None:
+                    raise self.error(
+                        "specified package '{}' does not exist in corresponding build"
+                        .format(pkgname))
+                else:
+                    packages.append(package)
+
+        lines = []
+
+        for package in packages:
+            package.install = True
+            lines.append('targetfs# cp -rsv /usr/pkg/{}/{}/* /'
+                         .format(package.name, build.version))
+            lines.append('targetfs# ln -sfv ../{0}/{1} /usr/pkg/installed/{0}'
+                         .format(package.name, build.version))
+
+        text = '\n'.join(lines)
+        node = nodes.literal_block(text, text, language='f2lfs-shell-session')
+        return [node]
+
 class F2LFSDomain(Domain):
     name = 'f2lfs'
     label = 'F2LFS'
@@ -646,6 +682,7 @@ class F2LFSDomain(Domain):
         'post-upgrade': InstallHookDirective,
         'pre-remove': InstallHookDirective,
         'post-remove': InstallHookDirective,
+        'install': InstallDirective
     }
     initial_data = {
         'builds': {},

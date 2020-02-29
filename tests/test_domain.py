@@ -193,6 +193,7 @@ def test_package(app):
     assert pkg_foo.deps == [Dependency('bar')]
     assert pkg_foo.docname == 'index'
     assert pkg_foo.lineno == 1
+    assert not pkg_foo.install
 
 def test_package_defaults(app):
     restructuredtext.parse(app, '.. f2lfs:package:: foo')
@@ -216,6 +217,7 @@ def test_package_defaults(app):
     assert pkg_foo.post_upgrade_steps == []
     assert pkg_foo.pre_remove_steps == []
     assert pkg_foo.post_remove_steps == []
+    assert not pkg_foo.install
 
 def test_package_should_check_number_of_arguments_less(app, warning):
     restructuredtext.parse(app, '.. f2lfs:package::')
@@ -1017,6 +1019,71 @@ def test_script_doctree(app):
         codeblocks = list(doctree.traverse(nodes.literal_block))
         assert_node(codeblocks[0], [nodes.literal_block, 'targetfs# foo'])
         assert_node(codeblocks[0], language='f2lfs-shell-session')
+
+def test_install(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: build1
+
+       .. f2lfs:package:: pkg1
+       .. f2lfs:package:: pkg2
+
+    .. f2lfs:install::
+
+    .. f2lfs:build:: build2
+
+       .. f2lfs:package:: pkg3
+       .. f2lfs:package:: pkg4
+       .. f2lfs:package:: pkg5
+
+    .. f2lfs:install:: pkg4 pkg5
+    ''')
+    restructuredtext.parse(app, text)
+
+    packages = app.env.get_domain('f2lfs').packages
+    assert packages['pkg1'].install
+    assert packages['pkg2'].install
+    assert not packages['pkg3'].install
+    assert packages['pkg4'].install
+    assert packages['pkg5'].install
+
+def test_install_doctree(app):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: foo 1.0.0
+
+       .. f2lfs:package:: foo
+       .. f2lfs:package:: bar
+
+    .. f2lfs:install::
+    ''')
+    install_code = textwrap.dedent('''\
+    targetfs# cp -rsv /usr/pkg/foo/1.0.0/* /
+    targetfs# ln -sfv ../foo/1.0.0 /usr/pkg/installed/foo
+    targetfs# cp -rsv /usr/pkg/bar/1.0.0/* /
+    targetfs# ln -sfv ../bar/1.0.0 /usr/pkg/installed/bar''')
+    doctree = restructuredtext.parse(app, text)
+    codeblocks = list(doctree.traverse(nodes.literal_block))
+    assert_node(codeblocks[0], [nodes.literal_block, install_code])
+    assert_node(codeblocks[0], language='f2lfs-shell-session')
+
+def test_install_should_check_it_comes_after_package_definition(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:install::
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'WARNING: f2lfs:install must come after corresponding package definition' \
+        in warning.getvalue()
+
+def test_install_should_check_specified_package_existence(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: foo
+
+       .. f2lfs:package:: bar
+
+    .. f2lfs:install:: baz
+    ''')
+    restructuredtext.parse(app, text)
+    assert "WARNING: specified package 'baz' does not exist in corresponding build" \
+        in warning.getvalue()
 
 def test_clear_doc():
     env = Mock(domaindata={})
