@@ -44,6 +44,23 @@ def test_build(app):
     assert foo.lineno == 1
     assert foo.packages == {}
 
+def test_build_defaults(app):
+    restructuredtext.parse(app, '.. f2lfs:build:: foo')
+
+    builds = app.env.get_domain('f2lfs').builds
+    assert len(builds) == 1
+    foo = builds['foo']
+
+    assert foo.name == 'foo'
+    assert foo.version == '0.0.0'
+    assert foo.build_deps == []
+    assert foo.sources == []
+    assert not foo.bootstrap
+    assert foo.docname == 'index'
+    assert foo.lineno == 1
+    assert foo.build_steps == []
+    assert foo.packages == {}
+
 def test_build_should_check_number_of_arguments_less(app, warning):
     restructuredtext.parse(app, '.. f2lfs:build::')
     assert textwrap.dedent('''\
@@ -186,16 +203,6 @@ def test_package_defaults(app):
     assert len(packages) == 1
     build_foo = builds['foo']
     pkg_foo = packages['foo']
-
-    assert build_foo.name == 'foo'
-    assert build_foo.version == '0.0.0'
-    assert build_foo.build_deps == []
-    assert build_foo.sources == []
-    assert not build_foo.bootstrap
-    assert build_foo.docname == 'index'
-    assert build_foo.lineno == 1
-    assert build_foo.build_steps == []
-    assert build_foo.packages == {'foo': pkg_foo}
 
     assert pkg_foo.name == 'foo'
     assert pkg_foo.build is build_foo
