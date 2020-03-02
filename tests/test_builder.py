@@ -26,6 +26,16 @@ def add_package(rootfs, name, version = '0.0.0', deps = [], installed = False,
         Path(rootfs / 'usr' / 'pkg' / 'installed' / name) \
             .symlink_to(Path('..') / name / version)
 
+    if pre_remove_script:
+        path = (rootfs / 'usr' / 'pkg' / name / version / '.pre-remove')
+        path.write_text(pre_remove_script)
+        Path(path).chmod(0o755)
+
+    if post_remove_script:
+        path = (rootfs / 'usr' / 'pkg' / name / version / '.post-remove')
+        path.write_text(post_remove_script)
+        Path(path).chmod(0o755)
+
 def test_built_packages(app, rootfs):
     builder = F2LFSBuilder(app)
 
