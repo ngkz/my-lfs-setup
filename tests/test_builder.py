@@ -5,10 +5,13 @@ import os
 from af2lfs.builder import F2LFSBuilder, BuiltPackage
 from pathlib import Path
 
-def test_built_packages(app, tempdir):
+@pytest.fixture()
+def rootfs(app, tempdir):
     rootfs = tempdir / 'root'
     app.config.f2lfs_rootfs_path = rootfs
+    yield rootfs
 
+def test_built_packages(app, rootfs):
     builder = F2LFSBuilder(app)
 
     assert list(builder.built_packages()) == []
@@ -19,10 +22,7 @@ def test_built_packages(app, tempdir):
         .symlink_to(Path('..') / 'built' / '1.0.0')
     assert list(builder.built_packages()) == [BuiltPackage('built', '1.0.0')]
 
-def test_installed_packages(app, tempdir):
-    rootfs = tempdir / 'root'
-    app.config.f2lfs_rootfs_path = rootfs
-
+def test_installed_packages(app, rootfs):
     builder = F2LFSBuilder(app)
 
     assert list(builder.installed_packages()) == []
