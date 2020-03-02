@@ -32,16 +32,13 @@ class F2LFSBuilder(Builder):
         host_package_dir = Path(self.config.f2lfs_rootfs_path) / PACKAGE_DIR
 
         if not host_package_dir.exists():
-            return []
-
-        result = []
+            return
 
         for package in host_package_dir.iterdir():
             if package.name != 'installed':
                 for version in package.iterdir():
-                    result.append(BuiltPackage(package.name, version.name))
+                    yield BuiltPackage(package.name, version.name)
 
-        return result
 
     def write(self, *ignored):
         logger.info('building root filesystem...')

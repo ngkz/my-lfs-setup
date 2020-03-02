@@ -10,8 +10,8 @@ def test_built_packages(app, tempdir):
 
     builder = F2LFSBuilder(app)
 
-    assert builder.built_packages() == []
+    assert list(builder.built_packages()) == []
 
     os.makedirs(rootfs / 'usr' / 'pkg' / 'built' / '1.0.0')
     (rootfs / 'usr' / 'pkg' / 'installed' / 'foo').makedirs()
-    assert builder.built_packages() == [BuiltPackage('built', '1.0.0')]
+    assert list(builder.built_packages()) == [BuiltPackage('built', '1.0.0')]
