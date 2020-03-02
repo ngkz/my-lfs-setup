@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import pytest
 import textwrap
-import os
 from af2lfs.builder import F2LFSBuilder, BuiltPackage
 from pathlib import Path
 
@@ -11,15 +10,27 @@ def rootfs(app, tempdir):
     app.config.f2lfs_rootfs_path = rootfs
     yield rootfs
 
+def add_package(rootfs, name, version = '0.0.0', deps = [], installed = False):
+    (rootfs / 'usr' / 'pkg' / name / version).makedirs()
+
+    if deps:
+        (rootfs / 'usr' / 'pkg' / name / version / '.deps').makedirs()
+
+    for dep in deps:
+        Path(rootfs / 'usr' / 'pkg' / name / version / '.deps' / dep) \
+            .symlink_to(Path('..') / '..' / '..' / 'installed' / dep)
+
+    if installed:
+        (rootfs / 'usr' / 'pkg' / 'installed').makedirs()
+        Path(rootfs / 'usr' / 'pkg' / 'installed' / name) \
+            .symlink_to(Path('..') / name / version)
+
 def test_built_packages(app, rootfs):
     builder = F2LFSBuilder(app)
 
     assert list(builder.built_packages()) == []
 
-    (rootfs / 'usr' / 'pkg' / 'built' / '1.0.0').makedirs()
-    (rootfs / 'usr' / 'pkg' / 'installed').makedirs()
-    Path(rootfs / 'usr' / 'pkg' / 'installed' / 'built') \
-        .symlink_to(Path('..') / 'built' / '1.0.0')
+    add_package(rootfs, 'built', '1.0.0', installed=True)
     assert list(builder.built_packages()) == [BuiltPackage('built', '1.0.0')]
 
 def test_installed_packages(app, rootfs):
