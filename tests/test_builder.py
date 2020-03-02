@@ -15,3 +15,17 @@ def test_built_packages(app, tempdir):
     os.makedirs(rootfs / 'usr' / 'pkg' / 'built' / '1.0.0')
     (rootfs / 'usr' / 'pkg' / 'installed' / 'foo').makedirs()
     assert list(builder.built_packages()) == [BuiltPackage('built', '1.0.0')]
+
+def test_installed_packages(app, tempdir):
+    rootfs = tempdir / 'root'
+    app.config.f2lfs_rootfs_path = rootfs
+
+    builder = F2LFSBuilder(app)
+
+    assert list(builder.installed_packages()) == []
+
+    os.makedirs(rootfs / 'usr' / 'pkg' / 'installed-pkg' / '1.0.0')
+    os.makedirs(rootfs / 'usr' / 'pkg' / 'installed')
+    os.symlink('../installed-pkg/1.0.0',
+               rootfs / 'usr' / 'pkg' / 'installed' / 'installed-pkg')
+    assert list(builder.installed_packages()) == [BuiltPackage('installed-pkg', '1.0.0')]
