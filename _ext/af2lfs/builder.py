@@ -13,6 +13,9 @@ class BuiltPackage:
     def __eq__(self, other):
         return self.name == other.name and self.version == other.version
 
+    def __repr__(self):
+        return 'BuiltPackage(name={0.name}, version={0.version})'.format(self)
+
 PACKAGE_DIR = PurePath('usr', 'pkg')
 
 class F2LFSBuilder(Builder):
