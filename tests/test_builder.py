@@ -3,6 +3,7 @@ import pytest
 import textwrap
 import os
 from af2lfs.builder import F2LFSBuilder, BuiltPackage
+from pathlib import Path
 
 def test_built_packages(app, tempdir):
     rootfs = tempdir / 'root'
@@ -12,8 +13,10 @@ def test_built_packages(app, tempdir):
 
     assert list(builder.built_packages()) == []
 
-    os.makedirs(rootfs / 'usr' / 'pkg' / 'built' / '1.0.0')
-    (rootfs / 'usr' / 'pkg' / 'installed' / 'foo').makedirs()
+    (rootfs / 'usr' / 'pkg' / 'built' / '1.0.0').makedirs()
+    (rootfs / 'usr' / 'pkg' / 'installed').makedirs()
+    Path(rootfs / 'usr' / 'pkg' / 'installed' / 'built') \
+        .symlink_to(Path('..') / 'built' / '1.0.0')
     assert list(builder.built_packages()) == [BuiltPackage('built', '1.0.0')]
 
 def test_installed_packages(app, tempdir):
