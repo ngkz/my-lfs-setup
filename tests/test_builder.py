@@ -10,7 +10,8 @@ def rootfs(app, tempdir):
     app.config.f2lfs_rootfs_path = rootfs
     yield rootfs
 
-def add_package(rootfs, name, version = '0.0.0', deps = [], installed = False):
+def add_package(rootfs, name, version = '0.0.0', deps = [], installed = False,
+                pre_remove_script = None, post_remove_script = None):
     (rootfs / 'usr' / 'pkg' / name / version).makedirs()
 
     if deps:
@@ -21,7 +22,7 @@ def add_package(rootfs, name, version = '0.0.0', deps = [], installed = False):
             .symlink_to(Path('..') / '..' / '..' / 'installed' / dep)
 
     if installed:
-        (rootfs / 'usr' / 'pkg' / 'installed').makedirs()
+        (rootfs / 'usr' / 'pkg' / 'installed').makedirs(exist_ok = True)
         Path(rootfs / 'usr' / 'pkg' / 'installed' / name) \
             .symlink_to(Path('..') / name / version)
 
