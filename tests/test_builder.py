@@ -27,8 +27,8 @@ def test_installed_packages(app, tempdir):
 
     assert list(builder.installed_packages()) == []
 
-    os.makedirs(rootfs / 'usr' / 'pkg' / 'installed-pkg' / '1.0.0')
-    os.makedirs(rootfs / 'usr' / 'pkg' / 'installed')
-    os.symlink('../installed-pkg/1.0.0',
-               rootfs / 'usr' / 'pkg' / 'installed' / 'installed-pkg')
+    (rootfs / 'usr' / 'pkg' / 'installed-pkg' / '1.0.0').makedirs()
+    (rootfs / 'usr' / 'pkg' / 'installed').makedirs()
+    Path(rootfs / 'usr' / 'pkg' / 'installed' / 'installed-pkg') \
+        .symlink_to(Path('..') / 'installed-pkg' / '1.0.0')
     assert list(builder.installed_packages()) == [BuiltPackage('installed-pkg', '1.0.0')]
