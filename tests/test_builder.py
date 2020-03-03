@@ -10,7 +10,7 @@ def rootfs(app, tempdir):
     app.config.f2lfs_rootfs_path = rootfs
     yield rootfs
 
-def add_package(rootfs, name, version = '0.0.0', deps = [], installed = False,
+def create_package(rootfs, name, version = '0.0.0', deps = [], installed = False,
                 pre_remove_script = None, post_remove_script = None):
     (rootfs / 'usr' / 'pkg' / name / version).makedirs()
 
@@ -41,8 +41,8 @@ def test_built_packages(app, rootfs):
 
     assert list(builder.built_packages()) == []
 
-    add_package(rootfs, 'built', '1.0.0', installed=True)
-    add_package(rootfs, 'built2', '1.0.0', deps=['built'])
+    create_package(rootfs, 'built', '1.0.0', installed=True)
+    create_package(rootfs, 'built2', '1.0.0', deps=['built'])
     assert list(sorted(builder.built_packages())) == \
         [BuiltPackage('built', '1.0.0'),
          BuiltPackage('built2', '1.0.0', deps = ['built'])]
@@ -52,8 +52,9 @@ def test_installed_packages(app, rootfs):
 
     assert list(builder.installed_packages()) == []
 
-    add_package(rootfs, 'installed-pkg', '1.0.0', installed=True)
-    add_package(rootfs, 'installed-pkg2', '1.0.0', deps=['installed-pkg'], installed = True)
+    create_package(rootfs, 'installed-pkg', '1.0.0', installed=True)
+    create_package(rootfs, 'installed-pkg2', '1.0.0', deps=['installed-pkg'],
+                   installed = True)
     assert list(sorted(builder.built_packages())) == \
         [BuiltPackage('installed-pkg', '1.0.0'),
          BuiltPackage('installed-pkg2', '1.0.0', deps = ['installed-pkg'])]
