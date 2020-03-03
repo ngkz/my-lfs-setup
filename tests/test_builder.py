@@ -42,15 +42,18 @@ def test_built_packages(app, rootfs):
     assert list(builder.built_packages()) == []
 
     add_package(rootfs, 'built', '1.0.0', installed=True)
-    assert list(builder.built_packages()) == [BuiltPackage('built', '1.0.0')]
+    add_package(rootfs, 'built2', '1.0.0', deps=['built'])
+    assert list(sorted(builder.built_packages())) == \
+        [BuiltPackage('built', '1.0.0'),
+         BuiltPackage('built2', '1.0.0', deps = ['built'])]
 
 def test_installed_packages(app, rootfs):
     builder = F2LFSBuilder(app)
 
     assert list(builder.installed_packages()) == []
 
-    (rootfs / 'usr' / 'pkg' / 'installed-pkg' / '1.0.0').makedirs()
-    (rootfs / 'usr' / 'pkg' / 'installed').makedirs()
-    Path(rootfs / 'usr' / 'pkg' / 'installed' / 'installed-pkg') \
-        .symlink_to(Path('..') / 'installed-pkg' / '1.0.0')
-    assert list(builder.installed_packages()) == [BuiltPackage('installed-pkg', '1.0.0')]
+    add_package(rootfs, 'installed-pkg', '1.0.0', installed=True)
+    add_package(rootfs, 'installed-pkg2', '1.0.0', deps=['installed-pkg'], installed = True)
+    assert list(sorted(builder.built_packages())) == \
+        [BuiltPackage('installed-pkg', '1.0.0'),
+         BuiltPackage('installed-pkg2', '1.0.0', deps = ['installed-pkg'])]

@@ -8,16 +8,31 @@ PACKAGE_DIR = PurePath('usr', 'pkg')
 logger = logging.getLogger(__name__)
 
 class BuiltPackage:
-    def __init__(self, name, version):
+    def __init__(self, name, version, deps = []):
         self.name = name
         self.version = version
+        self.deps = deps
+
+    @classmethod
+    def from_fs(cls, path):
+        return cls(
+            name=path.parent.name,
+            version=path.name,
+            deps=[deplink.name for deplink in (path / '.deps').iterdir()] \
+                 if (path / '.deps').exists() else []
+        )
 
     def __eq__(self, other):
-        return self.name == other.name and self.version == other.version
+        return self.name == other.name and self.version == other.version and \
+               self.deps == other.deps
 
     def __repr__(self):
-        return 'BuiltPackage(name={0.name}, version={0.version})'.format(self)
+        return 'BuiltPackage(name={0.name}, version={0.version}, deps={0.deps})' \
+                .format(self)
 
+    def __lt__(self, other):
+        return self.name < other.name or \
+               (self.name == other.name and self.version < other.version)
 
 class F2LFSBuilder(Builder):
     name = 'system'
@@ -41,7 +56,7 @@ class F2LFSBuilder(Builder):
         for package in host_package_dir.iterdir():
             if package.name != 'installed':
                 for version in package.iterdir():
-                    yield BuiltPackage(package.name, version.name)
+                    yield BuiltPackage.from_fs(version)
 
     def installed_packages(self):
         host_package_dir = Path(self.config.f2lfs_rootfs_path) / PACKAGE_DIR
@@ -53,9 +68,7 @@ class F2LFSBuilder(Builder):
         for package_link in host_installed_package_dir.iterdir():
             link_target = package_link.resolve()
             assert link_target.parent.parent == host_package_dir
-            name = link_target.parent.name
-            version = link_target.name
-            yield BuiltPackage(name, version)
+            yield BuiltPackage.from_fs(link_target)
 
     def write(self, *ignored):
         logger.info('building root filesystem...')
