@@ -3,6 +3,8 @@ from sphinx.builders import Builder
 from sphinx.util import logging
 from pathlib import Path, PurePath
 
+PACKAGE_DIR = PurePath('usr', 'pkg')
+
 logger = logging.getLogger(__name__)
 
 class BuiltPackage:
@@ -16,7 +18,6 @@ class BuiltPackage:
     def __repr__(self):
         return 'BuiltPackage(name={0.name}, version={0.version})'.format(self)
 
-PACKAGE_DIR = PurePath('usr', 'pkg')
 
 class F2LFSBuilder(Builder):
     name = 'system'
