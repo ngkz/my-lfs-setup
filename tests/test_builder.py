@@ -39,22 +39,24 @@ def create_package(rootfs, name, version = '0.0.0', deps = [], installed = False
 def test_built_packages(app, rootfs):
     builder = F2LFSBuilder(app)
 
-    assert list(builder.built_packages()) == []
+    assert builder.built_packages() == {}
 
     create_package(rootfs, 'built', '1.0.0', installed=True)
     create_package(rootfs, 'built2', '1.0.0', deps=['built'])
-    assert list(sorted(builder.built_packages())) == \
-        [BuiltPackage('built', '1.0.0'),
-         BuiltPackage('built2', '1.0.0', deps = ['built'])]
+    assert builder.built_packages() == {
+        'built': BuiltPackage('built', '1.0.0'),
+        'built2': BuiltPackage('built2', '1.0.0', deps = ['built'])
+    }
 
 def test_installed_packages(app, rootfs):
     builder = F2LFSBuilder(app)
 
-    assert list(builder.installed_packages()) == []
+    assert builder.installed_packages() == {}
 
     create_package(rootfs, 'installed-pkg', '1.0.0', installed=True)
     create_package(rootfs, 'installed-pkg2', '1.0.0', deps=['installed-pkg'],
                    installed = True)
-    assert list(sorted(builder.built_packages())) == \
-        [BuiltPackage('installed-pkg', '1.0.0'),
-         BuiltPackage('installed-pkg2', '1.0.0', deps = ['installed-pkg'])]
+    assert builder.built_packages() == {
+        'installed-pkg': BuiltPackage('installed-pkg', '1.0.0'),
+        'installed-pkg2': BuiltPackage('installed-pkg2', '1.0.0', deps = ['installed-pkg'])
+    }

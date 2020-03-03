@@ -30,10 +30,6 @@ class BuiltPackage:
         return 'BuiltPackage(name={0.name}, version={0.version}, deps={0.deps})' \
                 .format(self)
 
-    def __lt__(self, other):
-        return self.name < other.name or \
-               (self.name == other.name and self.version < other.version)
-
 class F2LFSBuilder(Builder):
     name = 'system'
     epilog = 'The build logs are in %(outdir)s'
@@ -50,25 +46,35 @@ class F2LFSBuilder(Builder):
     def built_packages(self):
         host_package_dir = Path(self.config.f2lfs_rootfs_path) / PACKAGE_DIR
 
+        result = {}
+
         if not host_package_dir.exists():
-            return
+            return result
 
         for package in host_package_dir.iterdir():
             if package.name != 'installed':
                 for version in package.iterdir():
-                    yield BuiltPackage.from_fs(version)
+                    built = BuiltPackage.from_fs(version)
+                    result[built.name] = built
+
+        return result
 
     def installed_packages(self):
         host_package_dir = Path(self.config.f2lfs_rootfs_path) / PACKAGE_DIR
         host_installed_package_dir = host_package_dir / 'installed'
 
+        result = {}
+
         if not host_installed_package_dir.exists():
-            return
+            return result
 
         for package_link in host_installed_package_dir.iterdir():
             link_target = package_link.resolve()
             assert link_target.parent.parent == host_package_dir
-            yield BuiltPackage.from_fs(link_target)
+            installed = BuiltPackage.from_fs(link_target)
+            result[installed.name] = installed
+
+        return result
 
     def write(self, *ignored):
         logger.info('building root filesystem...')
