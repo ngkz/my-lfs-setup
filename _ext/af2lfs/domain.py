@@ -116,40 +116,46 @@ class Command:
 def validate_package_name(name):
     return not re.search('[^a-zA-Z0-9_-]', name)
 
-def dependency(value):
-    try:
-        deps = yaml.safe_load(value)
-    except yaml.parser.ParserError as e:
-        raise ValueError('malformed YAML:\n' + str(e))
+def dependency(allow_when_bootstrap = True):
+    def dependency_impl(value):
+        try:
+            deps = yaml.safe_load(value)
+        except yaml.parser.ParserError as e:
+            raise ValueError('malformed YAML:\n' + str(e))
 
-    if not isinstance(deps, list):
-        raise ValueError('this option must be a list')
+        if not isinstance(deps, list):
+            raise ValueError('this option must be a list')
 
-    def process_dep(dep):
-        kwargs = {}
+        def process_dep(dep):
+            kwargs = {}
 
-        if isinstance(dep, str):
-            dep_name = dep
-        elif isinstance(dep, dict):
-            for key in dep.keys():
-                if not key in ('name', 'when-bootstrap'):
-                    raise ValueError("invalid dependency key '{}'".format(key))
+            if isinstance(dep, str):
+                dep_name = dep
+            elif isinstance(dep, dict):
+                for key in dep.keys():
+                    if not key in ('name', 'when-bootstrap'):
+                        raise ValueError("invalid dependency key '{}'".format(key))
 
-            dep_name = dep.get('name')
-            if dep_name is None:
-                raise ValueError('dependency name must be specified')
+                dep_name = dep.get('name')
+                if dep_name is None:
+                    raise ValueError('dependency name must be specified')
 
-            if 'when-bootstrap' in dep:
-                kwargs['when_bootstrap'] = dep['when-bootstrap']
-        else:
-            raise ValueError('dependency entry must be string or hash')
+                if 'when-bootstrap' in dep:
+                    if allow_when_bootstrap:
+                        kwargs['when_bootstrap'] = dep['when-bootstrap']
+                    else:
+                        raise ValueError('when-bootstrap not allowed here')
+            else:
+                raise ValueError('dependency entry must be string or hash')
 
-        if not validate_package_name(dep_name):
-            raise ValueError('invalid dependency name')
+            if not validate_package_name(dep_name):
+                raise ValueError('invalid dependency name')
 
-        return Dependency(dep_name, **kwargs)
+            return Dependency(dep_name, **kwargs)
 
-    return [process_dep(dep) for dep in deps]
+        return [process_dep(dep) for dep in deps]
+
+    return dependency_impl
 
 SOURCE_SPEC = {
     'http': {
@@ -397,7 +403,7 @@ class BuildDirective(SphinxDirective, BuildMixin):
     required_arguments = 1
     optional_arguments = 1
     option_spec = {
-        'build-deps': dependency,
+        'build-deps': dependency(),
         'sources': sources,
         'bootstrap': directives.flag
     }
@@ -439,8 +445,8 @@ class PackageDirective(SphinxDirective, BuildMixin):
     optional_arguments = 1
     option_spec = {
         'description': directives.unchanged,
-        'deps': dependency,
-        'build-deps': dependency,
+        'deps': dependency(False),
+        'build-deps': dependency(),
         'sources': sources,
         'bootstrap': directives.flag
     }

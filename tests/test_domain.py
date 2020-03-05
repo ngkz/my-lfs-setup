@@ -249,15 +249,22 @@ def test_package_should_not_allow_duplicate_package_declaration(app):
     assert str(excinfo.value) == "duplicate package declaration of 'pkg' at line 4 " \
                                  "of 'index', also defined at line 3 of 'index'"
 
+def test_package_should_not_allow_when_bootstrap_in_deps(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: pkg
+       :deps:
+        - name: foo
+          when-bootstrap: yes
+    ''')
+    restructuredtext.parse(app, text)
+
+    assert 'when-bootstrap not allowed here' in warning.getvalue()
+
 def test_package_doctree(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: pkg1 1.0.0
     .. f2lfs:package:: pkg2 1.0.0
-       :deps: - dep1
-              - name: dep2
-                when-bootstrap: yes
-              - name: dep3
-                when-bootstrap: no
+       :deps: - dep
     .. f2lfs:package:: pkg3 1.0.0
        :build-deps: - builddep1
                     - name: builddep2
@@ -295,11 +302,7 @@ def test_package_doctree(app):
                 [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg2'],
                                                             [addnodes.desc_annotation, ' 1.0.0'])],
                                  [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep1'],
-                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
-                                                                                                                                                                     ' (when bootstrapping)')],
-                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep3'],
-                                                                                                                                                                     ' (unless bootstrapping)')])])])])
+                                                                                         [nodes.field_body, nodes.bullet_list, nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep'])])])
     assert_node(doctree[3][0], names=['package-pkg2'], ids=['package-pkg2'], first=True)
     assert_node(doctree[4], addnodes.index, entries=[('single', 'pkg3 (package)', 'package-pkg3', '', None)])
     assert_node(doctree[5],
@@ -341,7 +344,7 @@ def test_package_doctree(app):
     assert_node(doctree[9][0], names=['package-pkg5'], ids=['package-pkg5'], first=True)
 
 def test_dependency_parser():
-    assert dependency(textwrap.dedent('''\
+    assert dependency()(textwrap.dedent('''\
     - bar
     - name: baz
       when-bootstrap: yes
@@ -424,11 +427,7 @@ def test_package_inside_build_doctree(app):
 
        .. f2lfs:package:: pkg1
           :description: pkg1 desc
-          :deps: - dep1
-                 - name: dep2
-                   when-bootstrap: yes
-                 - name: dep3
-                   when-bootstrap: no
+          :deps: - dep
 
        .. f2lfs:package:: pkg2
     ''')
@@ -461,11 +460,7 @@ def test_package_inside_build_doctree(app):
                                                             [addnodes.desc_annotation, ' 1.3.37'])],
                                  [addnodes.desc_content, ([nodes.paragraph, 'pkg1 desc'],
                                                           [nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                                                           [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep1'],
-                                                                                                                                  [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
-                                                                                                                                                                       ' (when bootstrapping)')],
-                                                                                                                                  [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep3'],
-                                                                                                                                                                       ' (unless bootstrapping)')])])])])])
+                                                                                           [nodes.field_body, nodes.bullet_list, nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep'])])])])
     assert_node(doctree[3], domain='f2lfs', objtype='package', desctype='package', noindex=False)
     assert_node(doctree[3][0], names=['package-pkg1'], ids=['package-pkg1'], first=True)
     assert_node(doctree[4], addnodes.index, entries=[('single', 'pkg2 (package)', 'package-pkg2', '', None)])
@@ -505,37 +500,37 @@ def test_package_inside_build_should_not_accept_build_options(app, warning):
 
 def test_dependency_parser_should_reject_invalid_yaml():
     with pytest.raises(ValueError) as excinfo:
-        dependency('{')
+        dependency()('{')
 
     assert 'malformed YAML:\n' in str(excinfo.value)
 
 def test_dependency_parser_should_check_type():
     with pytest.raises(ValueError) as excinfo:
-        dependency('{}')
+        dependency()('{}')
 
     assert str(excinfo.value) == 'this option must be a list'
 
 def test_dependency_parser_should_check_deps_type():
     with pytest.raises(ValueError) as excinfo:
-        dependency('- []')
+        dependency()('- []')
 
     assert str(excinfo.value) == 'dependency entry must be string or hash'
 
 def test_dependency_parser_should_check_deps_keys():
     with pytest.raises(ValueError) as excinfo:
-        dependency('- a: b')
+        dependency()('- a: b')
 
     assert str(excinfo.value) == "invalid dependency key 'a'"
 
 def test_dependency_parser_should_check_deps_have_mandantory_key():
     with pytest.raises(ValueError) as excinfo:
-        dependency('- when-bootstrap: no')
+        dependency()('- when-bootstrap: no')
 
     assert str(excinfo.value) == 'dependency name must be specified'
 
 def test_dependency_parser_should_check_deps_name_validity():
     with pytest.raises(ValueError) as excinfo:
-        dependency('''- "@^'&"''')
+        dependency()('''- "@^'&"''')
 
     assert str(excinfo.value) == 'invalid dependency name'
 
