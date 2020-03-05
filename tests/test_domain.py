@@ -343,19 +343,6 @@ def test_package_doctree(app):
                                  [addnodes.desc_content, nodes.paragraph, 'description'])])
     assert_node(doctree[9][0], names=['package-pkg5'], ids=['package-pkg5'], first=True)
 
-def test_dependency_parser():
-    assert dependency()(textwrap.dedent('''\
-    - bar
-    - name: baz
-      when-bootstrap: yes
-    - name: qux
-      when-bootstrap: no
-    ''')) == [
-        Dependency(name='bar', when_bootstrap=None),
-        Dependency(name='baz', when_bootstrap=True),
-        Dependency(name='qux', when_bootstrap=False),
-    ]
-
 def test_package_inside_build(app):
     text = textwrap.dedent('''\
     .. f2lfs:build:: build 1.3.37
@@ -497,6 +484,19 @@ def test_package_inside_build_should_not_accept_build_options(app, warning):
     assert "index.rst:3: WARNING: option 'build-deps' must be specified at parent build directive" in warning.getvalue()
     assert "index.rst:5: WARNING: option 'sources' must be specified at parent build directive" in warning.getvalue()
     assert "index.rst:7: WARNING: option 'bootstrap' must be specified at parent build directive" in warning.getvalue()
+
+def test_dependency_parser():
+    assert dependency()(textwrap.dedent('''\
+    - bar
+    - name: baz
+      when-bootstrap: yes
+    - name: qux
+      when-bootstrap: no
+    ''')) == [
+        Dependency(name='bar', when_bootstrap=None),
+        Dependency(name='baz', when_bootstrap=True),
+        Dependency(name='qux', when_bootstrap=False),
+    ]
 
 def test_dependency_parser_should_reject_invalid_yaml():
     with pytest.raises(ValueError) as excinfo:
