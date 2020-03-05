@@ -53,6 +53,9 @@ class Dependency:
         return self.name == other.name and \
                self.when_bootstrap == other.when_bootstrap
 
+    def __repr__(self):
+        return 'Dependency(name={0.name}, when_bootstrap={0.when_bootstrap})'.format(self)
+
 class Build:
     def __init__(self, name, docname, lineno, version = '0.0.0', build_deps = [],
                  sources = [], bootstrap = False):
@@ -99,6 +102,11 @@ class Package:
     @property
     def id(self):
         return 'package-' + self.name
+
+    def __repr__(self):
+        return 'Package(name={0.name}, build={0.build}, docname={0.docname}, ' \
+               'lineno={0.lineno}, description={0.description}, deps={0.deps})' \
+                .format(self)
 
 class Command:
     def __init__(self, command, expected_output):
