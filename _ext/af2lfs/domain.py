@@ -352,7 +352,7 @@ class BuildMixin():
 
         return ([sources_field], messages_acc)
 
-    def create_build(self):
+    def _create_build(self):
         name = self.arguments[0]
         if not validate_package_name(name):
             raise self.error('invalid name')
@@ -404,7 +404,7 @@ class BuildDirective(SphinxDirective, BuildMixin):
     has_content = True
 
     def run(self):
-        build = self.create_build()
+        build = self._create_build()
 
         node_list = []
         field_list = nodes.field_list()
@@ -452,7 +452,7 @@ class PackageDirective(SphinxDirective, BuildMixin):
 
         parent_build = self.env.temp_data.get('f2lfs:parent_build')
         if parent_build is None:
-            build = self.create_build()
+            build = self._create_build()
         else:
             build = parent_build
 
