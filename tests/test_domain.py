@@ -498,6 +498,15 @@ def test_dependency_parser():
         Dependency(name='qux', when_bootstrap=False),
     ]
 
+def test_dependency_parser_disallow_when_bootstrap():
+    with pytest.raises(ValueError) as excinfo:
+        dependency(False)(textwrap.dedent('''\
+        - name: baz
+          when-bootstrap: yes
+        '''))
+
+    assert str(excinfo.value) == 'when-bootstrap not allowed here'
+
 def test_dependency_parser_should_reject_invalid_yaml():
     with pytest.raises(ValueError) as excinfo:
         dependency()('{')
