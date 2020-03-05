@@ -662,6 +662,10 @@ class InstallDirective(SphinxDirective):
 
         for package in packages:
             package.install = True
+            if package.build.bootstrap:
+                logger.warning("bootstrap package '{}' marked as install. " \
+                               "it may not work in the final system.".format(package.name),
+                               location=(self.env.docname, self.lineno))
             lines.append('targetfs# cp -rsv /usr/pkg/{}/{}/* /'
                          .format(package.name, build.version))
             lines.append('targetfs# ln -sfv ../{0}/{1} /usr/pkg/installed/{0}'

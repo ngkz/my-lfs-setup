@@ -1085,6 +1085,16 @@ def test_install_should_check_specified_package_existence(app, warning):
     assert "WARNING: specified package 'baz' does not exist in corresponding build" \
         in warning.getvalue()
 
+def test_install_should_warn_if_package_bootstrap(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: foo
+       :bootstrap:
+    .. f2lfs:install::
+    ''')
+    restructuredtext.parse(app, text)
+    assert "index.rst:3: WARNING: bootstrap package 'foo' marked as install. it may not work in the final system." \
+        in warning.getvalue()
+
 def test_clear_doc():
     env = Mock(domaindata={})
     domain = F2LFSDomain(env)
