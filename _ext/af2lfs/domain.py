@@ -109,10 +109,25 @@ class Package:
             'lineno={0.lineno}, description={0.description}, deps={0.deps}, ' \
             'install={0.install})'.format(self)
 
+    def __eq__(self, other):
+        return self.name == other.name and self.build is other.build and \
+               self.description == other.description and self.deps == other.deps and \
+               self.docname == other.docname and self.lineno == other.lineno and \
+               self.pre_install_steps == other.pre_install_steps and \
+               self.post_install_steps == other.post_install_steps and \
+               self.pre_upgrade_steps == other.pre_upgrade_steps and \
+               self.post_upgrade_steps == other.post_upgrade_steps and \
+               self.pre_remove_steps == other.pre_remove_steps and \
+               self.post_remove_steps == other.post_remove_steps and \
+               self.install == other.install
+
 class Command:
     def __init__(self, command, expected_output):
         self.command = command
         self.expected_output = expected_output
+
+    def __eq__(self, other):
+        return self.command == other.command and self.expected_output == other.expected_output
 
 def validate_package_name(name):
     return not re.search('[^a-zA-Z0-9_-]', name)
