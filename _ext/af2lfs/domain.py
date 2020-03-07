@@ -82,7 +82,8 @@ class Build:
         self.packages[package.name] = package
 
 class Package:
-    def __init__(self, name, build, docname, lineno, description = None, deps = []):
+    def __init__(self, name, build, docname, lineno, description = None, deps = [],
+                 install = False):
         self.name = name
         self.build = build
         self.description = description
@@ -95,7 +96,7 @@ class Package:
         self.post_upgrade_steps = []
         self.pre_remove_steps = []
         self.post_remove_steps = []
-        self.install = False
+        self.install = install
 
         build.add_package(self)
 
@@ -105,8 +106,8 @@ class Package:
 
     def __repr__(self):
         return 'Package(name={0.name}, build={0.build}, docname={0.docname}, ' \
-               'lineno={0.lineno}, description={0.description}, deps={0.deps})' \
-                .format(self)
+            'lineno={0.lineno}, description={0.description}, deps={0.deps}, ' \
+            'install={0.install})'.format(self)
 
 class Command:
     def __init__(self, command, expected_output):
