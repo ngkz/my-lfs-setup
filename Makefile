@@ -31,7 +31,17 @@ test:
 coverage:
 	pytest --cov-report=term-missing --cov=af2lfs tests/
 
-.PHONY: help Makefile serve livehtml test coverage
+system:
+	@$(SPHINXBUILD) \
+		-M system \
+		"$(SOURCEDIR)" \
+		"$(BUILDDIR)" \
+		$(if $(ROOTFS),-Df2lfs_rootfs_path=$(ROOTFS),) \
+		$(if $(findstring y,$(BOOTSTRAP)),-Df2lfs_bootstrap=True,) \
+		$(SPHINXOPTS) \
+		$(O)
+
+.PHONY: help Makefile serve livehtml test coverage system
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
