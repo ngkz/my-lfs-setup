@@ -59,6 +59,8 @@ class Dependency:
 class Build:
     def __init__(self, name, docname, lineno, version = '0.0.0', build_deps = [],
                  sources = [], bootstrap = False):
+        assert validate_package_name(name)
+        assert validate_package_version(version)
         self.name = name
         self.version = version
         self.build_deps = build_deps
@@ -84,6 +86,7 @@ class Build:
 class Package:
     def __init__(self, name, build, docname, lineno, description = None, deps = [],
                  install = False):
+        assert validate_package_name(name)
         self.name = name
         self.build = build
         self.description = description
