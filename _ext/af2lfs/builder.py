@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from sphinx.builders import Builder
 from sphinx.util import logging
+import collections
 from pathlib import Path, PurePath
 
 PACKAGE_DIR = PurePath('usr', 'pkg')
@@ -46,16 +47,18 @@ class F2LFSBuilder(Builder):
     def built_packages(self):
         host_package_dir = Path(self.config.f2lfs_rootfs_path) / PACKAGE_DIR
 
-        result = {}
+        result = collections.defaultdict(dict)
 
         if not host_package_dir.exists():
             return result
 
         for package in host_package_dir.iterdir():
-            if package.name != 'installed':
-                for version in package.iterdir():
-                    built = BuiltPackage.from_fs(version)
-                    result[built.name] = built
+            if package.name in ('version', 'installed'):
+                continue
+
+            for version in package.iterdir():
+                built = BuiltPackage.from_fs(version)
+                result[built.name][built.version] = built
 
         return result
 

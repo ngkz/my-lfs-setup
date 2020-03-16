@@ -11,15 +11,15 @@ def rootfs(app, tempdir):
     yield rootfs
 
 def create_package(rootfs, name, version = '0.0.0', deps = [], installed = False,
-                pre_remove_script = None, post_remove_script = None):
+                   pre_remove_script = None, post_remove_script = None):
     (rootfs / 'usr' / 'pkg' / name / version).makedirs()
 
     if deps:
         (rootfs / 'usr' / 'pkg' / name / version / '.deps').makedirs()
 
-    for dep in deps:
-        Path(rootfs / 'usr' / 'pkg' / name / version / '.deps' / dep) \
-            .symlink_to(Path('..') / '..' / '..' / 'installed' / dep)
+        for dep in deps:
+            Path(rootfs / 'usr' / 'pkg' / name / version / '.deps' / dep) \
+                .symlink_to(Path('..') / '..' / '..' / dep)
 
     if installed:
         (rootfs / 'usr' / 'pkg' / 'installed').makedirs(exist_ok = True)
@@ -35,6 +35,8 @@ def create_package(rootfs, name, version = '0.0.0', deps = [], installed = False
         path = (rootfs / 'usr' / 'pkg' / name / version / '.post-remove')
         path.write_text(post_remove_script)
         Path(path).chmod(0o755)
+
+    return rootfs / 'usr' / 'pkg' / name / version
 
 def test_built_packages(app, rootfs):
     builder = F2LFSBuilder(app)
