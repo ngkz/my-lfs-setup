@@ -53,10 +53,11 @@ def test_installed_packages(app, rootfs):
 
     assert builder.installed_packages() == {}
 
+    create_package(rootfs, 'notinstalled', '1.0.0')
     create_package(rootfs, 'installed-pkg', '1.0.0', installed=True)
     create_package(rootfs, 'installed-pkg2', '1.0.0', deps=['installed-pkg'],
                    installed = True)
-    assert builder.built_packages() == {
+    assert builder.installed_packages() == {
         'installed-pkg': BuiltPackage('installed-pkg', '1.0.0'),
         'installed-pkg2': BuiltPackage('installed-pkg2', '1.0.0', deps = ['installed-pkg'])
     }
