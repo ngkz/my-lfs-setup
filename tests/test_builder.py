@@ -43,11 +43,19 @@ def test_built_packages(app, rootfs):
 
     assert builder.built_packages() == {}
 
+    (rootfs / 'usr' / 'pkg').makedirs()
+    Path(rootfs / 'usr' / 'pkg' / 'version').touch()
     create_package(rootfs, 'built', '1.0.0', installed=True)
     create_package(rootfs, 'built2', '1.0.0', deps=['built'])
+    create_package(rootfs, 'built2', '2.0.0')
     assert builder.built_packages() == {
-        'built': BuiltPackage('built', '1.0.0'),
-        'built2': BuiltPackage('built2', '1.0.0', deps = ['built'])
+        'built': {
+            '1.0.0': BuiltPackage('built', '1.0.0')
+        },
+        'built2': {
+            '1.0.0': BuiltPackage('built2', '1.0.0', deps = ['built']),
+            '2.0.0': BuiltPackage('built2', '2.0.0')
+        }
     }
 
 def test_installed_packages(app, rootfs):
