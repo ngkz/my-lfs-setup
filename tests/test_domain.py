@@ -73,11 +73,19 @@ def test_build_should_check_number_of_arguments_more(app, warning):
         WARNING: Error in "f2lfs:build" directive:
         maximum 2 argument(s) allowed, 3 supplied.''') in warning.getvalue()
 
-@pytest.mark.parametrize('name', (r'''"!^@'&%$#`"''',
-                                  'installed', 'version'))
-def test_build_should_check_name_validity(app, warning, name):
-    restructuredtext.parse(app, r'''.. f2lfs:build:: ''' + name)
-    assert 'WARNING: invalid name' in warning.getvalue()
+def test_build_should_check_name_validity(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@._+-
+    .. f2lfs:build:: .foo
+    .. f2lfs:build:: !"#$%&'()*+,/:;<=>?"
+    .. f2lfs:build:: installed
+    .. f2lfs:build:: version
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'index.rst:2: WARNING: invalid name' in warning.getvalue()
+    assert 'index.rst:3: WARNING: invalid name' in warning.getvalue()
+    assert 'index.rst:4: WARNING: invalid name' in warning.getvalue()
+    assert 'index.rst:5: WARNING: invalid name' in warning.getvalue()
 
 def test_build_should_check_version_validity(app, warning):
     text = textwrap.dedent('''\

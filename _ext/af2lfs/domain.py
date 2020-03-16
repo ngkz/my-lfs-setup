@@ -130,7 +130,8 @@ class Command:
         return self.command == other.command and self.expected_output == other.expected_output
 
 def validate_package_name(name):
-    return not re.search('[^a-zA-Z0-9_-]', name) and not name in ('installed', 'version')
+    return re.match('[a-z0-9@_+-][a-z0-9@._+-]*$', name, re.IGNORECASE) and \
+        not name in ('installed', 'version')
 
 def validate_package_version(version):
     return re.match('[a-z0-9@_+-][a-z0-9@._+-]*$', version, re.IGNORECASE) and \
