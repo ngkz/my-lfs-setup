@@ -45,16 +45,16 @@ class LookaheadIterator:
         return self._lookahead
 
 class Dependency:
-    def __init__(self, name, when_bootstrap = None):
+    def __init__(self, name, select_built = False):
         self.name = name
-        self.when_bootstrap = when_bootstrap
+        self.select_built = select_built
 
     def __eq__(self, other):
         return self.name == other.name and \
-               self.when_bootstrap == other.when_bootstrap
+               self.select_built == other.select_built
 
     def __repr__(self):
-        return 'Dependency(name={0.name}, when_bootstrap={0.when_bootstrap})'.format(self)
+        return 'Dependency(name={0.name}, select_built={0.select_built})'.format(self)
 
 class Build:
     def __init__(self, name, docname, lineno, version = '0.0.0', build_deps = [],
@@ -134,52 +134,51 @@ class Command:
 
 def validate_package_name(name):
     return re.match('[a-z0-9@_+-][a-z0-9@._+-]*$', name, re.IGNORECASE) and \
-        not name in ('installed', 'version')
+        not name in ('installed', 'version', 'OR')
 
 def validate_package_version(version):
     return re.match('[a-z0-9@_+-][a-z0-9@._+-]*$', version, re.IGNORECASE) and \
         version != 'latest'
 
-def dependency(allow_when_bootstrap = True):
-    def dependency_impl(value):
-        try:
-            deps = yaml.safe_load(value)
-        except yaml.parser.ParserError as e:
-            raise ValueError('malformed YAML:\n' + str(e))
+def dependency(value):
+    try:
+        deps = yaml.safe_load(value)
+    except yaml.parser.ParserError as e:
+        raise ValueError('malformed YAML:\n' + str(e))
 
-        if not isinstance(deps, list):
-            raise ValueError('this option must be a list')
+    if not isinstance(deps, list):
+        raise ValueError('this option must be a list')
 
-        def process_dep(dep):
-            kwargs = {}
+    def process_dep(dep):
+        deps_or = []
 
-            if isinstance(dep, str):
-                dep_name = dep
-            elif isinstance(dep, dict):
-                for key in dep.keys():
-                    if not key in ('name', 'when-bootstrap'):
-                        raise ValueError("invalid dependency key '{}'".format(key))
+        if not isinstance(dep, str):
+            raise ValueError('dependency entry must be string')
 
-                dep_name = dep.get('name')
-                if dep_name is None:
-                    raise ValueError('dependency name must be specified')
+        for i, token in enumerate(dep.split()):
+            if i % 2 == 0:
+                name_and_version_specifier = token.split(':', 1)
+                dep_name = name_and_version_specifier[0]
+                select_built = False
 
-                if 'when-bootstrap' in dep:
-                    if allow_when_bootstrap:
-                        kwargs['when_bootstrap'] = dep['when-bootstrap']
+                if not validate_package_name(dep_name):
+                    raise ValueError('invalid dependency name')
+
+                if len(name_and_version_specifier) >= 2:
+                    dep_version = name_and_version_specifier[1]
+                    if dep_version == 'built':
+                        select_built = True
                     else:
-                        raise ValueError('when-bootstrap not allowed here')
+                        raise ValueError("invalid version specifier, only 'built' allowed")
+
+                deps_or.append(Dependency(dep_name, select_built))
             else:
-                raise ValueError('dependency entry must be string or hash')
+                if token != 'OR':
+                    raise ValueError("OR condition must be delimited with 'OR'")
 
-            if not validate_package_name(dep_name):
-                raise ValueError('invalid dependency name')
+        return deps_or
 
-            return Dependency(dep_name, **kwargs)
-
-        return [process_dep(dep) for dep in deps]
-
-    return dependency_impl
+    return [process_dep(dep) for dep in deps]
 
 SOURCE_SPEC = {
     'http': {
@@ -317,21 +316,20 @@ class BuildMixin():
         messages_acc = []
         deps_field, deps_blist = blist_field(title)
 
-        for dep in deps:
+        for deps_or in deps:
             dep_item = nodes.list_item()
             # reference node must be wrapped with TextElement otherwise html5
             # builder fails with AssertionError
             dep_item_paragraph = nodes.paragraph()
 
-            ref_nodes, messages = self._create_package_ref(dep.name)
-            dep_item_paragraph += ref_nodes
-            messages_acc.extend(messages)
-
-            if not dep.when_bootstrap is None:
-                if dep.when_bootstrap:
-                    dep_item_paragraph += text(" (when bootstrapping)")
-                else:
-                    dep_item_paragraph += text(" (unless bootstrapping)")
+            for i, dep in enumerate(deps_or):
+                if i > 0:
+                    dep_item_paragraph += text(' or ')
+                if dep.select_built:
+                    dep_item_paragraph += text('already built ')
+                ref_nodes, messages = self._create_package_ref(dep.name)
+                dep_item_paragraph += ref_nodes
+                messages_acc.extend(messages)
 
             dep_item += dep_item_paragraph
             deps_blist += dep_item
@@ -430,7 +428,7 @@ class BuildDirective(SphinxDirective, BuildMixin):
     required_arguments = 1
     optional_arguments = 1
     option_spec = {
-        'build-deps': dependency(),
+        'build-deps': dependency,
         'sources': sources,
         'bootstrap': directives.flag
     }
@@ -472,8 +470,8 @@ class PackageDirective(SphinxDirective, BuildMixin):
     optional_arguments = 1
     option_spec = {
         'description': directives.unchanged,
-        'deps': dependency(False),
-        'build-deps': dependency(),
+        'deps': dependency,
+        'build-deps': dependency,
         'sources': sources,
         'bootstrap': directives.flag
     }

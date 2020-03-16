@@ -26,7 +26,7 @@ def test_build(app):
     foo = builds['foo']
     assert foo.name == 'foo'
     assert foo.version == '1.3.37'
-    assert foo.build_deps == [Dependency('bar')]
+    assert foo.build_deps == [[Dependency('bar')]]
     assert foo.sources == [
         {
             'type': 'http',
@@ -80,12 +80,14 @@ def test_build_should_check_name_validity(app, warning):
     .. f2lfs:build:: !"#$%&'()*+,/:;<=>?"
     .. f2lfs:build:: installed
     .. f2lfs:build:: version
+    .. f2lfs:build:: OR
     ''')
     restructuredtext.parse(app, text)
     assert 'index.rst:2: WARNING: invalid name' in warning.getvalue()
     assert 'index.rst:3: WARNING: invalid name' in warning.getvalue()
     assert 'index.rst:4: WARNING: invalid name' in warning.getvalue()
     assert 'index.rst:5: WARNING: invalid name' in warning.getvalue()
+    assert 'index.rst:6: WARNING: invalid name' in warning.getvalue()
 
 def test_build_should_check_version_validity(app, warning):
     text = textwrap.dedent('''\
@@ -125,10 +127,7 @@ def test_build_doctree(app):
 
     .. f2lfs:build:: build1 1.0.0
        :build-deps: - builddep1
-                    - name: builddep2
-                      when-bootstrap: yes
-                    - name: builddep3
-                      when-bootstrap: no
+                    - builddep2 OR builddep3:built
     .. f2lfs:build:: build2
        :sources: - http: src1
                    sha256sum: src1-sha256
@@ -150,9 +149,9 @@ def test_build_doctree(app):
                 [nodes.field_list, nodes.field, ([nodes.field_name, 'Build-time dependencies'],
                                                  [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'builddep1'],
                                                                                         [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
-                                                                                                                            ' (when bootstrapping)')],
-                                                                                        [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
-                                                                                                                            ' (unless bootstrapping)')])])])
+                                                                                                                            ' or ',
+                                                                                                                            'already built ',
+                                                                                                                            [addnodes.pending_xref, nodes.literal, 'builddep3'])])])])
     assert_node(doctree[2],
                 [nodes.field_list, nodes.field, ([nodes.field_name, 'Sources'],
                                                  [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, nodes.reference, 'src1'],
@@ -191,7 +190,7 @@ def test_package(app):
 
     assert build_foo.name == 'foo'
     assert build_foo.version == '1.3.37'
-    assert build_foo.build_deps == [Dependency('baz')]
+    assert build_foo.build_deps == [[Dependency('baz')]]
     assert build_foo.sources == [
         {
             'type': 'http',
@@ -212,7 +211,7 @@ def test_package(app):
     assert pkg_foo.name == 'foo'
     assert pkg_foo.build is build_foo
     assert pkg_foo.description == 'description'
-    assert pkg_foo.deps == [Dependency('bar')]
+    assert pkg_foo.deps == [[Dependency('bar')]]
     assert pkg_foo.docname == 'index'
     assert pkg_foo.lineno == 1
     assert not pkg_foo.install
@@ -253,11 +252,21 @@ def test_package_should_check_number_of_arguments_more(app, warning):
         WARNING: Error in "f2lfs:package" directive:
         maximum 2 argument(s) allowed, 3 supplied.''') in warning.getvalue()
 
-@pytest.mark.parametrize('name', (r'''"!^@'&%$#`"''',
-                                  'installed', 'version'))
-def test_package_should_check_package_name_validity(app, warning, name):
-    restructuredtext.parse(app, r'''.. f2lfs:package:: ''' + name)
-    assert 'WARNING: invalid name' in warning.getvalue()
+def test_package_should_check_name_validity(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:package:: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@._+-
+    .. f2lfs:package:: .foo
+    .. f2lfs:package:: !"#$%&'()*+,/:;<=>?"
+    .. f2lfs:package:: installed
+    .. f2lfs:package:: version
+    .. f2lfs:package:: OR
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'index.rst:2: WARNING: invalid name' in warning.getvalue()
+    assert 'index.rst:3: WARNING: invalid name' in warning.getvalue()
+    assert 'index.rst:4: WARNING: invalid name' in warning.getvalue()
+    assert 'index.rst:5: WARNING: invalid name' in warning.getvalue()
+    assert 'index.rst:6: WARNING: invalid name' in warning.getvalue()
 
 def test_package_should_not_allow_duplicate_package_declaration(app):
     text = textwrap.dedent('''\
@@ -273,28 +282,15 @@ def test_package_should_not_allow_duplicate_package_declaration(app):
     assert str(excinfo.value) == "duplicate package declaration of 'pkg' at line 4 " \
                                  "of 'index', also defined at line 3 of 'index'"
 
-def test_package_should_not_allow_when_bootstrap_in_deps(app, warning):
-    text = textwrap.dedent('''\
-    .. f2lfs:package:: pkg
-       :deps:
-        - name: foo
-          when-bootstrap: yes
-    ''')
-    restructuredtext.parse(app, text)
-
-    assert 'when-bootstrap not allowed here' in warning.getvalue()
-
 def test_package_doctree(app):
     text = textwrap.dedent('''\
     .. f2lfs:package:: pkg1 1.0.0
     .. f2lfs:package:: pkg2 1.0.0
-       :deps: - dep
+       :deps: - dep1
+              - dep2 OR dep3:built
     .. f2lfs:package:: pkg3 1.0.0
        :build-deps: - builddep1
-                    - name: builddep2
-                      when-bootstrap: yes
-                    - name: builddep3
-                      when-bootstrap: no
+                    - builddep2 OR builddep3:built
     .. f2lfs:package:: pkg4 1.0.0
        :sources: - http: src1
                    sha256sum: src1-sha256
@@ -326,7 +322,11 @@ def test_package_doctree(app):
                 [addnodes.desc, ([addnodes.desc_signature, ([addnodes.desc_name, 'pkg2'],
                                                             [addnodes.desc_annotation, ' 1.0.0'])],
                                  [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
-                                                                                         [nodes.field_body, nodes.bullet_list, nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep'])])])
+                                                                                         [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep1'],
+                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
+                                                                                                                                                                    ' or ',
+                                                                                                                                                                    'already built ',
+                                                                                                                                                                    [addnodes.pending_xref, nodes.literal, 'dep3'])])])])])
     assert_node(doctree[3][0], names=['package-pkg2'], ids=['package-pkg2'], first=True)
     assert_node(doctree[4], addnodes.index, entries=[('single', 'pkg3 (package)', 'package-pkg3', '', None)])
     assert_node(doctree[5],
@@ -335,9 +335,9 @@ def test_package_doctree(app):
                                  [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Build-time dependencies'],
                                                                                          [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'builddep1'],
                                                                                                                                 [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
-                                                                                                                                                                     ' (when bootstrapping)')],
-                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
-                                                                                                                                                                     ' (unless bootstrapping)')])])])])
+                                                                                                                                                                    ' or ',
+                                                                                                                                                                    'already built ',
+                                                                                                                                                                    [addnodes.pending_xref, nodes.literal, 'builddep3'])])])])])
     assert_node(doctree[5][0], names=['package-pkg3'], ids=['package-pkg3'], first=True)
     assert_node(doctree[6], addnodes.index, entries=[('single', 'pkg4 (package)', 'package-pkg4', '', None)])
     assert_node(doctree[7],
@@ -392,7 +392,7 @@ def test_package_inside_build(app):
 
     assert build.name == 'build'
     assert build.version == '1.3.37'
-    assert build.build_deps == [Dependency('build-dep')]
+    assert build.build_deps == [[Dependency('build-dep')]]
     assert build.sources == [
         {
             'type': 'http',
@@ -408,7 +408,7 @@ def test_package_inside_build(app):
     assert pkg1.name == 'pkg1'
     assert pkg1.build is build
     assert pkg1.description == 'pkg1 desc'
-    assert pkg1.deps == [Dependency('pkg1-dep')]
+    assert pkg1.deps == [[Dependency('pkg1-dep')]]
     assert pkg1.docname == 'index'
     assert pkg1.lineno == 8
 
@@ -418,10 +418,7 @@ def test_package_inside_build_doctree(app):
 
     .. f2lfs:build:: build 1.3.37
        :build-deps: - builddep1
-                    - name: builddep2
-                      when-bootstrap: yes
-                    - name: builddep3
-                      when-bootstrap: no
+                    - builddep2 OR builddep3:built
        :sources: - http: src1
                    sha256sum: src1-sha256
                  - git: src2
@@ -449,9 +446,9 @@ def test_package_inside_build_doctree(app):
                 [nodes.field_list, ([nodes.field, ([nodes.field_name, 'Build-time dependencies'],
                                                    [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'builddep1'],
                                                                                           [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep2'],
-                                                                                                                              ' (when bootstrapping)')],
-                                                                                          [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'builddep3'],
-                                                                                                                              ' (unless bootstrapping)')])])],
+                                                                                                                              ' or ',
+                                                                                                                              'already built ',
+                                                                                                                              [addnodes.pending_xref, nodes.literal, 'builddep3'])])])],
                                     [nodes.field, ([nodes.field_name, 'Sources'],
                                                    [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, nodes.reference, 'src1'],
                                                                                           [nodes.list_item, nodes.paragraph, nodes.reference, 'src2'],
@@ -510,62 +507,51 @@ def test_package_inside_build_should_not_accept_build_options(app, warning):
     assert "index.rst:7: WARNING: option 'bootstrap' must be specified at parent build directive" in warning.getvalue()
 
 def test_dependency_parser():
-    assert dependency()(textwrap.dedent('''\
-    - bar
-    - name: baz
-      when-bootstrap: yes
-    - name: qux
-      when-bootstrap: no
+    assert dependency(textwrap.dedent('''\
+    - dep1
+    - dep2:built
+    - dep3 OR dep4
     ''')) == [
-        Dependency(name='bar', when_bootstrap=None),
-        Dependency(name='baz', when_bootstrap=True),
-        Dependency(name='qux', when_bootstrap=False),
+        [Dependency(name='dep1', select_built=False)],
+        [Dependency(name='dep2', select_built=True)],
+        [Dependency(name='dep3', select_built=False), Dependency(name='dep4', select_built=False)]
     ]
-
-def test_dependency_parser_disallow_when_bootstrap():
-    with pytest.raises(ValueError) as excinfo:
-        dependency(False)(textwrap.dedent('''\
-        - name: baz
-          when-bootstrap: yes
-        '''))
-
-    assert str(excinfo.value) == 'when-bootstrap not allowed here'
 
 def test_dependency_parser_should_reject_invalid_yaml():
     with pytest.raises(ValueError) as excinfo:
-        dependency()('{')
+        dependency('{')
 
     assert 'malformed YAML:\n' in str(excinfo.value)
 
 def test_dependency_parser_should_check_type():
     with pytest.raises(ValueError) as excinfo:
-        dependency()('{}')
+        dependency('{}')
 
     assert str(excinfo.value) == 'this option must be a list'
 
 def test_dependency_parser_should_check_deps_type():
     with pytest.raises(ValueError) as excinfo:
-        dependency()('- []')
+        dependency('- []')
 
-    assert str(excinfo.value) == 'dependency entry must be string or hash'
+    assert str(excinfo.value) == 'dependency entry must be string'
 
-def test_dependency_parser_should_check_deps_keys():
+def test_dependency_parser_should_check_deps_or_condition_delimiter(app, warning):
     with pytest.raises(ValueError) as excinfo:
-        dependency()('- a: b')
+        dependency('- A B')
 
-    assert str(excinfo.value) == "invalid dependency key 'a'"
-
-def test_dependency_parser_should_check_deps_have_mandantory_key():
-    with pytest.raises(ValueError) as excinfo:
-        dependency()('- when-bootstrap: no')
-
-    assert str(excinfo.value) == 'dependency name must be specified'
+    assert str(excinfo.value) == "OR condition must be delimited with 'OR'"
 
 def test_dependency_parser_should_check_deps_name_validity():
     with pytest.raises(ValueError) as excinfo:
-        dependency()('''- "@^'&"''')
+        dependency('''- "^'&"''')
 
     assert str(excinfo.value) == 'invalid dependency name'
+
+def test_dependency_parser_should_check_deps_version_validity():
+    with pytest.raises(ValueError) as excinfo:
+        dependency('- foo:invalid')
+
+    assert str(excinfo.value) == "invalid version specifier, only 'built' allowed"
 
 def test_source_parser():
     assert sources(textwrap.dedent('''\
