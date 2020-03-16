@@ -130,7 +130,7 @@ class Command:
         return self.command == other.command and self.expected_output == other.expected_output
 
 def validate_package_name(name):
-    return not re.search('[^a-zA-Z0-9_-]', name)
+    return not re.search('[^a-zA-Z0-9_-]', name) and not name in ('installed', 'version')
 
 def dependency(allow_when_bootstrap = True):
     def dependency_impl(value):

@@ -73,8 +73,10 @@ def test_build_should_check_number_of_arguments_more(app, warning):
         WARNING: Error in "f2lfs:build" directive:
         maximum 2 argument(s) allowed, 3 supplied.''') in warning.getvalue()
 
-def test_build_should_check_name_validity(app, warning):
-    restructuredtext.parse(app, r'''.. f2lfs:build:: "!^@'&%$#`"''')
+@pytest.mark.parametrize('name', (r'''"!^@'&%$#`"''',
+                                  'installed', 'version'))
+def test_build_should_check_name_validity(app, warning, name):
+    restructuredtext.parse(app, r'''.. f2lfs:build:: ''' + name)
     assert 'WARNING: invalid name' in warning.getvalue()
 
 def test_build_should_not_allow_duplicate_declaration(app):
@@ -231,8 +233,10 @@ def test_package_should_check_number_of_arguments_more(app, warning):
         WARNING: Error in "f2lfs:package" directive:
         maximum 2 argument(s) allowed, 3 supplied.''') in warning.getvalue()
 
-def test_package_should_check_package_name_validity(app, warning):
-    restructuredtext.parse(app, r'''.. f2lfs:package:: "!^@'&%$#`"''')
+@pytest.mark.parametrize('name', (r'''"!^@'&%$#`"''',
+                                  'installed', 'version'))
+def test_package_should_check_package_name_validity(app, warning, name):
+    restructuredtext.parse(app, r'''.. f2lfs:package:: ''' + name)
     assert 'WARNING: invalid name' in warning.getvalue()
 
 def test_package_should_not_allow_duplicate_package_declaration(app):
