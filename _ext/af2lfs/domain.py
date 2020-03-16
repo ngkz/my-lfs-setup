@@ -132,6 +132,10 @@ class Command:
 def validate_package_name(name):
     return not re.search('[^a-zA-Z0-9_-]', name) and not name in ('installed', 'version')
 
+def validate_package_version(version):
+    return re.match('[a-z0-9@_+-][a-z0-9@._+-]*$', version, re.IGNORECASE) and \
+        version != 'latest'
+
 def dependency(allow_when_bootstrap = True):
     def dependency_impl(value):
         try:
@@ -382,7 +386,10 @@ class BuildMixin():
         args = {}
 
         if len(self.arguments) >= 2:
-            args['version'] = self.arguments[1]
+            version = self.arguments[1]
+            if not validate_package_version(version):
+                raise self.error('invalid version')
+            args['version'] = version
 
         build_deps = self.options.get('build-deps')
         if not build_deps is None:

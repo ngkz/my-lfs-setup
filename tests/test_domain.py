@@ -79,6 +79,18 @@ def test_build_should_check_name_validity(app, warning, name):
     restructuredtext.parse(app, r'''.. f2lfs:build:: ''' + name)
     assert 'WARNING: invalid name' in warning.getvalue()
 
+def test_build_should_check_version_validity(app, warning):
+    text = textwrap.dedent('''\
+    .. f2lfs:build:: name abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@._+-
+    .. f2lfs:build:: name .foo
+    .. f2lfs:build:: name !"#$%&'()*+,/:;<=>?"
+    .. f2lfs:build:: name latest
+    ''')
+    restructuredtext.parse(app, text)
+    assert 'index.rst:2: WARNING: invalid version' in warning.getvalue()
+    assert 'index.rst:3: WARNING: invalid version' in warning.getvalue()
+    assert 'index.rst:4: WARNING: invalid version' in warning.getvalue()
+
 def test_build_should_not_allow_duplicate_declaration(app):
     restructuredtext.parse(app, '.. f2lfs:build:: baz', 'foo')
 
