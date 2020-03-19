@@ -6,8 +6,8 @@ from docutils import nodes
 from sphinx import addnodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
-from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, AF2LFSError, \
-                          dependency, sources
+from af2lfs.errors import AF2LFSError
+from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, dependency, sources
 
 def test_build(app):
     text = textwrap.dedent('''\

@@ -3,7 +3,6 @@ from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.directives import SphinxDirective
 from sphinx.domains import Domain, ObjType
-from sphinx.errors import SphinxError
 from sphinx.roles import XRefRole
 from sphinx.util import logging
 from sphinx.util.nodes import make_refnode
@@ -12,11 +11,9 @@ from docutils.parsers.rst import roles
 import yaml
 import re
 import os.path
+from af2lfs.errors import AF2LFSError
 
 logger = logging.getLogger(__name__)
-
-class AF2LFSError(SphinxError):
-    category = 'af2lfs error'
 
 class LookaheadIterator:
     def __init__(self, _iter):
