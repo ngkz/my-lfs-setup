@@ -43,6 +43,10 @@ system:
 		$(SPHINXOPTS) \
 		$(O)
 
+clean: Makefile
+	@$(SPHINXBUILD) -M clean "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	coverage erase
+
 .PHONY: help Makefile serve livehtml test coverage system
 
 # Catch-all target: route all unknown targets to Sphinx using the new
