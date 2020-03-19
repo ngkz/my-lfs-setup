@@ -8,6 +8,7 @@ from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
 from af2lfs.errors import AF2LFSError
 from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, dependency, sources
+from af2lfs.builder import BuiltPackage
 
 def test_build(app):
     text = textwrap.dedent('''\
@@ -1294,3 +1295,29 @@ def test_get_objects(app):
     assert list(app.env.get_domain('f2lfs').get_objects()) == [
         ('pkg1', 'pkg1', 'package', 'index', 'package-pkg1', 1)
     ]
+
+def test_build_is_all_packages_built():
+    build = Build('test', 'index', 1)
+    pkg1 = Package('pkg1', build, 'index', 1)
+    pkg2 = Package('pkg2', build, 'index', 1)
+    assert not build.is_all_packages_built({
+        'pkg1': {
+            '0.0.0': BuiltPackage('pkg1', '0.0.0')
+        }
+    })
+    assert not build.is_all_packages_built({
+        'pkg1': {
+            '0.0.0': BuiltPackage('pkg1', '0.0.0')
+        },
+        'pkg2': {
+            '1.0.0': BuiltPackage('pkg2', '1.0.0')
+        }
+    })
+    assert build.is_all_packages_built({
+        'pkg1': {
+            '0.0.0': BuiltPackage('pkg1', '0.0.0')
+        },
+        'pkg2': {
+            '0.0.0': BuiltPackage('pkg2', '0.0.0')
+        }
+    })

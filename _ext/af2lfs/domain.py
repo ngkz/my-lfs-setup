@@ -80,6 +80,18 @@ class Build:
         assert package.build is self
         self.packages[package.name] = package
 
+    def is_all_packages_built(self, built_packages):
+        for package in self.packages.values():
+            if (not package.name in built_packages) or \
+                    (not self.version in built_packages[package.name]):
+                return False
+        return True
+
+    def __repr__(self):
+        return 'Build(name={0.name}, docname={0.docname}, lineno={0.lineno}, ' \
+            'version={0.version}, build_deps={0.build_deps}, sources={0.sources}, ' \
+            'bootstrap={0.bootstrap})'.format(self)
+
 class Package:
     def __init__(self, name, build, docname, lineno, description = None, deps = [],
                  install = False):
