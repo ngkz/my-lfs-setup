@@ -29,7 +29,9 @@ test:
 	pytest tests/
 
 coverage:
-	pytest --cov-report=term-missing --cov=af2lfs tests/
+	coverage run --source=_ext --branch -m pytest tests/
+	coverage report --skip-covered --skip-empty
+	coverage html -d _build/coverage_html
 
 system:
 	@$(SPHINXBUILD) \
