@@ -93,13 +93,13 @@ def test_build_job_graph(app):
     root = builder.build_job_graph(targets, built_packages)
     assert root.dump() == textwrap.dedent('''\
     digraph dump {
-      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0"];
+      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0\\npriority: 2"];
       "NopJob(root)" -> "BuildJob(foo)";
       "NopJob(root)" -> "BuildJob(bar)";
 
-      "BuildJob(foo)" [label="BuildJob(foo)\\nnum_incident: 1"];
+      "BuildJob(foo)" [label="BuildJob(foo)\\nnum_incident: 1\\npriority: 1"];
 
-      "BuildJob(bar)" [label="BuildJob(bar)\\nnum_incident: 1"];
+      "BuildJob(bar)" [label="BuildJob(bar)\\nnum_incident: 1\\npriority: 1"];
     }''')
 
 def test_build_job_graph_dep_handling(app):
@@ -142,19 +142,19 @@ def test_build_job_graph_dep_handling(app):
     root = builder.build_job_graph(targets, built_packages)
     assert root.dump() == textwrap.dedent('''\
     digraph dump {
-      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0"];
+      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0\\npriority: 4"];
       "NopJob(root)" -> "BuildJob(build1st)";
 
-      "BuildJob(build1st)" [label="BuildJob(build1st)\\nnum_incident: 1"];
+      "BuildJob(build1st)" [label="BuildJob(build1st)\\nnum_incident: 1\\npriority: 3"];
       "BuildJob(build1st)" -> "NopJob(dep-already-built-build)";
 
-      "NopJob(dep-already-built-build)" [label="NopJob(dep-already-built-build)\\nnum_incident: 1"];
+      "NopJob(dep-already-built-build)" [label="NopJob(dep-already-built-build)\\nnum_incident: 1\\npriority: 2"];
       "NopJob(dep-already-built-build)" -> "BuildJob(buildnext1)";
       "NopJob(dep-already-built-build)" -> "BuildJob(buildnext2)";
 
-      "BuildJob(buildnext1)" [label="BuildJob(buildnext1)\\nnum_incident: 1"];
+      "BuildJob(buildnext1)" [label="BuildJob(buildnext1)\\nnum_incident: 1\\npriority: 1"];
 
-      "BuildJob(buildnext2)" [label="BuildJob(buildnext2)\\nnum_incident: 1"];
+      "BuildJob(buildnext2)" [label="BuildJob(buildnext2)\\nnum_incident: 1\\npriority: 1"];
     }''')
 
 def test_build_job_graph_missing_dep(app):
@@ -243,26 +243,74 @@ def test_build_job_graph_source_handling(app):
     root = builder.build_job_graph(targets, built_packages)
     assert root.dump() == textwrap.dedent('''\
     digraph dump {
-      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0"];
+      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0\\npriority: 3"];
       "NopJob(root)" -> "NopJob(already-built)";
       "NopJob(root)" -> "DownloadJob(common-src)";
       "NopJob(root)" -> "DownloadJob(http-src)";
       "NopJob(root)" -> "DownloadJob(git-src)";
 
-      "NopJob(already-built)" [label="NopJob(already-built)\\nnum_incident: 1"];
+      "NopJob(already-built)" [label="NopJob(already-built)\\nnum_incident: 1\\npriority: 2"];
       "NopJob(already-built)" -> "BuildJob(pkg1)";
 
-      "DownloadJob(common-src)" [label="DownloadJob(common-src)\\nnum_incident: 1"];
+      "DownloadJob(common-src)" [label="DownloadJob(common-src)\\nnum_incident: 1\\npriority: 2"];
       "DownloadJob(common-src)" -> "BuildJob(pkg1)";
       "DownloadJob(common-src)" -> "BuildJob(pkg2)";
 
-      "DownloadJob(http-src)" [label="DownloadJob(http-src)\\nnum_incident: 1"];
+      "DownloadJob(http-src)" [label="DownloadJob(http-src)\\nnum_incident: 1\\npriority: 2"];
       "DownloadJob(http-src)" -> "BuildJob(pkg2)";
 
-      "DownloadJob(git-src)" [label="DownloadJob(git-src)\\nnum_incident: 1"];
+      "DownloadJob(git-src)" [label="DownloadJob(git-src)\\nnum_incident: 1\\npriority: 2"];
       "DownloadJob(git-src)" -> "BuildJob(pkg2)";
 
-      "BuildJob(pkg1)" [label="BuildJob(pkg1)\\nnum_incident: 2"];
+      "BuildJob(pkg1)" [label="BuildJob(pkg1)\\nnum_incident: 2\\npriority: 1"];
 
-      "BuildJob(pkg2)" [label="BuildJob(pkg2)\\nnum_incident: 3"];
+      "BuildJob(pkg2)" [label="BuildJob(pkg2)\\nnum_incident: 3\\npriority: 1"];
+    }''')
+
+def test_build_job_graph_calculate_priority(app):
+    restructuredtext.parse(app, textwrap.dedent('''\
+    .. f2lfs:package:: A
+    .. f2lfs:package:: B
+    .. f2lfs:package:: C
+       :build-deps: - B
+    .. f2lfs:package:: D
+       :build-deps:
+        - A
+        - C
+    .. f2lfs:package:: E
+       :build-deps: - D
+    .. f2lfs:package:: F
+       :build-deps: - D
+    '''))
+
+    builds = app.env.get_domain('f2lfs').builds
+
+    builder = F2LFSBuilder(app)
+    builder.set_environment(app.env)
+
+    targets = [builds['E'], builds['F']]
+    built_packages = {}
+    root = builder.build_job_graph(targets, built_packages)
+    assert root.dump() == textwrap.dedent('''\
+    digraph dump {
+      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0\\npriority: 5"];
+      "NopJob(root)" -> "BuildJob(A)";
+      "NopJob(root)" -> "BuildJob(B)";
+
+      "BuildJob(A)" [label="BuildJob(A)\\nnum_incident: 1\\npriority: 3"];
+      "BuildJob(A)" -> "BuildJob(D)";
+
+      "BuildJob(B)" [label="BuildJob(B)\\nnum_incident: 1\\npriority: 4"];
+      "BuildJob(B)" -> "BuildJob(C)";
+
+      "BuildJob(D)" [label="BuildJob(D)\\nnum_incident: 2\\npriority: 2"];
+      "BuildJob(D)" -> "BuildJob(E)";
+      "BuildJob(D)" -> "BuildJob(F)";
+
+      "BuildJob(C)" [label="BuildJob(C)\\nnum_incident: 1\\npriority: 3"];
+      "BuildJob(C)" -> "BuildJob(D)";
+
+      "BuildJob(E)" [label="BuildJob(E)\\nnum_incident: 1\\npriority: 1"];
+
+      "BuildJob(F)" [label="BuildJob(F)\\nnum_incident: 1\\npriority: 1"];
     }''')

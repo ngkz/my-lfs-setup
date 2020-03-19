@@ -38,6 +38,7 @@ class Job:
         self.num_incident = 0
         self.edges = []
         self.name = name
+        self.priority = 0
 
     def required_by(self, job):
         self.edges.append(job)
@@ -53,8 +54,8 @@ class Job:
 
         while queue:
             job = queue.popleft()
-            result += '  "{0}" [label="{0}\\nnum_incident: {1}"];\n' \
-                .format(job_label(job), job.num_incident)
+            result += '  "{0}" [label="{0}\\nnum_incident: {1}\\npriority: {2}"];\n' \
+                .format(job_label(job), job.num_incident, job.priority)
 
             for child in job.edges:
                 result += '  "{}" -> "{}";\n'.format(job_label(job),
@@ -69,6 +70,24 @@ class Job:
         result += '}'
 
         return result
+
+    def calculate_priority(self):
+        # heuristic (priotize deepest chain)
+        visited = set()
+
+        def visit(job):
+            if job in visited:
+                return job.priority
+            visited.add(job)
+
+            maxdepth = 0
+            for child in job.edges:
+                maxdepth = max(maxdepth, visit(child))
+            job.priority = maxdepth + 1
+
+            return job.priority
+
+        visit(self)
 
 class NopJob(Job):
     pass
@@ -217,6 +236,8 @@ class F2LFSBuilder(Builder):
 
         for build in targets:
             add_build_job(build)
+
+        root.calculate_priority()
 
         return root
 
