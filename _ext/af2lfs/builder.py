@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 from sphinx.builders import Builder
+from sphinx.errors import SphinxError
 from sphinx.util import logging
 import collections
 from pathlib import Path, PurePath
+from af2lfs.errors import AF2LFSError
 
 PACKAGE_DIR = PurePath('usr', 'pkg')
 
@@ -30,6 +32,73 @@ class BuiltPackage:
     def __repr__(self):
         return 'BuiltPackage(name={0.name}, version={0.version}, deps={0.deps})' \
                 .format(self)
+
+class Job:
+    def __init__(self, name):
+        self.num_incident = 0
+        self.edges = []
+        self.name = name
+
+    def required_by(self, job):
+        self.edges.append(job)
+        job.num_incident += 1
+
+    def dump(self):
+        queue = collections.deque([self])
+        discovered = set([self])
+        result = 'digraph dump {\n'
+
+        def job_label(job):
+            return '{}({})'.format(type(job).__name__, job.name)
+
+        while queue:
+            job = queue.popleft()
+            result += '  "{0}" [label="{0}\\nnum_incident: {1}"];\n' \
+                .format(job_label(job), job.num_incident)
+
+            for child in job.edges:
+                result += '  "{}" -> "{}";\n'.format(job_label(job),
+                                                   job_label(child))
+                if not child in discovered:
+                    queue.append(child)
+                    discovered.add(child)
+
+            if queue:
+                result += '\n'
+
+        result += '}'
+
+        return result
+
+class NopJob(Job):
+    pass
+
+class BuildJob(Job):
+    def __init__(self, build):
+        super().__init__(build.name)
+        self.build = build
+        self.being_visited = False
+
+class DownloadJob(Job):
+    def __init__(self, source):
+        super().__init__(source['url'])
+        self.source = source
+
+class DependencyCycleError(SphinxError):
+    category = 'af2lfs dependency cycle error'
+
+    def __init__(self, root_cause):
+        super().__init__()
+        self.cycle = [root_cause]
+
+    def add_cause(self, build):
+        if len(self.cycle) >= 2 and self.cycle[-1] is self.cycle[0]:
+            return
+        self.cycle.append(build)
+
+    def __str__(self):
+        return "Dependency cycle detected: " + " -> " \
+            .join(map(lambda build: build.name, reversed(self.cycle)))
 
 class F2LFSBuilder(Builder):
     name = 'system'
@@ -78,6 +147,78 @@ class F2LFSBuilder(Builder):
             result[installed.name] = installed
 
         return result
+
+    def build_job_graph(self, targets, built_packages):
+        packages = self.env.get_domain('f2lfs').packages
+
+        root = NopJob('root')
+        build_jobs = {}
+        dl_jobs = {}
+
+        def add_download_job(source):
+            if (source['type'], source['url']) in dl_jobs:
+                return dl_jobs[(source['type'], source['url'])]
+
+            dl_job = DownloadJob(source)
+            dl_jobs[(source['type'], source['url'])] = dl_job
+            root.required_by(dl_job)
+            return dl_job
+
+        def add_build_job(build):
+            if build.name in build_jobs:
+                job = build_jobs[build.name]
+                if job.being_visited:
+                    raise DependencyCycleError(build)
+                return job
+
+            need_build = not build.is_all_packages_built(built_packages)
+
+            if need_build:
+                job = BuildJob(build)
+            else:
+                job = NopJob(build.name)
+
+            job.being_visited = True
+            build_jobs[build.name] = job
+
+            for or_deps in build.build_deps:
+                for dep in or_deps:
+                    if dep.select_built:
+                        if dep.name in built_packages:
+                            break
+                    elif dep.name in packages:
+                        dep_pkg = packages[dep.name]
+                        try:
+                            dep_build_job = add_build_job(dep_pkg.build)
+                        except DependencyCycleError as e:
+                            e.add_cause(build)
+                            raise e
+
+                        dep_build_job.required_by(job)
+
+                        break
+                else:
+                    raise AF2LFSError(
+                        "Build-time dependency '{}' of build '{}' can't be satisfied"
+                        .format(' OR '.join(map(str, or_deps)), build.name))
+
+            job.being_visited = False
+
+            if need_build:
+                for source in build.sources:
+                    if source['type'] != 'local':
+                        dl_job = add_download_job(source)
+                        dl_job.required_by(job)
+
+            if job.num_incident == 0:
+                root.required_by(job)
+
+            return job
+
+        for build in targets:
+            add_build_job(build)
+
+        return root
 
     def write(self, *ignored):
         logger.info('building root filesystem...')
