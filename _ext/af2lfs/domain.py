@@ -53,6 +53,9 @@ class Dependency:
     def __repr__(self):
         return 'Dependency(name={0.name}, select_built={0.select_built})'.format(self)
 
+    def __str__(self):
+        return self.name + (':built' if self.select_built else '')
+
 class Build:
     def __init__(self, name, docname, lineno, version = '0.0.0', build_deps = [],
                  sources = [], bootstrap = False):
