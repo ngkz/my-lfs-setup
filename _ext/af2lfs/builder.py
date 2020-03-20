@@ -33,21 +33,92 @@ class BuiltPackage:
         return 'BuiltPackage(name={0.name}, version={0.version}, deps={0.deps})' \
                 .format(self)
 
-class Job:
-    def __init__(self, name):
-        self.num_incident = 0
-        self.edges = []
-        self.name = name
-        self.priority = 0
+class BuildJobGraph:
+    def __init__(self, targets, built_packages, doc_packages):
+        self.root = NopJob('root')
+        self.nodes_no_incoming_edge = []
+        self.job_count = 0 # excluding NopJob
 
-    def required_by(self, job):
-        self.edges.append(job)
-        job.num_incident += 1
+        build_jobs = {}
+        dl_jobs = {}
+
+        def add_download_job(source):
+            if (source['type'], source['url']) in dl_jobs:
+                return dl_jobs[(source['type'], source['url'])]
+
+            dl_job = DownloadJob(source)
+            dl_jobs[(source['type'], source['url'])] = dl_job
+            self.job_count += 1
+            self.nodes_no_incoming_edge.append(dl_job)
+            return dl_job
+
+        def add_build_job(build):
+            if build.name in build_jobs:
+                job = build_jobs[build.name]
+                if job.being_visited:
+                    raise DependencyCycleError(build)
+                return job
+
+            need_build = not build.is_all_packages_built(built_packages)
+
+            if need_build:
+                job = BuildJob(build)
+                self.job_count += 1
+            else:
+                job = NopJob(build.name)
+
+            job.being_visited = True
+            build_jobs[build.name] = job
+
+            for or_deps in build.build_deps:
+                for dep in or_deps:
+                    if dep.select_built:
+                        if dep.name in built_packages:
+                            break
+                    elif dep.name in doc_packages:
+                        dep_pkg = doc_packages[dep.name]
+                        try:
+                            dep_build_job = add_build_job(dep_pkg.build)
+                        except DependencyCycleError as e:
+                            e.add_cause(build)
+                            raise e
+
+                        dep_build_job.required_by(job)
+
+                        break
+                else:
+                    raise AF2LFSError(
+                        "Build-time dependency '{}' of build '{}' can't be satisfied"
+                        .format(' OR '.join(map(str, or_deps)), build.name))
+
+            job.being_visited = False
+
+            if need_build:
+                for source in build.sources:
+                    if source['type'] != 'local':
+                        dl_job = add_download_job(source)
+                        dl_job.required_by(job)
+
+            if job.num_incident == 0:
+                self.nodes_no_incoming_edge.append(job)
+
+            return job
+
+        for build in targets:
+            add_build_job(build)
+
+        self._calculate_priority()
+
+    def _calculate_priority(self):
+        visited = set()
+        for node in self.nodes_no_incoming_edge:
+            node._calculate_priority(visited)
 
     def dump(self):
-        queue = collections.deque([self])
-        discovered = set([self])
+        queue = collections.deque(self.nodes_no_incoming_edge)
+        discovered = set(self.nodes_no_incoming_edge)
         result = 'digraph dump {\n'
+        result += '  graph [label="job_count: {}"];\n\n'.format(self.job_count)
 
         def job_label(job):
             return '{}({})'.format(type(job).__name__, job.name)
@@ -71,23 +142,28 @@ class Job:
 
         return result
 
-    def calculate_priority(self):
-        # heuristic (priotize deepest chain)
-        visited = set()
+class Job:
+    def __init__(self, name):
+        self.num_incident = 0
+        self.edges = []
+        self.name = name
+        self.priority = 0
 
-        def visit(job):
-            if job in visited:
-                return job.priority
-            visited.add(job)
+    def required_by(self, job):
+        self.edges.append(job)
+        job.num_incident += 1
 
-            maxdepth = 0
-            for child in job.edges:
-                maxdepth = max(maxdepth, visit(child))
-            job.priority = maxdepth + 1
+    def _calculate_priority(self, visited):
+        if self in visited:
+            return self.priority
+        visited.add(self)
 
-            return job.priority
+        maxdepth = 0
+        for child in self.edges:
+            maxdepth = max(maxdepth, child._calculate_priority(visited))
+        self.priority = maxdepth + 1
 
-        visit(self)
+        return self.priority
 
 class NopJob(Job):
     pass
@@ -167,79 +243,9 @@ class F2LFSBuilder(Builder):
 
         return result
 
-    def build_job_graph(self, targets, built_packages):
-        packages = self.env.get_domain('f2lfs').packages
-
-        root = NopJob('root')
-        build_jobs = {}
-        dl_jobs = {}
-
-        def add_download_job(source):
-            if (source['type'], source['url']) in dl_jobs:
-                return dl_jobs[(source['type'], source['url'])]
-
-            dl_job = DownloadJob(source)
-            dl_jobs[(source['type'], source['url'])] = dl_job
-            root.required_by(dl_job)
-            return dl_job
-
-        def add_build_job(build):
-            if build.name in build_jobs:
-                job = build_jobs[build.name]
-                if job.being_visited:
-                    raise DependencyCycleError(build)
-                return job
-
-            need_build = not build.is_all_packages_built(built_packages)
-
-            if need_build:
-                job = BuildJob(build)
-            else:
-                job = NopJob(build.name)
-
-            job.being_visited = True
-            build_jobs[build.name] = job
-
-            for or_deps in build.build_deps:
-                for dep in or_deps:
-                    if dep.select_built:
-                        if dep.name in built_packages:
-                            break
-                    elif dep.name in packages:
-                        dep_pkg = packages[dep.name]
-                        try:
-                            dep_build_job = add_build_job(dep_pkg.build)
-                        except DependencyCycleError as e:
-                            e.add_cause(build)
-                            raise e
-
-                        dep_build_job.required_by(job)
-
-                        break
-                else:
-                    raise AF2LFSError(
-                        "Build-time dependency '{}' of build '{}' can't be satisfied"
-                        .format(' OR '.join(map(str, or_deps)), build.name))
-
-            job.being_visited = False
-
-            if need_build:
-                for source in build.sources:
-                    if source['type'] != 'local':
-                        dl_job = add_download_job(source)
-                        dl_job.required_by(job)
-
-            if job.num_incident == 0:
-                root.required_by(job)
-
-            return job
-
-        for build in targets:
-            add_build_job(build)
-
-        root.calculate_priority()
-
-        return root
+    def create_build_job_graph(self, targets, built_packages):
+        doc_packages = self.env.get_domain('f2lfs').packages
+        return BuildJobGraph(targets, built_packages, doc_packages)
 
     def write(self, *ignored):
         logger.info('building root filesystem...')
