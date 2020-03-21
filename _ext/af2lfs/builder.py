@@ -4,6 +4,7 @@ from sphinx.errors import SphinxError
 from sphinx.util import logging
 import collections
 from pathlib import Path, PurePath
+import shutil
 
 PACKAGE_DIR = PurePath('usr', 'pkg')
 
@@ -189,6 +190,11 @@ class DependencyCycleError(BuildError):
     def __str__(self):
         return "Dependency cycle detected: " + " -> " \
             .join(map(lambda build: build.name, reversed(self.cycle)))
+
+def check_command(*args):
+    for command in args:
+        if shutil.which(command) is None:
+            raise BuildError(f"command '{command}' not available")
 
 class F2LFSBuilder(Builder):
     name = 'system'

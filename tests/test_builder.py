@@ -3,7 +3,8 @@ import pytest
 import textwrap
 from pathlib import Path
 from sphinx.testing import restructuredtext
-from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, BuildError
+from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
+                           BuildError, check_command
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -321,3 +322,11 @@ def test_build_job_graph_calculate_priority(app):
 
       "BuildJob(F)" [label="BuildJob(F)\\nnum_incident: 1\\npriority: 1"];
     }''')
+
+def test_check_command():
+    check_command('sh')
+
+    with pytest.raises(BuildError) as excinfo:
+        check_command('____nonexistent____')
+
+    assert str(excinfo.value) == "command '____nonexistent____' not available"
