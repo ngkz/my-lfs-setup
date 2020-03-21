@@ -36,7 +36,6 @@ class BuiltPackage:
 class BuildJobGraph:
     def __init__(self, targets, built_packages, doc_packages):
         self.root = NopJob('root')
-        self.nodes_no_incoming_edge = []
         self.job_count = 0 # excluding NopJob
 
         build_jobs = {}
@@ -49,7 +48,7 @@ class BuildJobGraph:
             dl_job = DownloadJob(source)
             dl_jobs[(source['type'], source['url'])] = dl_job
             self.job_count += 1
-            self.nodes_no_incoming_edge.append(dl_job)
+            self.root.required_by(dl_job)
             return dl_job
 
         def add_build_job(build):
@@ -100,23 +99,18 @@ class BuildJobGraph:
                         dl_job.required_by(job)
 
             if job.num_incident == 0:
-                self.nodes_no_incoming_edge.append(job)
+                self.root.required_by(job)
 
             return job
 
         for build in targets:
             add_build_job(build)
 
-        self._calculate_priority()
-
-    def _calculate_priority(self):
-        visited = set()
-        for node in self.nodes_no_incoming_edge:
-            node._calculate_priority(visited)
+        self.root._calculate_priority(set())
 
     def dump(self):
-        queue = collections.deque(self.nodes_no_incoming_edge)
-        discovered = set(self.nodes_no_incoming_edge)
+        queue = collections.deque([self.root])
+        discovered = set([self.root])
         result = 'digraph dump {\n'
         result += '  graph [label="job_count: {}"];\n\n'.format(self.job_count)
 
