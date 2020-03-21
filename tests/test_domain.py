@@ -6,8 +6,8 @@ from docutils import nodes
 from sphinx import addnodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
-from af2lfs.errors import AF2LFSError
-from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, dependency, sources
+from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, dependency, \
+                          sources, DomainError
 from af2lfs.builder import BuiltPackage
 
 def test_build(app):
@@ -105,7 +105,7 @@ def test_build_should_check_version_validity(app, warning):
 def test_build_should_not_allow_duplicate_declaration(app):
     restructuredtext.parse(app, '.. f2lfs:build:: baz', 'foo')
 
-    with pytest.raises(AF2LFSError) as excinfo:
+    with pytest.raises(DomainError) as excinfo:
         restructuredtext.parse(app, '\n.. f2lfs:build:: baz', 'bar')
 
     assert str(excinfo.value) == "duplicate build declaration of 'baz' at line 2 of 'bar', also defined at line 1 of 'foo'"
@@ -117,7 +117,7 @@ def test_build_should_not_be_nested(app):
         .. f2lfs:build:: bar
     ''')
 
-    with pytest.raises(AF2LFSError) as excinfo:
+    with pytest.raises(DomainError) as excinfo:
         restructuredtext.parse(app, text)
 
     assert str(excinfo.value) == "f2lfs:build cannot be nested (line 3 of 'index')"
@@ -277,7 +277,7 @@ def test_package_should_not_allow_duplicate_package_declaration(app):
        .. f2lfs:package:: pkg
     ''')
 
-    with pytest.raises(AF2LFSError) as excinfo:
+    with pytest.raises(DomainError) as excinfo:
         restructuredtext.parse(app, text)
 
     assert str(excinfo.value) == "duplicate package declaration of 'pkg' at line 4 " \
@@ -1205,7 +1205,7 @@ def test_merge_domaindata_builds_conflict():
     })
     domain = F2LFSDomain(env)
 
-    with pytest.raises(AF2LFSError) as excinfo:
+    with pytest.raises(DomainError) as excinfo:
         domain.merge_domaindata(['doc2'], {
             'builds': {'foo': Build('foo', 'doc2', 2)},
             'packages': {}
@@ -1232,7 +1232,7 @@ def test_merge_domaindata_packages_conflict():
     their_build_bar = Build('bar', 'doc2', 2)
     their_pkg_bar = Package('bar', their_build_bar, 'doc2', 2)
 
-    with pytest.raises(AF2LFSError) as excinfo:
+    with pytest.raises(DomainError) as excinfo:
         domain.merge_domaindata(['doc2'], {
             'builds': {'bar': their_build_bar},
             'packages': {'bar': their_pkg_bar}

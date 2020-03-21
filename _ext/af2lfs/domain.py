@@ -3,6 +3,7 @@ from docutils import nodes
 from docutils.parsers.rst import directives
 from sphinx.directives import SphinxDirective
 from sphinx.domains import Domain, ObjType
+from sphinx.errors import SphinxError
 from sphinx.roles import XRefRole
 from sphinx.util import logging
 from sphinx.util.nodes import make_refnode
@@ -11,9 +12,11 @@ from docutils.parsers.rst import roles
 import yaml
 import re
 import os.path
-from af2lfs.errors import AF2LFSError
 
 logger = logging.getLogger(__name__)
+
+class DomainError(SphinxError):
+    category = 'f2lfs error'
 
 class LookaheadIterator:
     def __init__(self, _iter):
@@ -74,7 +77,7 @@ class Build:
     def add_package(self, package):
         existing_package = self.packages.get(package.name)
         if not existing_package is None:
-            raise AF2LFSError(
+            raise DomainError(
                 "duplicate package declaration of '{0.name}' at line {0.lineno} of "
                 "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
                 .format(package, existing_package)
@@ -466,7 +469,7 @@ class BuildDirective(SphinxDirective, BuildMixin):
         container = nodes.container()
 
         if 'f2lfs:parent_build' in self.env.temp_data:
-            raise AF2LFSError("{} cannot be nested (line {} of '{}')".format(
+            raise DomainError("{} cannot be nested (line {} of '{}')".format(
                 self.name, self.lineno, self.env.docname))
         self.env.temp_data['f2lfs:parent_build'] = build
         self.state.nested_parse(self.content, self.content_offset, container)
@@ -756,7 +759,7 @@ class F2LFSDomain(Domain):
     def note_build(self, build):
         existing_build = self.builds.get(build.name)
         if not existing_build is None:
-            raise AF2LFSError(
+            raise DomainError(
                 "duplicate build declaration of '{0.name}' at line {0.lineno} of "
                 "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
                 .format(build, existing_build)
@@ -767,7 +770,7 @@ class F2LFSDomain(Domain):
     def note_package(self, package):
         existing_package = self.packages.get(package.name)
         if not existing_package is None:
-            raise AF2LFSError(
+            raise DomainError(
                 "duplicate package declaration of '{0.name}' at line {0.lineno} of "
                 "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
                 .format(package, existing_package)
