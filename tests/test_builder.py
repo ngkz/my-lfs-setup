@@ -3,8 +3,7 @@ import pytest
 import textwrap
 from pathlib import Path
 from sphinx.testing import restructuredtext
-from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError
-from af2lfs.errors import AF2LFSError
+from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, BuildError
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -175,7 +174,7 @@ def test_build_job_graph_missing_dep(app):
     built_packages = {}
     targets = [builds['build']]
 
-    with pytest.raises(AF2LFSError) as excinfo:
+    with pytest.raises(BuildError) as excinfo:
         builder.create_build_job_graph(targets, built_packages)
 
     assert str(excinfo.value) == "Build-time dependency 'nonexistent:built OR nonexistent' of build 'build' can't be satisfied"

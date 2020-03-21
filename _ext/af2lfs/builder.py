@@ -4,11 +4,13 @@ from sphinx.errors import SphinxError
 from sphinx.util import logging
 import collections
 from pathlib import Path, PurePath
-from af2lfs.errors import AF2LFSError
 
 PACKAGE_DIR = PurePath('usr', 'pkg')
 
 logger = logging.getLogger(__name__)
+
+class BuildError(SphinxError):
+    category = 'system build error'
 
 class BuiltPackage:
     def __init__(self, name, version, deps = []):
@@ -86,7 +88,7 @@ class BuildJobGraph:
 
                         break
                 else:
-                    raise AF2LFSError(
+                    raise BuildError(
                         "Build-time dependency '{}' of build '{}' can't be satisfied"
                         .format(' OR '.join(map(str, or_deps)), build.name))
 
@@ -173,9 +175,8 @@ class DownloadJob(Job):
         super().__init__(source['url'])
         self.source = source
 
-class DependencyCycleError(SphinxError):
-    category = 'af2lfs dependency cycle error'
 
+class DependencyCycleError(BuildError):
     def __init__(self, root_cause):
         super().__init__()
         self.cycle = [root_cause]
