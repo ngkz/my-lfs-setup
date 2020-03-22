@@ -211,6 +211,7 @@ def test_package(app):
 
     assert pkg_foo.name == 'foo'
     assert pkg_foo.build is build_foo
+    assert pkg_foo.version == build_foo.version
     assert pkg_foo.description == 'description'
     assert pkg_foo.deps == [[Dependency('bar')]]
     assert pkg_foo.docname == 'index'
@@ -408,6 +409,7 @@ def test_package_inside_build(app):
 
     assert pkg1.name == 'pkg1'
     assert pkg1.build is build
+    assert pkg1.version == build.version
     assert pkg1.description == 'pkg1 desc'
     assert pkg1.deps == [[Dependency('pkg1-dep')]]
     assert pkg1.docname == 'index'

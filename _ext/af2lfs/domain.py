@@ -119,6 +119,10 @@ class Package:
         build.add_package(self)
 
     @property
+    def version(self):
+        return self.build.version
+
+    @property
     def id(self):
         return 'package-' + self.name
 
