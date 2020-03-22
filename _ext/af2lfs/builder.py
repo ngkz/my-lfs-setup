@@ -6,7 +6,7 @@ import collections
 from pathlib import Path, PurePath
 import shutil
 
-PACKAGE_DIR = PurePath('usr', 'pkg')
+PACKAGE_STORE = PurePath('usr', 'pkg')
 DEFAULT_CFLAGS = '-O2 -march=native -pipe -fstack-clash-protection -fno-plt '\
                  '-fexceptions -fasynchronous-unwind-tables -Wp,-D_FORTIFY_SOURCE=2'
 
@@ -216,25 +216,25 @@ class F2LFSBuilder(Builder):
         return
 
     def built_packages(self):
-        host_package_dir = Path(self.config.f2lfs_rootfs_path) / PACKAGE_DIR
+        store_path = Path(self.config.f2lfs_rootfs_path) / PACKAGE_STORE
 
         result = collections.defaultdict(dict)
 
-        if not host_package_dir.exists():
+        if not store_path.exists():
             return result
 
-        for package in host_package_dir.iterdir():
-            if package.name in ('version', 'installed'):
+        for package_name_dir_path in store_path.iterdir():
+            if package_name_dir_path.name in ('version', 'installed'):
                 continue
 
-            for version in package.iterdir():
-                built = BuiltPackage.from_fs(version)
+            for package_root_path in package_name_dir_path.iterdir():
+                built = BuiltPackage.from_fs(package_root_path)
                 result[built.name][built.version] = built
 
         return result
 
     def installed_packages(self):
-        host_package_dir = Path(self.config.f2lfs_rootfs_path) / PACKAGE_DIR
+        host_package_dir = Path(self.config.f2lfs_rootfs_path) / PACKAGE_STORE
         host_installed_package_dir = host_package_dir / 'installed'
 
         result = {}
