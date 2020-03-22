@@ -4,7 +4,7 @@ import textwrap
 from pathlib import Path
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
-                           BuildError, check_command
+                           BuildError, check_command, tmp_triplet
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -330,3 +330,6 @@ def test_check_command():
         check_command('____nonexistent____')
 
     assert str(excinfo.value) == "command '____nonexistent____' not available"
+
+def test_tmp_triplet():
+    assert tmp_triplet('x86_64-linux-musl') == 'x86_64-lfs-linux-musl'

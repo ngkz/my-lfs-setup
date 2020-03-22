@@ -195,6 +195,11 @@ def check_command(*args):
         if shutil.which(command) is None:
             raise BuildError(f"command '{command}' not available")
 
+# x86_64-linux-musl -> x86_64-lfs-linux-musl
+def tmp_triplet(triplet):
+    arch, after = triplet.split('-', 1)
+    return arch + '-lfs-' + after
+
 class F2LFSBuilder(Builder):
     name = 'system'
     epilog = 'The build logs are in %(outdir)s'
