@@ -17,6 +17,13 @@ def create_package(rootfs, name, version = '0.0.0', deps = [], installed = False
                    pre_remove_script = None, post_remove_script = None):
     (rootfs / 'usr' / 'pkg' / name / version).makedirs()
 
+    try:
+        Path(rootfs / 'usr' / 'pkg' / name / 'latest').unlink()
+    except FileNotFoundError:
+        pass
+
+    Path(rootfs / 'usr' / 'pkg' / name / 'latest').symlink_to(version)
+
     if deps:
         (rootfs / 'usr' / 'pkg' / name / version / '.deps').makedirs()
 
@@ -53,11 +60,13 @@ def test_built_packages(app, rootfs):
     create_package(rootfs, 'built2', '2.0.0')
     assert builder.built_packages() == {
         'built': {
-            '1.0.0': BuiltPackage('built', '1.0.0')
+            '1.0.0': BuiltPackage('built', '1.0.0'),
+            'latest': BuiltPackage('built', '1.0.0')
         },
         'built2': {
             '1.0.0': BuiltPackage('built2', '1.0.0', deps = ['built']),
-            '2.0.0': BuiltPackage('built2', '2.0.0')
+            '2.0.0': BuiltPackage('built2', '2.0.0'),
+            'latest': BuiltPackage('built2', '2.0.0')
         }
     }
 

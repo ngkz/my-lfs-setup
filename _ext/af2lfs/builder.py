@@ -223,13 +223,22 @@ class F2LFSBuilder(Builder):
         if not store_path.exists():
             return result
 
-        for package_name_dir_path in store_path.iterdir():
-            if package_name_dir_path.name in ('version', 'installed'):
+        for package_dir_path in store_path.iterdir():
+            if package_dir_path.name in ('version', 'installed'):
                 continue
 
-            for package_root_path in package_name_dir_path.iterdir():
+            versions = list(package_dir_path.iterdir())
+            assert versions
+
+            for package_root_path in versions:
                 built = BuiltPackage.from_fs(package_root_path)
                 result[built.name][built.version] = built
+                package_exists = True
+
+            latest_version_path = (package_dir_path / 'latest').resolve(True)
+            assert latest_version_path.parent == package_dir_path
+            latest_version = latest_version_path.name
+            result[built.name]['latest'] = result[built.name][latest_version]
 
         return result
 
