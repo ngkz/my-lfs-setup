@@ -7,6 +7,8 @@ from pathlib import Path, PurePath
 import shutil
 
 PACKAGE_DIR = PurePath('usr', 'pkg')
+DEFAULT_CFLAGS = '-O2 -march=native -pipe -fstack-clash-protection -fno-plt '\
+                 '-fexceptions -fasynchronous-unwind-tables -Wp,-D_FORTIFY_SOURCE=2'
 
 logger = logging.getLogger(__name__)
 
@@ -253,10 +255,20 @@ class F2LFSBuilder(Builder):
         return BuildJobGraph(targets, built_packages, doc_packages)
 
     def write(self, *ignored):
+        check_command('sudo', 'nsjail')
+
+        if not self.config.f2lfs_target_triplet:
+            raise BuildError("f2lfs_target_triplet is not set")
+
+        if not self.config.f2lfs_host_triplet:
+            self.config.f2lfs_host_triplet = tmp_triplet(self.config.f2lfs_target_triplet)
+
+        if self.config.f2lfs_target32_triplet and (not self.config.f2lfs_host32_triplet):
+            self.config.f2lfs_host32_triplet = tmp_triplet(self.config.f2lfs_target32_triplet)
+
         logger.info('building root filesystem...')
         logger.info('rootfs path: %s', self.config.f2lfs_rootfs_path)
 
-        raise NotImplementedError
 
     def finish(self):
         pass
@@ -264,3 +276,12 @@ class F2LFSBuilder(Builder):
 def setup(app):
     app.add_builder(F2LFSBuilder)
     app.add_config_value('f2lfs_rootfs_path', '/', '')
+    app.add_config_value('f2lfs_target_triplet', None, '')
+    app.add_config_value('f2lfs_target32_triplet', None, '')
+    app.add_config_value('f2lfs_host_triplet', None, '')
+    app.add_config_value('f2lfs_host32_triplet', None, '')
+    app.add_config_value('f2lfs_final_cflags', DEFAULT_CFLAGS, '')
+    app.add_config_value('f2lfs_final_cxxflags', DEFAULT_CFLAGS, '')
+    app.add_config_value('f2lfs_final_cppflags', '-D_GLIBCXX_ASSERTIONS', '')
+    app.add_config_value('f2lfs_final_ldflags',
+                         '-Wl,-O1,--sort-common,--as-needed,-z,now', '')

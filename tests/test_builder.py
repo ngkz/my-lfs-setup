@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import pytest
 import textwrap
+import os
 from pathlib import Path
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
@@ -333,3 +334,42 @@ def test_check_command():
 
 def test_tmp_triplet():
     assert tmp_triplet('x86_64-linux-musl') == 'x86_64-lfs-linux-musl'
+
+@pytest.mark.sphinx('system', srcdir='test_prebuild_check')
+def test_prebuild_check(app):
+    Path(app.srcdir / 'index.rst').touch()
+
+    with pytest.raises(BuildError) as excinfo:
+        path_backup = os.environ['PATH']
+        try:
+            os.environ['PATH'] = ''
+            app.build()
+        finally:
+            os.environ['PATH'] = path_backup
+
+    assert str(excinfo.value) == "command 'sudo' not available"
+
+    with pytest.raises(BuildError) as excinfo:
+        app.build()
+
+    assert str(excinfo.value) == 'f2lfs_target_triplet is not set'
+
+    app.config.f2lfs_target_triplet = 'x86_64-linux-musl'
+    assert app.config.f2lfs_host_triplet is None
+    app.build()
+    assert app.config.f2lfs_host_triplet == 'x86_64-lfs-linux-musl'
+    assert app.config.f2lfs_target32_triplet is None
+    assert app.config.f2lfs_host32_triplet is None
+
+    app.config.f2lfs_host_triplet = 'x86_64-foo-linux-musl'
+    app.build()
+    assert app.config.f2lfs_host_triplet == 'x86_64-foo-linux-musl'
+
+    app.config.f2lfs_target32_triplet = 'i686-linux-musl'
+    assert app.config.f2lfs_host32_triplet is None
+    app.build()
+    assert app.config.f2lfs_host32_triplet == 'i686-lfs-linux-musl'
+
+    app.config.f2lfs_host32_triplet = 'i686-foo-linux-musl'
+    app.build()
+    assert app.config.f2lfs_host32_triplet == 'i686-foo-linux-musl'
