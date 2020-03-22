@@ -54,7 +54,7 @@ class Dependency:
                self.select_built == other.select_built
 
     def __repr__(self):
-        return 'Dependency(name={0.name}, select_built={0.select_built})'.format(self)
+        return f'Dependency(name={self.name}, select_built={self.select_built})'
 
     def __str__(self):
         return self.name + (':built' if self.select_built else '')
@@ -78,9 +78,9 @@ class Build:
         existing_package = self.packages.get(package.name)
         if not existing_package is None:
             raise DomainError(
-                "duplicate package declaration of '{0.name}' at line {0.lineno} of "
-                "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
-                .format(package, existing_package)
+                f"duplicate package declaration of '{package.name}' at line {package.lineno}"
+                f" of '{package.docname}', also defined at line {existing_package.lineno}"
+                f" of '{existing_package.docname}'"
             )
 
         assert package.build is self
@@ -94,9 +94,9 @@ class Build:
         return True
 
     def __repr__(self):
-        return 'Build(name={0.name}, docname={0.docname}, lineno={0.lineno}, ' \
-            'version={0.version}, build_deps={0.build_deps}, sources={0.sources}, ' \
-            'bootstrap={0.bootstrap})'.format(self)
+        return f'Build(name={self.name}, docname={self.docname}, lineno={self.lineno}, ' \
+            f'version={self.version}, build_deps={self.build_deps}, sources={self.sources}, ' \
+            f'bootstrap={self.bootstrap})'
 
 class Package:
     def __init__(self, name, build, docname, lineno, description = None, deps = [],
@@ -123,9 +123,9 @@ class Package:
         return 'package-' + self.name
 
     def __repr__(self):
-        return 'Package(name={0.name}, build={0.build}, docname={0.docname}, ' \
-            'lineno={0.lineno}, description={0.description}, deps={0.deps}, ' \
-            'install={0.install})'.format(self)
+        return f'Package(name={self.name}, build={self.build}, docname={self.docname}, ' \
+            f'lineno={self.lineno}, description={self.description}, deps={self.deps}, ' \
+            f'install={self.install})'
 
     def __eq__(self, other):
         return self.name == other.name and self.build is other.build and \
@@ -247,7 +247,7 @@ def sources(value):
         #transform {'TYPE': 'URL'} into {'type': 'TYPE', 'url': 'URL'}
         for reserved_key in ('type', 'url'):
             if reserved_key in source:
-                raise ValueError("invalid option '{}'".format(reserved_key))
+                raise ValueError(f"invalid option '{reserved_key}'")
 
         url_seen = False
 
@@ -273,27 +273,27 @@ def sources(value):
 
             opt_spec = source_spec_options.get(opt_name)
             if opt_spec is None:
-                raise ValueError("invalid option '{}'".format(opt_name))
+                raise ValueError(f"invalid option '{opt_name}'")
 
             conflicts_with = opt_spec.get('conflicts_with', [])
             for conflict_opt_name in conflicts_with:
                 if conflict_opt_name in source:
-                    raise ValueError("option '{}' conflicts with '{}'".format(opt_name, conflict_opt_name))
+                    raise ValueError(f"option '{opt_name}' conflicts with '{conflict_opt_name}'")
 
             requires = opt_spec.get('requires', [])
             for required_opt_name in requires:
                 if not required_opt_name in source:
-                    raise ValueError("option '{}' requires '{}'".format(opt_name, required_opt_name))
+                    raise ValueError(f"option '{opt_name}' requires '{required_opt_name}'")
 
         for opt_name, opt_spec in source_spec_options.items():
             if opt_spec.get('required', False) and not opt_name in source:
-                raise ValueError("option '{}' is required".format(opt_name))
+                raise ValueError(f"option '{opt_name}' is required")
 
         requires_at_least_one = source_spec.get('requires_at_least_one', [])
         if len(requires_at_least_one) > 0 and \
-                not any(map(lambda x: x in source, requires_at_least_one)):
+                not any(opt in source for opt in requires_at_least_one):
             raise ValueError('at least one of {} is required' \
-                .format(', '.join(map(lambda x: "'{}'".format(x), requires_at_least_one))))
+                .format(', '.join(f"'{opt}'" for opt in requires_at_least_one)))
 
         result.append(source)
 
@@ -469,8 +469,7 @@ class BuildDirective(SphinxDirective, BuildMixin):
         container = nodes.container()
 
         if 'f2lfs:parent_build' in self.env.temp_data:
-            raise DomainError("{} cannot be nested (line {} of '{}')".format(
-                self.name, self.lineno, self.env.docname))
+            raise DomainError(f"{self.name} cannot be nested (line {self.lineno} of '{self.env.docname}')")
         self.env.temp_data['f2lfs:parent_build'] = build
         self.state.nested_parse(self.content, self.content_offset, container)
         del self.env.temp_data['f2lfs:parent_build']
@@ -510,8 +509,7 @@ class PackageDirective(SphinxDirective, BuildMixin):
 
             for optname in self.options.keys():
                 if not optname in ('description', 'deps'):
-                    raise self.error("option '{}' must be specified at parent build directive"
-                                     .format(optname))
+                    raise self.error(f"option '{optname}' must be specified at parent build directive")
 
         for option in ('description', 'deps'):
             value = self.options.get(option)
@@ -657,9 +655,8 @@ class InstallHookDirective(ScriptDirective):
             for pkgname in self.arguments[0].split():
                 package = build.packages.get(pkgname)
                 if package is None:
-                    raise self.error(
-                        "specified package '{}' does not exist in corresponding build"
-                        .format(pkgname))
+                    raise self.error(f"specified package '{pkgname}' does not exist"
+                                     f" in corresponding build")
                 else:
                     packages.append(package)
 
@@ -698,9 +695,8 @@ class InstallDirective(SphinxDirective):
             for pkgname in self.arguments[0].split():
                 package = build.packages.get(pkgname)
                 if package is None:
-                    raise self.error(
-                        "specified package '{}' does not exist in corresponding build"
-                        .format(pkgname))
+                    raise self.error(f"specified package '{pkgname}' does not exist"
+                                     f" in corresponding build")
                 else:
                     packages.append(package)
 
@@ -709,13 +705,12 @@ class InstallDirective(SphinxDirective):
         for package in packages:
             package.install = True
             if package.build.bootstrap:
-                logger.warning("bootstrap package '{}' marked as install. " \
-                               "it may not work in the final system.".format(package.name),
+                logger.warning(f"bootstrap package '{package.name}' marked as install. "
+                               f"it may not work in the final system.",
                                location=(self.env.docname, self.lineno))
-            lines.append('targetfs# cp -rsv /usr/pkg/{}/{}/* /'
-                         .format(package.name, build.version))
-            lines.append('targetfs# ln -sfv ../{0}/{1} /usr/pkg/installed/{0}'
-                         .format(package.name, build.version))
+            lines.append(f'targetfs# cp -rsv /usr/pkg/{package.name}/{build.version}/* /')
+            lines.append(f'targetfs# ln -sfv ../{package.name}/{build.version} '
+                         f'/usr/pkg/installed/{package.name}')
 
         text = '\n'.join(lines)
         node = nodes.literal_block(text, text, language='f2lfs-shell-session')
@@ -760,9 +755,9 @@ class F2LFSDomain(Domain):
         existing_build = self.builds.get(build.name)
         if not existing_build is None:
             raise DomainError(
-                "duplicate build declaration of '{0.name}' at line {0.lineno} of "
-                "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
-                .format(build, existing_build)
+                f"duplicate build declaration of '{build.name}' at line {build.lineno}"
+                f" of '{build.docname}', also defined at line {existing_build.lineno}"
+                f" of '{existing_build.docname}'"
             )
 
         self.builds[build.name] = build
@@ -771,9 +766,9 @@ class F2LFSDomain(Domain):
         existing_package = self.packages.get(package.name)
         if not existing_package is None:
             raise DomainError(
-                "duplicate package declaration of '{0.name}' at line {0.lineno} of "
-                "'{0.docname}', also defined at line {1.lineno} of '{1.docname}'"
-                .format(package, existing_package)
+                f"duplicate package declaration of '{package.name}' at line "
+                f"{package.lineno} of '{package.docname}', also defined at line "
+                f"{existing_package.lineno} of '{existing_package.docname}'"
             )
 
         self.packages[package.name] = package

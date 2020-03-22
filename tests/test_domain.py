@@ -1024,12 +1024,12 @@ def test_script_doctree(app):
 
     for i, directive in enumerate(('pre-install', 'post-install', 'pre-upgrade',
                                    'post-upgrade', 'pre-remove', 'post-remove')):
-        text = textwrap.dedent('''\
-        .. f2lfs:package:: baz{}
-        .. f2lfs:{}::
+        text = textwrap.dedent(f'''\
+        .. f2lfs:package:: baz{i}
+        .. f2lfs:{directive}::
 
            # foo
-        '''.format(i, directive))
+        ''')
         doctree = restructuredtext.parse(app, text)
         codeblocks = list(doctree.traverse(nodes.literal_block))
         assert_node(codeblocks[0], [nodes.literal_block, 'targetfs# foo'])

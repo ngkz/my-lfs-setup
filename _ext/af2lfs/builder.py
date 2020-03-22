@@ -33,8 +33,7 @@ class BuiltPackage:
                self.deps == other.deps
 
     def __repr__(self):
-        return 'BuiltPackage(name={0.name}, version={0.version}, deps={0.deps})' \
-                .format(self)
+        return f'BuiltPackage(name={self.name}, version={self.version}, deps={self.deps})'
 
 class BuildJobGraph:
     def __init__(self, targets, built_packages, doc_packages):
@@ -90,8 +89,9 @@ class BuildJobGraph:
                         break
                 else:
                     raise BuildError(
-                        "Build-time dependency '{}' of build '{}' can't be satisfied"
-                        .format(' OR '.join(map(str, or_deps)), build.name))
+                        f"Build-time dependency '{' OR '.join(map(str, or_deps))}'"
+                        f" of build '{build.name}' can't be satisfied"
+                    )
 
             job.being_visited = False
 
@@ -115,10 +115,10 @@ class BuildJobGraph:
         queue = collections.deque([self.root])
         discovered = set([self.root])
         result = 'digraph dump {\n'
-        result += '  graph [label="job_count: {}"];\n\n'.format(self.job_count)
+        result += f'  graph [label="job_count: {self.job_count}"];\n\n'
 
         def job_label(job):
-            return '{}({})'.format(type(job).__name__, job.name)
+            return f'{type(job).__name__}({job.name})'
 
         while queue:
             job = queue.popleft()
@@ -126,8 +126,7 @@ class BuildJobGraph:
                 .format(job_label(job), job.num_incident, job.priority)
 
             for child in job.edges:
-                result += '  "{}" -> "{}";\n'.format(job_label(job),
-                                                   job_label(child))
+                result += f'  "{job_label(job)}" -> "{job_label(child)}";\n'
                 if not child in discovered:
                     queue.append(child)
                     discovered.add(child)
@@ -189,7 +188,7 @@ class DependencyCycleError(BuildError):
 
     def __str__(self):
         return "Dependency cycle detected: " + " -> " \
-            .join(map(lambda build: build.name, reversed(self.cycle)))
+            .join(build.name for build in reversed(self.cycle))
 
 def check_command(*args):
     for command in args:
