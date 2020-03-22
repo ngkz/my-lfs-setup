@@ -579,7 +579,7 @@ class ScriptDirective(SphinxDirective):
     has_content = True
 
     def handle_commands(self, commands):
-        raise NotImplementedError('must be implemented in subclasses')
+        raise NotImplementedError('must be implemented in subclasses') # pragma: no cover
 
     def parse_shell_session(self, session):
         cursor = LookaheadIterator(iter(session))
@@ -675,7 +675,7 @@ class InstallHookDirective(ScriptDirective):
             elif name == 'post-remove':
                 package.post_remove_steps.extend(commands)
             else:
-                raise RuntimeError('something went wrong')
+                raise RuntimeError('something went wrong') # pragma: no cover
 
         return [self.shell_session_block('targetfs#', commands)]
 
