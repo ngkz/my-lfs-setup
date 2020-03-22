@@ -140,15 +140,21 @@ def test_build_job_graph_dep_handling(app):
     builder.set_environment(app.env)
 
     targets = [builds['buildnext1'], builds['buildnext2']]
+    pkg1 = BuiltPackage('dep-already-built-pkg1', '0.0.0')
+    pkg2 = BuiltPackage('dep-already-built-pkg2', '0.0.0'),
+    built = BuiltPackage('builtdep-built', '0.0.0'),
     built_packages = {
         'dep-already-built-pkg1': {
-            '0.0.0': BuiltPackage('dep-already-built-pkg1', '0.0.0')
+            '0.0.0': pkg1,
+            'latest': pkg1
         },
         'dep-already-built-pkg2': {
-            '0.0.0': BuiltPackage('dep-already-built-pkg2', '0.0.0')
+            '0.0.0': pkg2,
+            'latest': pkg2
         },
         'builtdep-built': {
-            '0.0.0': BuiltPackage('builtdep-built', '0.0.0')
+            '0.0.0': built,
+            'latest': built
         }
     }
     graph = builder.create_build_job_graph(targets, built_packages)
@@ -249,9 +255,11 @@ def test_build_job_graph_source_handling(app):
     builder.set_environment(app.env)
 
     targets = [builds['pkg1'], builds['pkg2']]
+    already_built = BuiltPackage('already-built', '0.0.0')
     built_packages = {
         'already-built': {
-            '0.0.0': BuiltPackage('already-built', '0.0.0')
+            '0.0.0': already_built,
+            'latest': already_built
         }
     }
     graph = builder.create_build_job_graph(targets, built_packages)
