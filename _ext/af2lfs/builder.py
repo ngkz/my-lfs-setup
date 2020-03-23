@@ -119,16 +119,12 @@ class BuildJobGraph:
         result = 'digraph dump {\n'
         result += f'  graph [label="job_count: {self.job_count}"];\n\n'
 
-        def job_label(job):
-            return f'{type(job).__name__}({job.name})'
-
         while queue:
             job = queue.popleft()
-            result += '  "{0}" [label="{0}\\nnum_incident: {1}\\npriority: {2}"];\n' \
-                .format(job_label(job), job.num_incident, job.priority)
+            result += f'  "{job.dump_name}" [label="{job.dump_label}"];\n'
 
             for child in job.edges:
-                result += f'  "{job_label(job)}" -> "{job_label(child)}";\n'
+                result += f'  "{job.dump_name}" -> "{child.dump_name}";\n'
                 if not child in discovered:
                     queue.append(child)
                     discovered.add(child)
@@ -163,8 +159,21 @@ class Job:
 
         return self.priority
 
+    @property
+    def dump_name(self):
+        raise NotImplementedError
+
+    @property
+    def dump_label(self):
+        return rf'{self.dump_name}\nnum_incident: {self.num_incident}\n' \
+               rf'priority: {self.priority}'
+
 class NopJob(Job):
     pass
+
+    @property
+    def dump_name(self):
+        return f'NopJob({self.name})'
 
 class BuildJob(Job):
     def __init__(self, build):
@@ -172,11 +181,18 @@ class BuildJob(Job):
         self.build = build
         self.being_visited = False
 
+    @property
+    def dump_name(self):
+        return f'BuildJob({self.build.name})'
+
 class DownloadJob(Job):
     def __init__(self, source):
         super().__init__(source['url'])
         self.source = source
 
+    @property
+    def dump_name(self):
+        return f"DownloadJob({self.source['url']})"
 
 class DependencyCycleError(BuildError):
     def __init__(self, root_cause):
