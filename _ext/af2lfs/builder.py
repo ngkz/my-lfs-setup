@@ -137,10 +137,9 @@ class BuildJobGraph:
         return result
 
 class Job:
-    def __init__(self, name):
+    def __init__(self):
         self.num_incident = 0
         self.edges = []
-        self.name = name
         self.priority = 0
 
     def required_by(self, job):
@@ -169,7 +168,9 @@ class Job:
                rf'priority: {self.priority}'
 
 class NopJob(Job):
-    pass
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
 
     @property
     def dump_name(self):
@@ -177,7 +178,7 @@ class NopJob(Job):
 
 class BuildJob(Job):
     def __init__(self, build):
-        super().__init__(build.name)
+        super().__init__()
         self.build = build
         self.being_visited = False
 
@@ -187,7 +188,7 @@ class BuildJob(Job):
 
 class DownloadJob(Job):
     def __init__(self, source):
-        super().__init__(source['url'])
+        super().__init__()
         self.source = source
 
     @property
