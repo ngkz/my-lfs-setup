@@ -353,40 +353,55 @@ def test_tmp_triplet():
     assert tmp_triplet('x86_64-linux-musl') == 'x86_64-lfs-linux-musl'
 
 @pytest.mark.sphinx('system', srcdir='test_prebuild_check')
-def test_prebuild_check(app):
+def test_prebuild_check(app, tempdir):
     Path(app.srcdir / 'index.rst').touch()
 
-    with pytest.raises(BuildError) as excinfo:
+    tmpbin = tempdir / 'bin'
+    tmpbin.makedirs()
+
+    def app_build_with_path(path):
         path_backup = os.environ['PATH']
         try:
-            os.environ['PATH'] = ''
+            os.environ['PATH'] = path
             app.build()
         finally:
             os.environ['PATH'] = path_backup
 
+    with pytest.raises(BuildError) as excinfo:
+        app_build_with_path(tmpbin)
+
     assert str(excinfo.value) == "command 'sudo' not available"
 
+    Path(tmpbin / 'sudo').touch(mode=0o755)
+
     with pytest.raises(BuildError) as excinfo:
-        app.build()
+        app_build_with_path(tmpbin)
+
+    assert str(excinfo.value) == "command 'nsjail' not available"
+
+    Path(tmpbin / 'nsjail').touch(mode=0o755)
+
+    with pytest.raises(BuildError) as excinfo:
+        app_build_with_path(tmpbin)
 
     assert str(excinfo.value) == 'f2lfs_target_triplet is not set'
 
     app.config.f2lfs_target_triplet = 'x86_64-linux-musl'
     assert app.config.f2lfs_host_triplet is None
-    app.build()
+    app_build_with_path(tmpbin)
     assert app.config.f2lfs_host_triplet == 'x86_64-lfs-linux-musl'
     assert app.config.f2lfs_target32_triplet is None
     assert app.config.f2lfs_host32_triplet is None
 
     app.config.f2lfs_host_triplet = 'x86_64-foo-linux-musl'
-    app.build()
+    app_build_with_path(tmpbin)
     assert app.config.f2lfs_host_triplet == 'x86_64-foo-linux-musl'
 
     app.config.f2lfs_target32_triplet = 'i686-linux-musl'
     assert app.config.f2lfs_host32_triplet is None
-    app.build()
+    app_build_with_path(tmpbin)
     assert app.config.f2lfs_host32_triplet == 'i686-lfs-linux-musl'
 
     app.config.f2lfs_host32_triplet = 'i686-foo-linux-musl'
-    app.build()
+    app_build_with_path(tmpbin)
     assert app.config.f2lfs_host32_triplet == 'i686-foo-linux-musl'
