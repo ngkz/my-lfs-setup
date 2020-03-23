@@ -113,7 +113,7 @@ class BuildJobGraph:
 
         self.root._calculate_priority(set())
 
-    def dump(self):
+    def dump(self, **options):
         queue = collections.deque([self.root])
         discovered = set([self.root])
         result = 'digraph dump {\n'
@@ -121,7 +121,7 @@ class BuildJobGraph:
 
         while queue:
             job = queue.popleft()
-            result += f'  "{job.dump_name}" [label="{job.dump_label}"];\n'
+            result += f'  "{job.dump_name}" [label="{job.dump_label(**options)}"];\n'
 
             for child in job.edges:
                 result += f'  "{job.dump_name}" -> "{child.dump_name}";\n'
@@ -162,8 +162,7 @@ class Job:
     def dump_name(self):
         raise NotImplementedError
 
-    @property
-    def dump_label(self):
+    def dump_label(self, **options):
         return rf'{self.dump_name}\nnum_incident: {self.num_incident}\n' \
                rf'priority: {self.priority}'
 
