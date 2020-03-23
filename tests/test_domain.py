@@ -7,7 +7,7 @@ from sphinx import addnodes
 from sphinx.testing import restructuredtext
 from sphinx.testing.util import assert_node
 from af2lfs.domain import F2LFSDomain, Build, Package, Dependency, dependency, \
-                          sources, DomainError
+                          build_dependency, sources, DomainError
 from af2lfs.builder import BuiltPackage
 
 def test_build(app):
@@ -213,7 +213,7 @@ def test_package(app):
     assert pkg_foo.build is build_foo
     assert pkg_foo.version == build_foo.version
     assert pkg_foo.description == 'description'
-    assert pkg_foo.deps == [[Dependency('bar')]]
+    assert pkg_foo.deps == ['bar']
     assert pkg_foo.docname == 'index'
     assert pkg_foo.lineno == 1
     assert not pkg_foo.install
@@ -289,7 +289,7 @@ def test_package_doctree(app):
     .. f2lfs:package:: pkg1 1.0.0
     .. f2lfs:package:: pkg2 1.0.0
        :deps: - dep1
-              - dep2 OR dep3:built
+              - dep2
     .. f2lfs:package:: pkg3 1.0.0
        :build-deps: - builddep1
                     - builddep2 OR builddep3:built
@@ -325,10 +325,7 @@ def test_package_doctree(app):
                                                             [addnodes.desc_annotation, ' 1.0.0'])],
                                  [addnodes.desc_content, nodes.field_list, nodes.field, ([nodes.field_name, 'Dependencies'],
                                                                                          [nodes.field_body, nodes.bullet_list, ([nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep1'],
-                                                                                                                                [nodes.list_item, nodes.paragraph, ([addnodes.pending_xref, nodes.literal, 'dep2'],
-                                                                                                                                                                    ' or ',
-                                                                                                                                                                    'already built ',
-                                                                                                                                                                    [addnodes.pending_xref, nodes.literal, 'dep3'])])])])])
+                                                                                                                                [nodes.list_item, nodes.paragraph, addnodes.pending_xref, nodes.literal, 'dep2'])])])])
     assert_node(doctree[3][0], names=['package-pkg2'], ids=['package-pkg2'], first=True)
     assert_node(doctree[4], addnodes.index, entries=[('single', 'pkg3 (package)', 'package-pkg3', '', None)])
     assert_node(doctree[5],
@@ -411,7 +408,7 @@ def test_package_inside_build(app):
     assert pkg1.build is build
     assert pkg1.version == build.version
     assert pkg1.description == 'pkg1 desc'
-    assert pkg1.deps == [[Dependency('pkg1-dep')]]
+    assert pkg1.deps == ['pkg1-dep']
     assert pkg1.docname == 'index'
     assert pkg1.lineno == 8
 
@@ -509,8 +506,8 @@ def test_package_inside_build_should_not_accept_build_options(app, warning):
     assert "index.rst:5: WARNING: option 'sources' must be specified at parent build directive" in warning.getvalue()
     assert "index.rst:7: WARNING: option 'bootstrap' must be specified at parent build directive" in warning.getvalue()
 
-def test_dependency_parser():
-    assert dependency(textwrap.dedent('''\
+def test_build_dependency_parser():
+    assert build_dependency(textwrap.dedent('''\
     - dep1
     - dep2:built
     - dep3 OR dep4
@@ -519,6 +516,48 @@ def test_dependency_parser():
         [Dependency(name='dep2', select_built=True)],
         [Dependency(name='dep3', select_built=False), Dependency(name='dep4', select_built=False)]
     ]
+
+def test_build_dependency_parser_should_reject_invalid_yaml():
+    with pytest.raises(ValueError) as excinfo:
+        build_dependency('{')
+
+    assert 'malformed YAML:\n' in str(excinfo.value)
+
+def test_build_dependency_parser_should_check_type():
+    with pytest.raises(ValueError) as excinfo:
+        build_dependency('{}')
+
+    assert str(excinfo.value) == 'this option must be a list'
+
+def test_build_dependency_parser_should_check_deps_type():
+    with pytest.raises(ValueError) as excinfo:
+        build_dependency('- []')
+
+    assert str(excinfo.value) == 'dependency entry must be string'
+
+def test_build_dependency_parser_should_check_deps_or_condition_delimiter(app, warning):
+    with pytest.raises(ValueError) as excinfo:
+        build_dependency('- A B')
+
+    assert str(excinfo.value) == "OR condition must be delimited with 'OR'"
+
+def test_build_dependency_parser_should_check_deps_name_validity():
+    with pytest.raises(ValueError) as excinfo:
+        build_dependency('''- "^'&"''')
+
+    assert str(excinfo.value) == 'invalid dependency name'
+
+def test_build_dependency_parser_should_check_deps_version_validity():
+    with pytest.raises(ValueError) as excinfo:
+        build_dependency('- foo:invalid')
+
+    assert str(excinfo.value) == "invalid version specifier, only 'built' allowed"
+
+def test_dependency_parser():
+    assert dependency(textwrap.dedent('''\
+    - dep1
+    - dep2
+    ''')) == ['dep1', 'dep2']
 
 def test_dependency_parser_should_reject_invalid_yaml():
     with pytest.raises(ValueError) as excinfo:
@@ -538,23 +577,11 @@ def test_dependency_parser_should_check_deps_type():
 
     assert str(excinfo.value) == 'dependency entry must be string'
 
-def test_dependency_parser_should_check_deps_or_condition_delimiter(app, warning):
-    with pytest.raises(ValueError) as excinfo:
-        dependency('- A B')
-
-    assert str(excinfo.value) == "OR condition must be delimited with 'OR'"
-
 def test_dependency_parser_should_check_deps_name_validity():
     with pytest.raises(ValueError) as excinfo:
-        dependency('''- "^'&"''')
+        dependency('''- "^'& "''')
 
     assert str(excinfo.value) == 'invalid dependency name'
-
-def test_dependency_parser_should_check_deps_version_validity():
-    with pytest.raises(ValueError) as excinfo:
-        dependency('- foo:invalid')
-
-    assert str(excinfo.value) == "invalid version specifier, only 'built' allowed"
 
 def test_source_parser():
     assert sources(textwrap.dedent('''\

@@ -168,6 +168,24 @@ def dependency(value):
     if not isinstance(deps, list):
         raise ValueError('this option must be a list')
 
+    for dep in deps:
+        if not isinstance(dep, str):
+            raise ValueError('dependency entry must be string')
+
+        if not validate_package_name(dep):
+            raise ValueError('invalid dependency name')
+
+    return deps
+
+def build_dependency(value):
+    try:
+        deps = yaml.safe_load(value)
+    except yaml.parser.ParserError as e:
+        raise ValueError('malformed YAML:\n' + str(e))
+
+    if not isinstance(deps, list):
+        raise ValueError('this option must be a list')
+
     def process_dep(dep):
         deps_or = []
 
@@ -328,12 +346,12 @@ class BuildMixin():
         return F2LFSDomain.roles['pkg']('f2lfs:pkg', target, target,
                                         self.lineno, self.state.inliner)
 
-    def _render_deps(self, title, deps):
+    def _render_build_deps(self, deps):
         if not deps:
             return ([], [])
 
         messages_acc = []
-        deps_field, deps_blist = blist_field(title)
+        deps_field, deps_blist = blist_field('Build-time dependencies')
 
         for deps_or in deps:
             dep_item = nodes.list_item()
@@ -447,7 +465,7 @@ class BuildDirective(SphinxDirective, BuildMixin):
     required_arguments = 1
     optional_arguments = 1
     option_spec = {
-        'build-deps': dependency,
+        'build-deps': build_dependency,
         'sources': sources,
         'bootstrap': directives.flag
     }
@@ -459,7 +477,7 @@ class BuildDirective(SphinxDirective, BuildMixin):
         node_list = []
         field_list = nodes.field_list()
 
-        deps_nodes, messages = self._render_deps('Build-time dependencies', build.build_deps)
+        deps_nodes, messages = self._render_build_deps(build.build_deps)
         field_list += deps_nodes
         node_list.extend(messages)
 
@@ -489,7 +507,7 @@ class PackageDirective(SphinxDirective, BuildMixin):
     option_spec = {
         'description': directives.unchanged,
         'deps': dependency,
-        'build-deps': dependency,
+        'build-deps': build_dependency,
         'sources': sources,
         'bootstrap': directives.flag
     }
@@ -557,12 +575,26 @@ class PackageDirective(SphinxDirective, BuildMixin):
 
         field_list = nodes.field_list()
 
-        deps_nodes, messages = self._render_deps('Dependencies', package.deps)
-        field_list += deps_nodes
-        node_list.extend(messages)
+        if package.deps:
+            deps_field, deps_blist = blist_field('Dependencies')
+
+            for dep in package.deps:
+                dep_item = nodes.list_item()
+                # reference node must be wrapped with TextElement otherwise html5
+                # builder fails with AssertionError
+                dep_item_paragraph = nodes.paragraph()
+
+                ref_nodes, messages = self._create_package_ref(dep)
+                dep_item_paragraph += ref_nodes
+                node_list.extend(messages)
+
+                dep_item += dep_item_paragraph
+                deps_blist += dep_item
+
+            field_list += deps_field
 
         if parent_build is None:
-            build_deps_nodes, messages = self._render_deps('Build-time dependencies', build.build_deps)
+            build_deps_nodes, messages = self._render_build_deps(build.build_deps)
             field_list += build_deps_nodes
             node_list.extend(messages)
 
