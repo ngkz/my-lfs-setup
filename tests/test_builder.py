@@ -127,7 +127,7 @@ def test_build_job_graph_dep_handling(app):
     .. f2lfs:package:: buildnext1
        :build-deps: - dep-already-built-pkg1
     .. f2lfs:package:: builtdep-notbuilt
-    .. f2lfs:package:: builtdep-built
+    .. f2lfs:package:: builtdep-built 1.0.0
     .. f2lfs:package:: buildnext2
        :build-deps:
         - builtdep-notbuilt:built OR dep-already-built-pkg2
@@ -141,8 +141,8 @@ def test_build_job_graph_dep_handling(app):
 
     targets = [builds['buildnext1'], builds['buildnext2']]
     pkg1 = BuiltPackage('dep-already-built-pkg1', '0.0.0')
-    pkg2 = BuiltPackage('dep-already-built-pkg2', '0.0.0'),
-    built = BuiltPackage('builtdep-built', '0.0.0'),
+    pkg2 = BuiltPackage('dep-already-built-pkg2', '0.0.0')
+    built = BuiltPackage('builtdep-built', '0.0.0')
     built_packages = {
         'dep-already-built-pkg1': {
             '0.0.0': pkg1,
@@ -158,23 +158,23 @@ def test_build_job_graph_dep_handling(app):
         }
     }
     graph = builder.create_build_job_graph(targets, built_packages)
-    assert graph.dump() == textwrap.dedent('''\
+    assert graph.dump(dump_deps=True) == textwrap.dedent('''\
     digraph dump {
       graph [label="job_count: 3"];
 
       "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0\\npriority: 4"];
       "NopJob(root)" -> "BuildJob(build1st)";
 
-      "BuildJob(build1st)" [label="BuildJob(build1st)\\nnum_incident: 1\\npriority: 3"];
+      "BuildJob(build1st)" [label="BuildJob(build1st)\\nnum_incident: 1\\npriority: 3\\nselected_deps:\\n"];
       "BuildJob(build1st)" -> "NopJob(dep-already-built-build)";
 
       "NopJob(dep-already-built-build)" [label="NopJob(dep-already-built-build)\\nnum_incident: 1\\npriority: 2"];
       "NopJob(dep-already-built-build)" -> "BuildJob(buildnext1)";
       "NopJob(dep-already-built-build)" -> "BuildJob(buildnext2)";
 
-      "BuildJob(buildnext1)" [label="BuildJob(buildnext1)\\nnum_incident: 1\\npriority: 1"];
+      "BuildJob(buildnext1)" [label="BuildJob(buildnext1)\\nnum_incident: 1\\npriority: 1\\nselected_deps:\\ndep-already-built-pkg1-0.0.0\\n"];
 
-      "BuildJob(buildnext2)" [label="BuildJob(buildnext2)\\nnum_incident: 1\\npriority: 1"];
+      "BuildJob(buildnext2)" [label="BuildJob(buildnext2)\\nnum_incident: 1\\npriority: 1\\nselected_deps:\\ndep-already-built-pkg2-0.0.0\\nbuiltdep-built-0.0.0\\n"];
     }''')
 
 def test_build_job_graph_missing_dep(app):

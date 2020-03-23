@@ -77,9 +77,14 @@ class BuildJobGraph:
                 for dep in or_deps:
                     if dep.select_built:
                         if dep.name in built_packages:
+                            if need_build:
+                                job.selected_deps.append(
+                                    built_packages[dep.name]['latest'])
                             break
                     elif dep.name in doc_packages:
                         dep_pkg = doc_packages[dep.name]
+                        if need_build:
+                            job.selected_deps.append(dep_pkg)
                         try:
                             dep_build_job = add_build_job(dep_pkg.build)
                         except DependencyCycleError as e:
@@ -180,10 +185,19 @@ class BuildJob(Job):
         super().__init__()
         self.build = build
         self.being_visited = False
+        self.selected_deps = []
 
     @property
     def dump_name(self):
         return f'BuildJob({self.build.name})'
+
+    def dump_label(self, dump_deps=False, **options):
+        result = super().dump_label(**options)
+        if dump_deps:
+            result += r'\nselected_deps:\n'
+            for pkg in self.selected_deps:
+                result += rf'{pkg.name}-{pkg.version}\n'
+        return result
 
 class DownloadJob(Job):
     def __init__(self, source):
