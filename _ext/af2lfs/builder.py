@@ -232,6 +232,49 @@ def tmp_triplet(triplet):
     arch, after = triplet.split('-', 1)
     return arch + '-lfs-' + after
 
+def resolve_deps(target, packages, include_deps):
+    result = []
+
+    BEING_VISITED = 0
+    DONE_VISITED = 1
+    states = {}
+    stack = collections.deque()
+
+    def visit(package, parent_name):
+        state = states.get(package.name)
+        if state == BEING_VISITED:
+            logger.warning(f"package '{parent_name}' will be installed before "
+                           f"its dependency '{package.name}'")
+            return
+        elif state == DONE_VISITED:
+            return
+
+        states[package.name] = BEING_VISITED
+        for dep_name in package.deps:
+            package_or_versions = packages.get(dep_name)
+            if package_or_versions is None:
+                raise BuildError(
+                    f"dependency '{dep_name}' of package '{package.name}' " \
+                    f"can't be satisfied"
+                )
+            elif isinstance(package_or_versions, dict):
+                # built_packages
+                # FIXME polymorphism
+                visit(package_or_versions['latest'], package.name)
+            else:
+                # F2LFSDomain.packages
+                # FIXME polymorphism
+                visit(package_or_versions, package.name)
+        states[package.name] = DONE_VISITED
+
+        if include_deps or package in target:
+            result.append(package)
+
+    for package in target:
+        visit(package, None)
+
+    return result
+
 class F2LFSBuilder(Builder):
     name = 'system'
     epilog = 'The build logs are in %(outdir)s'

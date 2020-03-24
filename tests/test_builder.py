@@ -3,9 +3,10 @@ import pytest
 import textwrap
 import os
 from pathlib import Path
+from unittest import mock
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
-                           BuildError, check_command, tmp_triplet
+                           BuildError, check_command, tmp_triplet, resolve_deps
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -405,3 +406,88 @@ def test_prebuild_check(app, tempdir):
     app.config.f2lfs_host32_triplet = 'i686-foo-linux-musl'
     app_build_with_path(tmpbin)
     assert app.config.f2lfs_host32_triplet == 'i686-foo-linux-musl'
+
+def test_resolve_deps_packages(app):
+    restructuredtext.parse(app, textwrap.dedent('''\
+    .. f2lfs:package:: pkg1 1.0.0
+    .. f2lfs:package:: pkg2 1.0.0
+       :deps: - pkg1
+    .. f2lfs:package:: pkg3 1.0.0
+       :deps: - pkg2
+    '''))
+
+    packages = app.env.get_domain('f2lfs').packages
+
+    assert resolve_deps([packages['pkg3'], packages['pkg1']], packages, False) == [
+        packages['pkg1'],
+        packages['pkg3']
+    ]
+
+    assert resolve_deps([packages['pkg3'], packages['pkg1']], packages, True) == [
+        packages['pkg1'],
+        packages['pkg2'],
+        packages['pkg3']
+    ]
+
+def test_resolve_deps_built_packages(app):
+    pkg1_built = BuiltPackage('pkg1', '0.0.0')
+    pkg2_built = BuiltPackage('pkg2', '0.0.0', deps=['pkg1'])
+    pkg3_built = BuiltPackage('pkg3', '0.0.0', deps=['pkg2'])
+    built_packages = {
+        'pkg1': {
+            '0.0.0': pkg1_built,
+            '1.0.0': BuiltPackage('pkg1', '1.0.0'),
+            'latest': pkg1_built
+        },
+        'pkg2': {
+            '0.0.0': pkg2_built,
+            'latest': pkg2_built
+        },
+        'pkg3': {
+            '0.0.0': pkg3_built,
+            'latest': pkg3_built
+        }
+    }
+
+    assert resolve_deps([pkg3_built, pkg1_built], built_packages, False) == [
+        pkg1_built,
+        pkg3_built
+    ]
+
+    assert resolve_deps([pkg3_built, pkg1_built], built_packages, True) == [
+        pkg1_built,
+        pkg2_built,
+        pkg3_built
+    ]
+
+def test_resolve_deps_broken_dependency_handling(app):
+    restructuredtext.parse(app, textwrap.dedent('''\
+    .. f2lfs:package:: broken 1.0.0
+       :deps: - nonexistent-dep
+    '''))
+
+    packages = app.env.get_domain('f2lfs').packages
+
+    with pytest.raises(BuildError) as excinfo:
+        resolve_deps([packages['broken']], packages, False)
+
+    assert str(excinfo.value) == "dependency 'nonexistent-dep' of package 'broken' can't be satisfied"
+
+@mock.patch("af2lfs.builder.logger")
+def test_resolve_deps_dependency_cycle_handling(logger, app):
+    restructuredtext.parse(app, textwrap.dedent('''\
+    .. f2lfs:package:: cycle1 1.0.0
+       :deps: - cycle2
+    .. f2lfs:package:: cycle2 1.0.0
+       :deps: - cycle1
+    '''))
+
+    packages = app.env.get_domain('f2lfs').packages
+
+    assert resolve_deps([packages['cycle1']], packages, True) == [
+        packages['cycle2'],
+        packages['cycle1']
+    ]
+
+    logger.warning.assert_called_with(
+        "package 'cycle2' will be installed before its dependency 'cycle1'")
