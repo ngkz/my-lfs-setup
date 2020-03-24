@@ -777,7 +777,7 @@ class F2LFSDomain(Domain):
         'builds': {},
         'packages': {}
     }
-    data_version = 3
+    data_version = 4
 
     @property
     def builds(self):
