@@ -73,18 +73,22 @@ class BuildJobGraph:
             job.being_visited = True
             build_jobs[build.name] = job
 
+            if need_build:
+                built_deps = []
+                doc_deps = []
+
             for or_deps in build.build_deps:
                 for dep in or_deps:
                     if dep.select_built:
                         if dep.name in built_packages:
                             if need_build:
-                                job.selected_deps.append(
+                                built_deps.append(
                                     built_packages[dep.name]['latest'])
                             break
                     elif dep.name in doc_packages:
                         dep_pkg = doc_packages[dep.name]
                         if need_build:
-                            job.selected_deps.append(dep_pkg)
+                            doc_deps.append(dep_pkg)
                         try:
                             dep_build_job = add_build_job(dep_pkg.build)
                         except DependencyCycleError as e:
@@ -99,6 +103,12 @@ class BuildJobGraph:
                         f"Build-time dependency '{' OR '.join(map(str, or_deps))}'"
                         f" of build '{build.name}' can't be satisfied"
                     )
+
+            if need_build:
+                job.resolved_build_deps.extend(resolve_deps(built_deps,
+                                                            built_packages, True))
+                job.resolved_build_deps.extend(resolve_deps(doc_deps,
+                                                            doc_packages, True))
 
             job.being_visited = False
 
@@ -185,7 +195,7 @@ class BuildJob(Job):
         super().__init__()
         self.build = build
         self.being_visited = False
-        self.selected_deps = []
+        self.resolved_build_deps = []
 
     @property
     def dump_name(self):
@@ -194,8 +204,8 @@ class BuildJob(Job):
     def dump_label(self, dump_deps=False, **options):
         result = super().dump_label(**options)
         if dump_deps:
-            result += r'\nselected_deps:\n'
-            for pkg in self.selected_deps:
+            result += r'\nresolved_build_deps:\n'
+            for pkg in self.resolved_build_deps:
                 result += rf'{pkg.name}-{pkg.version}\n'
         return result
 
