@@ -188,3 +188,6 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+# -- Options for AF2LFS ------------------------------------------------------
+f2lfs_target_triplet = 'x86_64-linux-musl'
+f2lfs_target32_triplet = 'i686-linux-musl'
