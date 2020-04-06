@@ -38,95 +38,9 @@ class BuiltPackage:
         return f'BuiltPackage(name={self.name}, version={self.version}, deps={self.deps})'
 
 class BuildJobGraph:
-    def __init__(self, targets, built_packages, doc_packages):
+    def __init__(self):
         self.root = NopJob('root')
         self.job_count = 0 # excluding NopJob
-
-        build_jobs = {}
-        dl_jobs = {}
-
-        def add_download_job(source):
-            if (source['type'], source['url']) in dl_jobs:
-                return dl_jobs[(source['type'], source['url'])]
-
-            dl_job = DownloadJob(source)
-            dl_jobs[(source['type'], source['url'])] = dl_job
-            self.job_count += 1
-            self.root.required_by(dl_job)
-            return dl_job
-
-        def add_build_job(build):
-            if build.name in build_jobs:
-                job = build_jobs[build.name]
-                if job.being_visited:
-                    raise DependencyCycleError(build)
-                return job
-
-            need_build = not build.is_all_packages_built(built_packages)
-
-            if need_build:
-                job = BuildJob(build)
-                self.job_count += 1
-            else:
-                job = NopJob(build.name)
-
-            job.being_visited = True
-            build_jobs[build.name] = job
-
-            if need_build:
-                built_deps = []
-                doc_deps = []
-
-            for or_deps in build.build_deps:
-                for dep in or_deps:
-                    if dep.select_built:
-                        if dep.name in built_packages:
-                            if need_build:
-                                built_deps.append(
-                                    built_packages[dep.name]['latest'])
-                            break
-                    elif dep.name in doc_packages:
-                        dep_pkg = doc_packages[dep.name]
-                        if need_build:
-                            doc_deps.append(dep_pkg)
-                        try:
-                            dep_build_job = add_build_job(dep_pkg.build)
-                        except DependencyCycleError as e:
-                            e.add_cause(build)
-                            raise e
-
-                        dep_build_job.required_by(job)
-
-                        break
-                else:
-                    raise BuildError(
-                        f"Build-time dependency '{' OR '.join(map(str, or_deps))}'"
-                        f" of build '{build.name}' can't be satisfied"
-                    )
-
-            if need_build:
-                job.resolved_build_deps.extend(resolve_deps(built_deps,
-                                                            built_packages, True))
-                job.resolved_build_deps.extend(resolve_deps(doc_deps,
-                                                            doc_packages, True))
-
-            job.being_visited = False
-
-            if need_build:
-                for source in build.sources:
-                    if source['type'] != 'local':
-                        dl_job = add_download_job(source)
-                        dl_job.required_by(job)
-
-            if job.num_incident == 0:
-                self.root.required_by(job)
-
-            return job
-
-        for build in targets:
-            add_build_job(build)
-
-        self.root._calculate_priority(set())
 
     def dump(self, **options):
         queue = collections.deque([self.root])
@@ -344,7 +258,96 @@ class F2LFSBuilder(Builder):
 
     def create_build_job_graph(self, targets, built_packages):
         doc_packages = self.env.get_domain('f2lfs').packages
-        return BuildJobGraph(targets, built_packages, doc_packages)
+
+        graph = BuildJobGraph()
+
+        build_jobs = {}
+        dl_jobs = {}
+
+        def add_download_job(source):
+            if (source['type'], source['url']) in dl_jobs:
+                return dl_jobs[(source['type'], source['url'])]
+
+            dl_job = DownloadJob(source)
+            dl_jobs[(source['type'], source['url'])] = dl_job
+            graph.job_count += 1
+            graph.root.required_by(dl_job)
+            return dl_job
+
+        def add_build_job(build):
+            if build.name in build_jobs:
+                job = build_jobs[build.name]
+                if job.being_visited:
+                    raise DependencyCycleError(build)
+                return job
+
+            need_build = not build.is_all_packages_built(built_packages)
+
+            if need_build:
+                job = BuildJob(build)
+                graph.job_count += 1
+            else:
+                job = NopJob(build.name)
+
+            job.being_visited = True
+            build_jobs[build.name] = job
+
+            if need_build:
+                built_deps = []
+                doc_deps = []
+
+            for or_deps in build.build_deps:
+                for dep in or_deps:
+                    if dep.select_built:
+                        if dep.name in built_packages:
+                            if need_build:
+                                built_deps.append(
+                                    built_packages[dep.name]['latest'])
+                            break
+                    elif dep.name in doc_packages:
+                        dep_pkg = doc_packages[dep.name]
+                        if need_build:
+                            doc_deps.append(dep_pkg)
+                        try:
+                            dep_build_job = add_build_job(dep_pkg.build)
+                        except DependencyCycleError as e:
+                            e.add_cause(build)
+                            raise e
+
+                        dep_build_job.required_by(job)
+
+                        break
+                else:
+                    raise BuildError(
+                        f"Build-time dependency '{' OR '.join(map(str, or_deps))}'"
+                        f" of build '{build.name}' can't be satisfied"
+                    )
+
+            if need_build:
+                job.resolved_build_deps.extend(resolve_deps(built_deps,
+                                                            built_packages, True))
+                job.resolved_build_deps.extend(resolve_deps(doc_deps,
+                                                            doc_packages, True))
+
+            job.being_visited = False
+
+            if need_build:
+                for source in build.sources:
+                    if source['type'] != 'local':
+                        dl_job = add_download_job(source)
+                        dl_job.required_by(job)
+
+            if job.num_incident == 0:
+                graph.root.required_by(job)
+
+            return job
+
+        for build in targets:
+            add_build_job(build)
+
+        graph.root._calculate_priority(set())
+
+        return graph
 
     def write(self, *ignored):
         check_command('sudo', 'nsjail')
