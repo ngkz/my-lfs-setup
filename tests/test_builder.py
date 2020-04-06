@@ -85,7 +85,7 @@ def test_installed_packages(app, rootfs):
         'installed-pkg2': BuiltPackage('installed-pkg2', '1.0.0', deps = ['installed-pkg'])
     }
 
-def test_build_job_graph(app):
+def test_create_build_job_graph(app):
     restructuredtext.parse(app, textwrap.dedent('''\
     .. f2lfs:package:: foo
     .. f2lfs:package:: bar
