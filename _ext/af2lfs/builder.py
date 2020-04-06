@@ -75,14 +75,14 @@ class Job:
         self.edges.append(job)
         job.num_incident += 1
 
-    def _calculate_priority(self, visited):
+    def calculate_priority(self, visited):
         if self in visited:
             return self.priority
         visited.add(self)
 
         maxdepth = 0
         for child in self.edges:
-            maxdepth = max(maxdepth, child._calculate_priority(visited))
+            maxdepth = max(maxdepth, child.calculate_priority(visited))
         self.priority = maxdepth + 1
 
         return self.priority
@@ -345,7 +345,7 @@ class F2LFSBuilder(Builder):
         for build in targets:
             add_build_job(build)
 
-        graph.root._calculate_priority(set())
+        graph.root.calculate_priority(set())
 
         return graph
 
