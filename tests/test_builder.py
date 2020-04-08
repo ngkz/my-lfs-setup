@@ -527,7 +527,6 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     builder.progress.additional_fields = {}
 
     graph = BuildJobGraph()
-    graph.job_count = 4
 
     child1 = MockBuildJob(4)
     child2 = MockBuildJob(3)
@@ -838,8 +837,6 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
     builder.progress.additional_fields = {}
 
     graph = BuildJobGraph()
-    graph.job_count = 4
-
     child1 = MockBuildJob(4)
     child2 = MockBuildJob(3)
     child3 = MockBuildJob(2)
