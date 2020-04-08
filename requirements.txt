@@ -3,3 +3,4 @@ sphinx-autobuild
 pytest
 coverage
 PyYAML
+enlighten

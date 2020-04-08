@@ -2,11 +2,14 @@
 import pytest
 import textwrap
 import os
+import asyncio
 from pathlib import Path
 from unittest import mock
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
-                           BuildError, check_command, tmp_triplet, resolve_deps
+                           BuildError, check_command, tmp_triplet, resolve_deps, \
+                           BuildJobGraph, Job, RunnableBuildQueueItem
+from af2lfs.testing import assert_done
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -497,3 +500,398 @@ def test_resolve_deps_dependency_cycle_handling(logger, app):
 
     logger.warning.assert_called_with(
         "package 'cycle2' will be installed before its dependency 'cycle1'")
+
+class MockBuildJob(Job):
+    def __init__(self, priority):
+        super().__init__()
+        self.priority = priority
+        self.run = mock.Mock()
+        self.pause = mock.Mock()
+        self.resume = mock.Mock()
+        self.update = mock.Mock()
+
+    def _schedule(self, runnable_build_queue):
+        runnable_build_queue.put_nowait(RunnableBuildQueueItem(self))
+
+@mock.patch("af2lfs.builder.get_load")
+def test_build_job_graph_run_build_job_scheduling(load, app, loop):
+    app.parallel = 3
+    app.config.f2lfs_load_sampling_period = 0.125
+    app.config.f2lfs_load_sample_size = 5
+    app.config.f2lfs_configure_delay = 5
+    app.config.f2lfs_max_load = 6
+
+    builder = F2LFSBuilder(app)
+    builder.set_environment(app.env)
+    builder.progress = mock.Mock()
+    builder.progress.additional_fields = {}
+
+    graph = BuildJobGraph()
+    graph.job_count = 4
+
+    child1 = MockBuildJob(4)
+    child2 = MockBuildJob(3)
+    child3 = MockBuildJob(2)
+    child4 = MockBuildJob(1)
+    graph.root.required_by(child3)
+    graph.root.required_by(child1)
+    graph.root.required_by(child4)
+    graph.root.required_by(child2)
+
+    child2_child = MockBuildJob(4)
+    child2.required_by(child2_child)
+    child3_child = MockBuildJob(4)
+    child3.required_by(child3_child)
+
+    task = asyncio.ensure_future(graph.run(builder))
+
+    load.return_value = 0
+    child1_run_fut = loop.create_future()
+    child1.run.return_value = child1_run_fut
+    loop.run_briefly()
+    # t = 0
+    # schedule root job
+    # no running job -> start highest priority build job (child1)
+    # next scheduling is after 5.625s (load_delay (sample_size * sampling_period = 0.675s) + configure_delay(5))
+    assert child1.run.called # child1 running
+    assert not child2.run.called
+    assert not child3.run.called
+    assert not child4.run.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+    # load is updated every load_sampling_period
+    assert builder.progress.additional_fields['load'] == ' Load: 0'
+    assert builder.progress.refresh.call_count == 1
+
+    load.return_value = 1
+
+    assert child1.update.call_count == 0
+    assert child2.update.call_count == 0
+    assert child3.update.call_count == 0
+    assert child4.update.call_count == 0
+    assert child2_child.update.call_count == 0
+    assert child3_child.update.call_count == 0
+
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # t = 0.125: [0, 0, 0, 0, 1] -> median: 0
+    # .update() of running build job is called every load_sampling_period
+    assert builder.progress.additional_fields['load'] == ' Load: 0'
+
+    assert child1.update.call_count == 1
+    assert child2.update.call_count == 0
+    assert child3.update.call_count == 0
+    assert child4.update.call_count == 0
+    assert child2_child.update.call_count == 0
+    assert child3_child.update.call_count == 0
+
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # t = 0.25:  [0, 0, 0, 1, 1] -> median: 0
+    assert builder.progress.additional_fields['load'] == ' Load: 0'
+
+    loop.advance_time(0.0625)
+    # t = 0.3125: t < next_sampling
+    assert builder.progress.additional_fields['load'] == ' Load: 0'
+
+    loop.advance_time(0.0625)
+    loop.run_briefly()
+    # t = 0.375: [0, 0, 1, 1, 1] -> median: 1
+    assert builder.progress.additional_fields['load'] == ' Load: 1'
+
+    load.return_value = 2
+    for i in range(41):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+    assert loop.time() == 5.5 # next_scheduling - 0.125
+
+    child2_run_fut = loop.create_future()
+    child2.run.return_value = child2_run_fut
+
+    assert builder.progress.additional_fields['load'] == ' Load: 2'
+    assert not child2.run.called
+    assert not child3.run.called
+    assert not child4.run.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+
+    loop.advance_time(0.125)
+    loop.run_briefly()
+
+    # load_delay (sample_size * sampling_period = 0.625s) + configure_delay(5) = 5.625s (next_scheduling) elapsed and
+    # load median (2) < app.parallel (3) and number of running tasks (1) < app.parallel (3)
+    # child2 starts
+    assert loop.time() == 5.625
+    assert child2.run.called
+    assert not child3.run.called
+    assert not child4.run.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+
+    load.return_value = 3
+    for i in range(45):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    # 5.625s (next_scheduling) elapsed and number of running tasks (2) < app.parallel (3)
+    # but load median (3) >= app.parallel (3)
+    # nothing happens
+    assert loop.time() == 11.25
+    assert builder.progress.additional_fields['load'] == ' Load: 3'
+    assert not child3.run.called
+    assert not child4.run.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+
+    load.return_value = 2
+    for i in range(2):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    child3_run_fut = loop.create_future()
+    child3.run.return_value = child3_run_fut
+
+    assert builder.progress.additional_fields['load'] == ' Load: 3'
+    assert not child3.run.called
+    assert not child4.run.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # load median decreases to 2
+    # child3 starts
+    assert loop.time() == 11.625
+    assert builder.progress.additional_fields['load'] == ' Load: 2'
+    assert child3.run.called
+    assert not child4.run.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+
+    for i in range(45):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    # 5.625s (next_scheduling) elapsed and load median (2) < app.parallel (3)
+    # but number of running tasks (3) >= app.parallel (3)
+    # nothing happens
+    assert loop.time() == 17.25
+    assert builder.progress.additional_fields['load'] == ' Load: 2'
+    assert not child4.run.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+
+    child4_run_fut = loop.create_future()
+    child4.run.return_value = child4_run_fut
+    child1_run_fut.set_result(None) # finish child1
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # number of running tasks decreases to 2
+    # child4 starts
+    assert child4.run.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+
+    load.return_value = 6
+    for i in range(44):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    assert builder.progress.additional_fields['load'] == ' Load: 6'
+    assert not child2.pause.called
+    assert not child3.pause.called
+    assert not child4.pause.called
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # 5.625s (next_scheduling) elapsed and number of running tasks (3) >= 2
+    # and load median (6) >= max_load (6)
+    # child4 pauses
+    # next_scheduling = current time + load_delay (sample_size * sampling_period = 0.625s)
+    assert not child2.pause.called
+    assert not child3.pause.called
+    assert child4.pause.called
+
+    for i in range(4):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    assert not child2.pause.called
+    assert not child3.pause.called
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # 0.625s (next_scheduling) elapsed and number of running tasks (2) >= 2
+    # and load median (6) >= max_load (6)
+    # child3 pauses
+    assert not child2.pause.called
+    assert child3.pause.called
+
+    for i in range(5):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    # 0.625s (next_scheduling) elapsed and load median (6) >= max_load (6)
+    # but number of running tasks (1) < 2
+    # nothing happens
+    assert not child2.pause.called
+
+    load.return_value = 1
+    for i in range(2):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    assert builder.progress.additional_fields['load'] == ' Load: 6'
+    assert not child3.resume.called
+    assert not child4.resume.called
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
+    # number of running tasks (1) < app.parallel (3)
+    # child4 resumes
+    # next_scheduling = current time + load_delay (sample_size * sampling_period = 0.625s)
+    assert builder.progress.additional_fields['load'] == ' Load: 1'
+    assert not child3.resume.called
+    assert child4.resume.called
+
+    # finish child2.run
+    child2_run_fut.set_result(None)
+    loop.run_briefly()
+    # child2_child is added to runnable_build_queue
+
+    for i in range(4):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    assert not child3.resume.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
+    # number of running tasks (1) < app.parallel (3)
+    # child3 resumes
+    assert child3.resume.called
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+
+    for i in range(4):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    child2_child_run_fut = loop.create_future()
+    child2_child.run.return_value = child2_child_run_fut
+    assert not child2_child.run.called
+    assert not child3_child.run.called
+    loop.advance_time(0.125)
+    loop.run_briefly()
+    # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
+    # number of running tasks (2) < app.parallel (3)
+    # child2_child starts
+    assert loop.time() == 25.875
+    assert child2_child.run.called
+    assert not child3_child.run.called
+
+    # finish child4.run
+    child4_run_fut.set_result(None)
+    loop.run_briefly()
+
+    for i in range(45):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+
+    # 5.625s (next_scheduling) elapsed and load median (2) < app.parallel (3)
+    # and number of running tasks (2) < app.parallel (3)
+    # but nothing happens because there is no runnable jobs
+    assert loop.time() == 31.5
+    assert not child3_child.run.called
+
+    # finish child3.run and child2_child.run
+    child3_run_fut.set_result(None)
+    child2_child_run_fut.set_result(None)
+
+    child3_child_run_fut = loop.create_future()
+    child3_child.run.return_value = child3_child_run_fut
+    # child3_child is added to runnable_build_queue
+    assert not child3_child.run.called
+    loop.run_briefly()
+    # child3_child starts immediately because there is no running task
+    assert child3_child.run.called
+
+    assert not task.done()
+    child3_child_run_fut.set_result(None)
+    prev_refresh_call_count = builder.progress.refresh.call_count
+    loop.run_briefly()
+    # all build jobs completed, graph.run() hides load median and returns
+    assert_done(task)
+    assert builder.progress.additional_fields['load'] == ''
+    assert builder.progress.refresh.call_count == prev_refresh_call_count + 1
+
+@mock.patch("af2lfs.builder.get_load")
+def test_build_job_graph_run_build_job_error_handling(load, app, loop):
+    app.parallel = 3
+    app.config.f2lfs_load_sampling_period = 0.125
+    app.config.f2lfs_load_sample_size = 5
+    app.config.f2lfs_configure_delay = 5
+    app.config.f2lfs_max_load = 6
+
+    builder = F2LFSBuilder(app)
+    builder.set_environment(app.env)
+    builder.progress = mock.Mock()
+    builder.progress.additional_fields = {}
+
+    graph = BuildJobGraph()
+    graph.job_count = 4
+
+    child1 = MockBuildJob(4)
+    child2 = MockBuildJob(3)
+    child3 = MockBuildJob(2)
+    graph.root.required_by(child1)
+    graph.root.required_by(child2)
+    graph.root.required_by(child3)
+
+    task = asyncio.ensure_future(graph.run(builder))
+
+    load.return_value = 0
+
+    # start child1
+    child1_run_fut = loop.create_future()
+    child1.run.return_value = child1_run_fut
+    loop.run_briefly()
+    assert child1.run.called
+
+    loop.advance_time(0.125)
+    loop.run_briefly()
+
+    # start child2
+    child2_run_fut = loop.create_future()
+    child2.run.return_value = child2_run_fut
+    for i in range(45):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+    assert child2.run.called
+
+    # start child3
+    child3_run_fut = loop.create_future()
+    child3.run.return_value = child3_run_fut
+    for i in range(45):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+    assert child3.run.called
+
+    # pause child3
+    load.return_value = 99
+    for i in range(45):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+    assert child3.pause.called
+
+    # exception propagates to caller
+    child1_run_fut.set_exception(NotImplementedError())
+    with pytest.raises(NotImplementedError):
+        loop.run_until_complete(task)
+
+    # running tasks will be cancelled
+    assert not child2.resume.called
+    assert child2_run_fut.cancelled()
+
+    # paused tasks will be resumed and cancelled
+    assert child3.resume.called
+    assert child3_run_fut.cancelled()
