@@ -619,7 +619,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     loop.run_briefly()
 
     # load_delay (sample_size * sampling_period = 0.625s) + configure_delay(5) = 5.625s (next_scheduling) elapsed and
-    # load median (2) < app.parallel (3) and number of running tasks (1) < app.parallel (3)
+    # load median (2) < app.parallel (3) and number of running build jobs(1) < app.parallel (3)
     # child2 starts
     assert loop.time() == 5.625
     assert child2.run.called
@@ -633,7 +633,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
         loop.advance_time(0.125)
         loop.run_briefly()
 
-    # 5.625s (next_scheduling) elapsed and number of running tasks (2) < app.parallel (3)
+    # 5.625s (next_scheduling) elapsed and number of running build jobs(2) < app.parallel (3)
     # but load median (3) >= app.parallel (3)
     # nothing happens
     assert loop.time() == 11.25
@@ -672,7 +672,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
         loop.run_briefly()
 
     # 5.625s (next_scheduling) elapsed and load median (2) < app.parallel (3)
-    # but number of running tasks (3) >= app.parallel (3)
+    # but number of running build jobs(3) >= app.parallel (3)
     # nothing happens
     assert loop.time() == 17.25
     assert builder.progress.additional_fields['load'] == ' Load: 2'
@@ -685,7 +685,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     child1_run_fut.set_result(None) # finish child1
     loop.advance_time(0.125)
     loop.run_briefly()
-    # number of running tasks decreases to 2
+    # number of running build jobs decreases to 2
     # child4 starts
     assert child4.run.called
     assert not child2_child.run.called
@@ -702,7 +702,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     assert not child4.pause.called
     loop.advance_time(0.125)
     loop.run_briefly()
-    # 5.625s (next_scheduling) elapsed and number of running tasks (3) >= 2
+    # 5.625s (next_scheduling) elapsed and number of running build jobs(3) >= 2
     # and load median (6) >= max_load (6)
     # child4 pauses
     # next_scheduling = current time + load_delay (sample_size * sampling_period = 0.625s)
@@ -718,7 +718,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     assert not child3.pause.called
     loop.advance_time(0.125)
     loop.run_briefly()
-    # 0.625s (next_scheduling) elapsed and number of running tasks (2) >= 2
+    # 0.625s (next_scheduling) elapsed and number of running build jobs(2) >= 2
     # and load median (6) >= max_load (6)
     # child3 pauses
     assert not child2.pause.called
@@ -729,7 +729,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
         loop.run_briefly()
 
     # 0.625s (next_scheduling) elapsed and load median (6) >= max_load (6)
-    # but number of running tasks (1) < 2
+    # but number of running build jobs(1) < 2
     # nothing happens
     assert not child2.pause.called
 
@@ -744,7 +744,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     loop.advance_time(0.125)
     loop.run_briefly()
     # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
-    # number of running tasks (1) < app.parallel (3)
+    # number of running build jobs(1) < app.parallel (3)
     # child4 resumes
     # next_scheduling = current time + load_delay (sample_size * sampling_period = 0.625s)
     assert builder.progress.additional_fields['load'] == ' Load: 1'
@@ -766,7 +766,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     loop.advance_time(0.125)
     loop.run_briefly()
     # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
-    # number of running tasks (1) < app.parallel (3)
+    # number of running build jobs(1) < app.parallel (3)
     # child3 resumes
     assert child3.resume.called
     assert not child2_child.run.called
@@ -783,7 +783,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     loop.advance_time(0.125)
     loop.run_briefly()
     # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
-    # number of running tasks (2) < app.parallel (3)
+    # number of running build jobs (2) < app.parallel (3)
     # child2_child starts
     assert loop.time() == 25.875
     assert child2_child.run.called
@@ -798,7 +798,7 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
         loop.run_briefly()
 
     # 5.625s (next_scheduling) elapsed and load median (2) < app.parallel (3)
-    # and number of running tasks (2) < app.parallel (3)
+    # and number of running build jobs (2) < app.parallel (3)
     # but nothing happens because there is no runnable jobs
     assert loop.time() == 31.5
     assert not child3_child.run.called
@@ -888,10 +888,10 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
     with pytest.raises(NotImplementedError):
         loop.run_until_complete(task)
 
-    # running tasks will be cancelled
+    # running build jobs will be cancelled
     assert not child2.resume.called
     assert child2_run_fut.cancelled()
 
-    # paused tasks will be resumed and cancelled
+    # paused build jobs will be resumed and cancelled
     assert child3.resume.called
     assert child3_run_fut.cancelled()
