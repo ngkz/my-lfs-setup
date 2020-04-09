@@ -825,11 +825,11 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
 
 @mock.patch("af2lfs.builder.get_load")
 def test_build_job_graph_run_build_job_error_handling(load, app, loop):
-    app.parallel = 3
+    app.parallel = 4
     app.config.f2lfs_load_sampling_period = 0.125
     app.config.f2lfs_load_sample_size = 5
     app.config.f2lfs_configure_delay = 5
-    app.config.f2lfs_max_load = 6
+    app.config.f2lfs_max_load = 8
 
     builder = F2LFSBuilder(app)
     builder.set_environment(app.env)
@@ -840,9 +840,11 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
     child1 = MockBuildJob(4)
     child2 = MockBuildJob(3)
     child3 = MockBuildJob(2)
+    child4 = MockBuildJob(1)
     graph.root.required_by(child1)
     graph.root.required_by(child2)
     graph.root.required_by(child3)
+    graph.root.required_by(child4)
 
     task = asyncio.ensure_future(graph.run(builder))
 
@@ -866,29 +868,55 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
     assert child2.run.called
 
     # start child3
-    child3_run_fut = loop.create_future()
-    child3.run.return_value = child3_run_fut
+    child3_hold_cancellation_fut = loop.create_future()
+
+    async def child3_run():
+        try:
+            await asyncio.sleep(999999)
+        except asyncio.CancelledError:
+            await child3_hold_cancellation_fut
+            raise
+
+    child3.run.return_value = child3_run()
     for i in range(45):
         loop.advance_time(0.125)
         loop.run_briefly()
     assert child3.run.called
 
-    # pause child3
+    # start child4
+    child4_run_fut = loop.create_future()
+    child4.run.return_value = child4_run_fut
+    for i in range(45):
+        loop.advance_time(0.125)
+        loop.run_briefly()
+    assert child4.run.called
+
+    # pause child4
     load.return_value = 99
     for i in range(45):
         loop.advance_time(0.125)
         loop.run_briefly()
-    assert child3.pause.called
+    assert child4.pause.called
 
-    # exception propagates to caller
+    # make child1 fail
     child1_run_fut.set_exception(NotImplementedError())
-    with pytest.raises(NotImplementedError):
-        loop.run_until_complete(task)
+    loop.run_briefly()
 
-    # running build jobs will be cancelled
+    # running build jobs should be cancelled
     assert not child2.resume.called
     assert child2_run_fut.cancelled()
 
     # paused build jobs will be resumed and cancelled
-    assert child3.resume.called
-    assert child3_run_fut.cancelled()
+    assert child4.resume.called
+    assert child4_run_fut.cancelled()
+
+    # wait for all running build jobs to finish
+    loop.run_briefly()
+    assert not task.done()
+    child3_hold_cancellation_fut.set_result(None) # stop child3
+    loop.run_briefly()
+    loop.run_briefly()
+
+    # propagates child1 exception
+    assert task.done()
+    assert isinstance(task.exception(), NotImplementedError)
