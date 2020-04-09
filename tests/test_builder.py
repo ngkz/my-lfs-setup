@@ -240,9 +240,8 @@ def test_build_job_graph_source_handling(app):
     restructuredtext.parse(app, textwrap.dedent('''\
     .. f2lfs:package:: already-built
        :sources:
-        - http: download-not-needed-1
-          gpgsig: download-not-needed-2
-          gpgkey: key.gpg
+        - http: download-not-needed
+          sha256sum: a
     .. f2lfs:package:: pkg1
        :build-deps: - already-built
        :sources:
@@ -252,12 +251,8 @@ def test_build_job_graph_source_handling(app):
        :sources:
         - http: common-src
           sha256sum: a
-        - http: http-src-1
-          gpgsig: common-sig
-          gpgkey: key.gpg
-        - http: http-src-2
-          gpgsig: common-sig
-          gpgkey: key.gpg
+        - http: http-src
+          sha256sum: a
         - git: git-src
           commit: a
           sha256sum: a
@@ -280,51 +275,30 @@ def test_build_job_graph_source_handling(app):
     graph = builder.create_build_job_graph(targets, built_packages)
     assert graph.dump() == textwrap.dedent('''\
     digraph dump {
-      graph [label="job_count: 11"];
+      graph [label="job_count: 5"];
 
-      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0\\npriority: 4"];
+      "NopJob(root)" [label="NopJob(root)\\nnum_incident: 0\\npriority: 3"];
       "NopJob(root)" -> "NopJob(already-built)";
-      "NopJob(root)" -> "HTTPDownloadJob(common-src)";
-      "NopJob(root)" -> "HTTPDownloadJob(common-sig)";
-      "NopJob(root)" -> "HTTPDownloadJob(http-src-1)";
-      "NopJob(root)" -> "HTTPDownloadJob(http-src-2)";
-      "NopJob(root)" -> "GitCloneJob(git-src)";
+      "NopJob(root)" -> "DownloadJob(common-src)";
+      "NopJob(root)" -> "DownloadJob(http-src)";
+      "NopJob(root)" -> "DownloadJob(git-src)";
 
       "NopJob(already-built)" [label="NopJob(already-built)\\nnum_incident: 1\\npriority: 2"];
       "NopJob(already-built)" -> "BuildJob(pkg1)";
-
-      "HTTPDownloadJob(common-src)" [label="HTTPDownloadJob(common-src)\\nnum_incident: 1\\npriority: 3"];
-      "HTTPDownloadJob(common-src)" -> "DownloadJob(common-src)";
-
-      "HTTPDownloadJob(common-sig)" [label="HTTPDownloadJob(common-sig)\\nnum_incident: 1\\npriority: 3"];
-      "HTTPDownloadJob(common-sig)" -> "DownloadJob(http-src-1)";
-      "HTTPDownloadJob(common-sig)" -> "DownloadJob(http-src-2)";
-
-      "HTTPDownloadJob(http-src-1)" [label="HTTPDownloadJob(http-src-1)\\nnum_incident: 1\\npriority: 3"];
-      "HTTPDownloadJob(http-src-1)" -> "DownloadJob(http-src-1)";
-
-      "HTTPDownloadJob(http-src-2)" [label="HTTPDownloadJob(http-src-2)\\nnum_incident: 1\\npriority: 3"];
-      "HTTPDownloadJob(http-src-2)" -> "DownloadJob(http-src-2)";
-
-      "GitCloneJob(git-src)" [label="GitCloneJob(git-src)\\nnum_incident: 1\\npriority: 3"];
-      "GitCloneJob(git-src)" -> "DownloadJob(git-src)";
-
-      "BuildJob(pkg1)" [label="BuildJob(pkg1)\\nnum_incident: 2\\npriority: 1"];
 
       "DownloadJob(common-src)" [label="DownloadJob(common-src)\\nnum_incident: 1\\npriority: 2"];
       "DownloadJob(common-src)" -> "BuildJob(pkg1)";
       "DownloadJob(common-src)" -> "BuildJob(pkg2)";
 
-      "DownloadJob(http-src-1)" [label="DownloadJob(http-src-1)\\nnum_incident: 2\\npriority: 2"];
-      "DownloadJob(http-src-1)" -> "BuildJob(pkg2)";
-
-      "DownloadJob(http-src-2)" [label="DownloadJob(http-src-2)\\nnum_incident: 2\\npriority: 2"];
-      "DownloadJob(http-src-2)" -> "BuildJob(pkg2)";
+      "DownloadJob(http-src)" [label="DownloadJob(http-src)\\nnum_incident: 1\\npriority: 2"];
+      "DownloadJob(http-src)" -> "BuildJob(pkg2)";
 
       "DownloadJob(git-src)" [label="DownloadJob(git-src)\\nnum_incident: 1\\npriority: 2"];
       "DownloadJob(git-src)" -> "BuildJob(pkg2)";
 
-      "BuildJob(pkg2)" [label="BuildJob(pkg2)\\nnum_incident: 4\\npriority: 1"];
+      "BuildJob(pkg1)" [label="BuildJob(pkg1)\\nnum_incident: 2\\npriority: 1"];
+
+      "BuildJob(pkg2)" [label="BuildJob(pkg2)\\nnum_incident: 3\\npriority: 1"];
     }''')
 
 def test_build_job_graph_calculate_priority(app):

@@ -274,30 +274,6 @@ class BuildJob(Job):
     def update(self):
         raise NotImplementedError
 
-class HTTPDownloadJob(Job):
-    def __init__(self, url):
-        super().__init__()
-        self.url = url
-
-    @property
-    def dump_name(self):
-        return f"HTTPDownloadJob({self.url})"
-
-    def _schedule(self, runnable_build_queue):
-        raise NotImplementedError
-
-class GitCloneJob(Job):
-    def __init__(self, url):
-        super().__init__()
-        self.url = url
-
-    @property
-    def dump_name(self):
-        return f"GitCloneJob({self.url})"
-
-    def _schedule(self, runnable_build_queue):
-        raise NotImplementedError
-
 class DownloadJob(Job):
     def __init__(self, source):
         super().__init__()
@@ -441,47 +417,15 @@ class F2LFSBuilder(Builder):
 
         build_jobs = {}
         dl_jobs = {}
-        http_dl_jobs = {}
 
         def add_download_job(source):
-            type_ = source['type']
-            src_url = source['url']
-
-            dl_job = dl_jobs.get((type_, src_url))
-            if dl_job:
-                return dl_job
+            if (source['type'], source['url']) in dl_jobs:
+                return dl_jobs[(source['type'], source['url'])]
 
             dl_job = DownloadJob(source)
-
-            if type_ == 'http':
-                sig_url = source.get('gpgsig')
-                if sig_url:
-                    sig_dl_job = http_dl_jobs.get(sig_url)
-                    if sig_dl_job is None:
-                        sig_dl_job = HTTPDownloadJob(sig_url)
-                        http_dl_jobs[sig_url] = sig_dl_job
-                        graph.job_count += 1
-                        graph.root.required_by(sig_dl_job)
-                    sig_dl_job.required_by(dl_job)
-
-            if type_ == 'http':
-                src_dl_job = http_dl_jobs.get(src_url)
-                if src_dl_job is None:
-                    src_dl_job = HTTPDownloadJob(src_url)
-                    http_dl_jobs[src_url] = src_dl_job
-                    graph.job_count += 1
-                    graph.root.required_by(src_dl_job)
-            elif type_ == 'git':
-                src_dl_job = GitCloneJob(src_url)
-                graph.job_count += 1
-                graph.root.required_by(src_dl_job)
-            else:
-                raise NotImplementedError('something went wrong') # pragma: no cover
-
-            src_dl_job.required_by(dl_job)
-
-            dl_jobs[(type_, src_url)] = dl_job
+            dl_jobs[(source['type'], source['url'])] = dl_job
             graph.job_count += 1
+            graph.root.required_by(dl_job)
             return dl_job
 
         def add_build_job(build):
