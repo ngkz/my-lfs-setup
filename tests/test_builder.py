@@ -902,18 +902,18 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
     child1_run_fut.set_exception(NotImplementedError())
     loop.run_briefly()
 
-    # running build jobs should be cancelled
+    # cancel running build jobs
     assert not child2.resume.called
     assert child2_run_fut.cancelled()
 
-    # paused build jobs will be resumed and cancelled
+    # resume and cancel paused build jobs
     assert child4.resume.called
     assert child4_run_fut.cancelled()
 
-    # wait for all running build jobs to finish
+    # wait for cancelled build jobs to finish
     loop.run_briefly()
     assert not task.done()
-    child3_hold_cancellation_fut.set_result(None) # stop child3
+    child3_hold_cancellation_fut.set_result(None) # finish child3 cancellation
     loop.run_briefly()
     loop.run_briefly()
 
