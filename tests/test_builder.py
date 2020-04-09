@@ -920,3 +920,17 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
     # propagates child1 exception
     assert task.done()
     assert isinstance(task.exception(), NotImplementedError)
+
+def test_find_mirrors(app):
+    app.config.f2lfs_mirrors = [
+        ('https://main-server/', ('https://main-mirror1/', 'https://main-mirror2/')),
+        ('https://main-server/foo/', ('https://foo-mirror/',))
+    ]
+    builder = F2LFSBuilder(app)
+    builder.set_environment(app.env)
+    assert builder.find_mirrors('https://no-mirror/foo/bar') == ['https://no-mirror/foo/bar']
+    assert builder.find_mirrors('https://main-server/foo/bar') == [
+        'https://main-mirror1/foo/bar',
+        'https://main-mirror2/foo/bar',
+        'https://foo-mirror/bar'
+    ]

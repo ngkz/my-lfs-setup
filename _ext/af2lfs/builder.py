@@ -503,6 +503,19 @@ class F2LFSBuilder(Builder):
 
         return graph
 
+    def find_mirrors(self, url):
+        mirrors = []
+
+        for main_prefix, mirror_prefixes in self.config.f2lfs_mirrors:
+            if url.startswith(main_prefix):
+                mirrors.extend(prefix + url[len(main_prefix):]
+                               for prefix in mirror_prefixes)
+
+        if mirrors:
+            return mirrors
+        else:
+            return [url]
+
     def write(self, *ignored):
         check_command('sudo', 'nsjail')
 
@@ -538,3 +551,4 @@ def setup(app):
     app.add_config_value('f2lfs_load_sample_size', 15, '')
     app.add_config_value('f2lfs_configure_delay', 5, '')
     app.add_config_value('f2lfs_max_load', app.parallel * 2, '')
+    app.add_config_value('f2lfs_mirrors', [], '')
