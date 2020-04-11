@@ -193,7 +193,7 @@ f2lfs_target_triplet = 'x86_64-linux-musl'
 f2lfs_target32_triplet = 'i686-linux-musl'
 f2lfs_mirrors = [
     ('https://ftp.gnu.org/gnu/',
-        ('https://mirror.jre655.com/GNU/', 'https://ftp.jaist.ac.jp/pub/GNU/')),
+        ('https://mirror.jre655.com/GNU/', 'http://ftp.jaist.ac.jp/pub/GNU/')),
     ('https://ftp.gnu.org/gnu/gcc/',
         ('http://ftp.tsukuba.wide.ad.jp/software/gcc/releases/',))
 ]
