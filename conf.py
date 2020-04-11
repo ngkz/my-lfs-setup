@@ -195,5 +195,9 @@ f2lfs_mirrors = [
     ('https://ftp.gnu.org/gnu/',
         ('https://mirror.jre655.com/GNU/', 'http://ftp.jaist.ac.jp/pub/GNU/')),
     ('https://ftp.gnu.org/gnu/gcc/',
-        ('http://ftp.tsukuba.wide.ad.jp/software/gcc/releases/',))
+        ('http://ftp.tsukuba.wide.ad.jp/software/gcc/releases/',)),
+    ('https://cdn.kernel.org/pub/',
+        ('http://ftp.riken.jp/Linux/kernel.org/',
+         'https://cdn.kernel.org/pub/',
+         'http://ftp.jaist.ac.jp/pub/Linux/kernel.org/'))
 ]
