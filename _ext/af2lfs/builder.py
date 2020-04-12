@@ -211,40 +211,39 @@ class BuildJobGraph:
                     timeout = next_sampling - loop.time(),
                     return_when = asyncio.FIRST_COMPLETED
                 )
-                if done:
+
+                for task in done:
                     for item in list(running_build_stack):
-                        job, task = item
-                        if task in done:
+                        job, running_task = item
+                        if task is running_task:
                             running_build_stack.remove(item)
                             await task # re-raise caught exception here
                             # build succeeded
                             builder.progress.update()
                             job.schedule_children(queues)
 
-                    for task in done:
-                        hostname, job = downloading.pop(task, (None, None))
-                        if job:
-                            await task # re-raise caught exception here
+                    hostname, job = downloading.pop(task, (None, None))
+                    if job:
+                        await task # re-raise caught exception here
 
-                            connection_counter[hostname] -= 1
-                            job.download_count += 1
+                        connection_counter[hostname] -= 1
+                        job.download_count += 1
 
-                            if job.download_count >= job.download_total:
-                                verify_task = asyncio.ensure_future(
-                                    job.verify(builder))
-                                verifying_dl[verify_task] = job
+                        if job.download_count >= job.download_total:
+                            verify_task = asyncio.ensure_future(job.verify(builder))
+                            verifying_dl[verify_task] = job
 
-                            continue
+                        continue
 
-                        job = verifying_dl.pop(task, None)
-                        if job:
-                            await task # re-raise caught exception here
+                    job = verifying_dl.pop(task, None)
+                    if job:
+                        await task # re-raise caught exception here
 
-                            # download job succeeded
-                            builder.progress.update()
-                            job.schedule_children(queues)
+                        # download job succeeded
+                        builder.progress.update()
+                        job.schedule_children(queues)
 
-                            continue
+                        continue
         except:
             for paused_job, _ in paused_build_queue:
                 paused_job.resume()
