@@ -8,7 +8,7 @@ from unittest import mock
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
-                           BuildJobGraph, Job, RunnableBuildQueueItem
+                           BuildJobGraph, BuildJob
 from af2lfs.testing import assert_done
 
 @pytest.fixture()
@@ -501,17 +501,14 @@ def test_resolve_deps_dependency_cycle_handling(logger, app):
     logger.warning.assert_called_with(
         "package 'cycle2' will be installed before its dependency 'cycle1'")
 
-class MockBuildJob(Job):
+class MockBuildJob(BuildJob):
     def __init__(self, priority):
-        super().__init__()
+        super().__init__(None)
         self.priority = priority
         self.run = mock.Mock()
         self.pause = mock.Mock()
         self.resume = mock.Mock()
         self.update = mock.Mock()
-
-    def _schedule(self, runnable_build_queue):
-        runnable_build_queue.put_nowait(RunnableBuildQueueItem(self))
 
 @mock.patch("af2lfs.builder.get_load")
 def test_build_job_graph_run_build_job_scheduling(load, app, loop):
