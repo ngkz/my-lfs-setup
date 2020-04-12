@@ -9,6 +9,8 @@ import asyncio
 import enlighten
 import statistics
 import itertools
+import bisect
+from urllib.parse import urlparse
 
 PACKAGE_STORE = PurePath('usr', 'pkg')
 DEFAULT_CFLAGS = '-O2 -march=native -pipe -fstack-clash-protection -fno-plt '\
@@ -54,6 +56,18 @@ class RunnableBuildQueueItem:
         # priotize a job with higher priority
         return self.job.priority > other.job.priority
 
+class WaitingDownloadQueueItem:
+    def __init__(self, job, url):
+        self.job = job
+        self.url = url
+
+    def __lt__(self, other):
+        # priotize a job with higher priority
+        return self.job.priority > other.job.priority
+
+Queues = collections.namedtuple('Queues', ['runnable_build_queue',
+                                           'waiting_dl_queue'])
+
 class BuildJobGraph:
     def __init__(self):
         self.root = NopJob('root')
@@ -88,8 +102,13 @@ class BuildJobGraph:
         runnable_build_queue = asyncio.PriorityQueue()
         running_build_stack = collections.deque()
         paused_build_queue = collections.deque()
+        waiting_dl_queue = [] # sorted list
+        downloading = {}
+        verifying_dl = {}
+        queues = Queues(runnable_build_queue, waiting_dl_queue)
+        connection_counter = collections.Counter()
 
-        self.root.schedule(runnable_build_queue)
+        self.root.schedule(queues)
 
         load_samples = [get_load()] * builder.config.f2lfs_load_sample_size
         load_delay = builder.config.f2lfs_load_sample_size * \
@@ -99,7 +118,8 @@ class BuildJobGraph:
 
         try:
             while (not runnable_build_queue.empty()) or running_build_stack or \
-                    paused_build_queue:
+                    paused_build_queue or waiting_dl_queue or downloading or \
+                    verifying_dl:
                 if loop.time() >= next_sampling:
                     # sample load
                     load_samples[:-1] = load_samples[1:]
@@ -150,8 +170,44 @@ class BuildJobGraph:
                     # wait for load median to respond to load change
                     next_scheduling = loop.time() + load_delay
 
+                # schedule download jobs
+                for item in list(waiting_dl_queue):
+                    if sum(connection_counter.values()) >= \
+                            builder.config.f2lfs_max_connections:
+                        break
+
+                    # find usable freest mirror
+                    mirrors = builder.find_mirrors(item.url)
+
+                    freest_mirror_conn = None
+                    freest_mirror_url = None
+                    freest_mirror_hostname = None
+
+                    for url in mirrors:
+                        hostname = urlparse(url).hostname
+                        conn_count = connection_counter[hostname]
+
+                        if conn_count >= builder.config.f2lfs_max_connections_per_host:
+                            continue
+
+                        if freest_mirror_conn is None or conn_count < freest_mirror_conn:
+                            freest_mirror_conn = conn_count
+                            freest_mirror_hostname = hostname
+                            freest_mirror_url = url
+
+                    if freest_mirror_conn is not None:
+                        # start download
+                        waiting_dl_queue.remove(item)
+                        connection_counter[freest_mirror_hostname] += 1
+                        task = asyncio.ensure_future(
+                            item.job.download(builder, freest_mirror_url))
+                        downloading[task] = (freest_mirror_hostname, item.job)
+
+                tasks = [task for job, task in running_build_stack]
+                tasks += downloading.keys()
+                tasks += verifying_dl.keys()
                 done, pending = await asyncio.wait(
-                    [task for job, task in running_build_stack],
+                    tasks,
                     timeout = next_sampling - loop.time(),
                     return_when = asyncio.FIRST_COMPLETED
                 )
@@ -163,14 +219,40 @@ class BuildJobGraph:
                             await task # re-raise caught exception here
                             # build succeeded
                             builder.progress.update()
-                            job.schedule_children(runnable_build_queue)
+                            job.schedule_children(queues)
 
+                    for task in done:
+                        hostname, job = downloading.pop(task, (None, None))
+                        if job:
+                            await task # re-raise caught exception here
+
+                            connection_counter[hostname] -= 1
+                            job.download_count += 1
+
+                            if job.download_count >= job.download_total:
+                                verify_task = asyncio.ensure_future(
+                                    job.verify(builder))
+                                verifying_dl[verify_task] = job
+
+                            continue
+
+                        job = verifying_dl.pop(task, None)
+                        if job:
+                            await task # re-raise caught exception here
+
+                            # download job succeeded
+                            builder.progress.update()
+                            job.schedule_children(queues)
+
+                            continue
         except:
             for paused_job, _ in paused_build_queue:
                 paused_job.resume()
 
             running_tasks = [t for _, t in itertools.chain(running_build_stack,
                                                            paused_build_queue)]
+            running_tasks += downloading.keys()
+            running_tasks += verifying_dl.keys()
 
             for running_task in running_tasks:
                 running_task.cancel()
@@ -214,19 +296,19 @@ class Job:
         return rf'{self.dump_name}\nnum_incident: {self.num_incident}\n' \
                rf'priority: {self.priority}'
 
-    def schedule(self, runnable_build_queue):
+    def schedule(self, queues):
         self.count += 1
         if self.count < self.num_incident:
             return
 
-        self._schedule(runnable_build_queue)
+        self._schedule(queues)
 
-    def _schedule(self, runnable_build_queue):
+    def _schedule(self, queues):
         raise NotImplementedError
 
-    def schedule_children(self, runnable_build_queue):
+    def schedule_children(self, queues):
         for child in self.edges:
-            child.schedule(runnable_build_queue)
+            child.schedule(queues)
 
 class NopJob(Job):
     def __init__(self, name):
@@ -237,8 +319,8 @@ class NopJob(Job):
     def dump_name(self):
         return f'NopJob({self.name})'
 
-    def _schedule(self, runnable_build_queue):
-        self.schedule_children(runnable_build_queue)
+    def _schedule(self, queues):
+        self.schedule_children(queues)
 
 class BuildJob(Job):
     def __init__(self, build):
@@ -259,8 +341,8 @@ class BuildJob(Job):
                 result += rf'{pkg.name}-{pkg.version}\n'
         return result
 
-    def _schedule(self, runnable_build_queue):
-        runnable_build_queue.put_nowait(RunnableBuildQueueItem(self))
+    def _schedule(self, queues):
+        queues.runnable_build_queue.put_nowait(RunnableBuildQueueItem(self))
 
     async def run(self, builder):
         raise NotImplementedError
@@ -278,13 +360,31 @@ class DownloadJob(Job):
     def __init__(self, source):
         super().__init__()
         self.source = source
+        self.download_total = 1
+
+        if 'gpgsig' in source:
+            self.download_total += 1
 
     @property
     def dump_name(self):
         return f"DownloadJob({self.source['url']})"
 
-    def _schedule(self, runnable_build_queue):
+    async def download(self, builder, url):
         raise NotImplementedError
+
+    async def verify(self, builder):
+        raise NotImplementedError
+
+    def _schedule(self, queues):
+        self.download_count = 0
+
+        bisect.insort(queues.waiting_dl_queue,
+                      WaitingDownloadQueueItem(self, self.source['url']))
+
+        sig = self.source.get('gpgsig')
+        if sig:
+            bisect.insort(queues.waiting_dl_queue,
+                          WaitingDownloadQueueItem(self, sig))
 
 class DependencyCycleError(BuildError):
     def __init__(self, root_cause):
@@ -552,3 +652,5 @@ def setup(app):
     app.add_config_value('f2lfs_configure_delay', 5, '')
     app.add_config_value('f2lfs_max_load', app.parallel * 2, '')
     app.add_config_value('f2lfs_mirrors', [], '')
+    app.add_config_value('f2lfs_max_connections', 5, '')
+    app.add_config_value('f2lfs_max_connections_per_host', 1, '')

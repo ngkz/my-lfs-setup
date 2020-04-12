@@ -8,7 +8,7 @@ from unittest import mock
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
-                           BuildJobGraph, BuildJob
+                           BuildJobGraph, BuildJob, DownloadJob
 from af2lfs.testing import assert_done
 
 @pytest.fixture()
@@ -931,3 +931,386 @@ def test_find_mirrors(app):
         'https://main-mirror2/foo/bar',
         'https://foo-mirror/bar'
     ]
+
+class MockDownloadJob(DownloadJob):
+    def __init__(self, priority, source):
+        super().__init__(source)
+        self.download = mock.Mock()
+        self.verify = mock.Mock()
+        self.priority = priority
+
+def test_build_job_graph_run_download_job_scheduling(app, loop):
+    app.config.f2lfs_max_connections = 5
+    app.config.f2lfs_max_connections_per_host = 2
+    app.config.f2lfs_mirrors = [
+        ('http://main1/', ('http://main1-mirror1/', 'http://main1-mirror2/'))
+    ]
+
+    builder = F2LFSBuilder(app)
+    builder.set_environment(app.env)
+    builder.progress = mock.Mock()
+    builder.progress.additional_fields = {}
+
+    graph = BuildJobGraph()
+
+    child1 = MockDownloadJob(5, {
+        'type': 'http',
+        'url': 'http://main1/src'
+    })
+    child1.download.return_value = child1_dl_fut = loop.create_future()
+    child1.verify.return_value = child1_verify_fut = loop.create_future()
+
+    child2 = MockDownloadJob(4, {
+        'type': 'http',
+        'url': 'http://main1/src2',
+        'gpgsig': 'http://main1/sig2'
+    })
+    child2_src_dl_fut = loop.create_future()
+    child2_sig_dl_fut = loop.create_future()
+    child2.download.side_effect = [child2_src_dl_fut, child2_sig_dl_fut]
+    child2.verify.return_value = child2_verify_fut = loop.create_future()
+
+    child3 = MockDownloadJob(3, {
+        'type': 'http',
+        'url': 'http://main1/src3',
+        'gpgsig': 'http://main1/sig3'
+    })
+    child3_src_dl_fut = loop.create_future()
+    child3_sig_dl_fut = loop.create_future()
+    child3.download.side_effect = [child3_src_dl_fut, child3_sig_dl_fut]
+    child3.verify.return_value = child3_verify_fut = loop.create_future()
+
+    child4 = MockDownloadJob(2, {
+        'type': 'git',
+        'url': 'git://nomirror/src4'
+    })
+    child4.download.return_value = child4_dl_fut = loop.create_future()
+    child4.verify.return_value = child4_verify_fut = loop.create_future()
+
+    child5 = MockDownloadJob(1, {
+        'type': 'http',
+        'url': 'http://nomirror/src5'
+    })
+    child5.download.return_value = child5_dl_fut = loop.create_future()
+    child5.verify.return_value = child5_verify_fut = loop.create_future()
+
+    child6 = MockDownloadJob(0, {
+        'type': 'http',
+        'url': 'http://nomirror2/src6'
+    })
+    child6.download.return_value = child6_dl_fut = loop.create_future()
+    child6.verify.return_value = child6_verify_fut = loop.create_future()
+
+    graph.root.required_by(child1)
+    graph.root.required_by(child4)
+    graph.root.required_by(child3)
+    graph.root.required_by(child5)
+    graph.root.required_by(child2)
+    child1.required_by(child6)
+
+    task = asyncio.ensure_future(graph.run(builder))
+    loop.run_briefly()
+
+    # waiting:     http://main1/sig3 (child3, prio 3)
+    #              http://nomirror/src5 (child5, prio 1)
+    # downloading: git://main1-mirror1/src (child1, prio 5)
+    #              http://main1-mirror2/src2 (child2, prio 4),
+    #              http://main1-mirror1/sig2 (child2, prio 4)
+    #              http://main1-mirror2/src3 (child3, prio 3)
+    #              http://nomirror/src4 (child4, prio 2)
+    # verifying:
+    child1.download.assert_called_once_with(builder, 'http://main1-mirror1/src')
+    assert not child1.verify.called
+    assert child2.download.call_args_list == [
+        mock.call(builder, 'http://main1-mirror2/src2'),
+        mock.call(builder, 'http://main1-mirror1/sig2')
+    ]
+    assert not child2.verify.called
+    child3.download.assert_called_once_with(builder, 'http://main1-mirror2/src3')
+    assert not child3.verify.called
+    child4.download.assert_called_once_with(builder, 'git://nomirror/src4')
+    assert not child4.verify.called
+    assert not child5.download.called
+    assert not child5.verify.called
+    assert not child6.download.called
+    assert not child6.verify.called
+
+    for job in (child1, child2, child3, child4, child5, child6):
+        for m in (job.download, job.verify):
+            m.reset_mock()
+
+    child1_dl_fut.set_result(None)
+    loop.run_briefly()
+
+    # waiting:     http://nomirror/src5 (child5, prio 1)
+    # downloading: http://main1-mirror2/src2 (child2, prio 4),
+    #              http://main1-mirror1/sig2 (child2, prio 4)
+    #              http://main1-mirror2/src3 (child3, prio 3)
+    #              http://nomirror/src4 (child4, prio 2)
+    #              http://main1-mirror1/sig3 (child3, prio 3, NEW)
+    # verifying: child1 (NEW)
+    assert not child1.download.called
+    assert child1.verify.called
+    assert not child2.download.called
+    assert not child2.verify.called
+    child3.download.assert_called_once_with(builder, 'http://main1-mirror1/sig3')
+    assert not child3.verify.called
+    assert not child4.download.called
+    assert not child4.verify.called
+    assert not child5.download.called
+    assert not child5.verify.called
+    assert not child6.download.called
+    assert not child6.verify.called
+
+    for job in (child1, child2, child3, child4, child5, child6):
+        for m in (job.download, job.verify):
+            m.reset_mock()
+
+    child2_src_dl_fut.set_result(None)
+    loop.run_briefly()
+
+    # downloading: http://main1-mirror1/sig2 (child2, prio 4)
+    #              http://main1-mirror2/src3 (child3, prio 3)
+    #              http://nomirror/src4 (child4, prio 2)
+    #              http://main1-mirror1/sig3 (child3, prio 3)
+    #              http://nomirror/src5 (child5, prio 1, NEW)
+    # verifying: child1
+    assert not child1.download.called
+    assert not child1.verify.called
+    assert not child2.download.called
+    assert not child2.verify.called
+    assert not child3.download.called
+    assert not child3.verify.called
+    assert not child4.download.called
+    assert not child4.verify.called
+    child5.download.assert_called_once_with(builder, 'http://nomirror/src5')
+    assert not child5.verify.called
+    assert not child6.download.called
+    assert not child6.verify.called
+
+    for job in (child1, child2, child3, child4, child5, child6):
+        for m in (job.download, job.verify):
+            m.reset_mock()
+
+    child2_sig_dl_fut.set_result(None)
+    loop.run_briefly()
+
+    # downloading: http://main1-mirror2/src3 (child3, prio 3)
+    #              http://nomirror/src4 (child4, prio 2)
+    #              http://main1-mirror1/sig3 (child3, prio 3)
+    #              http://nomirror/src5 (child5, prio 1)
+    # verifying: child1, child2 (NEW)
+    assert not child1.download.called
+    assert not child1.verify.called
+    assert not child2.download.called
+    assert child2.verify.called
+    assert not child3.download.called
+    assert not child3.verify.called
+    assert not child4.download.called
+    assert not child4.verify.called
+    assert not child5.download.called
+    assert not child5.verify.called
+    assert not child6.download.called
+    assert not child6.verify.called
+
+    for job in (child1, child2, child3, child4, child5, child6):
+        for m in (job.download, job.verify):
+            m.reset_mock()
+
+    child3_src_dl_fut.set_result(None)
+    child3_sig_dl_fut.set_result(None)
+    child4_dl_fut.set_result(None)
+    child5_dl_fut.set_result(None)
+    loop.run_briefly()
+
+    # verifying:   child1, child2, child3 (NEW), child4 (NEW), child5 (NEW)
+    assert not child1.download.called
+    assert not child1.verify.called
+    assert not child2.download.called
+    assert not child2.verify.called
+    assert not child3.download.called
+    assert child3.verify.called
+    assert not child4.download.called
+    assert child4.verify.called
+    assert not child5.download.called
+    assert child5.verify.called
+    assert not child6.download.called
+    assert not child6.verify.called
+
+    for job in (child1, child2, child3, child4, child5, child6):
+        for m in (job.download, job.verify):
+            m.reset_mock()
+
+    child2_verify_fut.set_result(None)
+    child3_verify_fut.set_result(None)
+    child4_verify_fut.set_result(None)
+    child5_verify_fut.set_result(None)
+    loop.run_briefly()
+
+    # verifying:   child1
+    assert not child1.download.called
+    assert not child1.verify.called
+    assert not child2.download.called
+    assert not child2.verify.called
+    assert not child3.download.called
+    assert not child3.verify.called
+    assert not child4.download.called
+    assert not child4.verify.called
+    assert not child5.download.called
+    assert not child5.verify.called
+    assert not child6.download.called
+    assert not child6.verify.called
+
+    for job in (child1, child2, child3, child4, child5, child6):
+        for m in (job.download, job.verify):
+            m.reset_mock()
+
+    child1_verify_fut.set_result(None)
+    loop.run_briefly()
+
+    # downloading: child6
+    assert not child1.download.called
+    assert not child1.verify.called
+    assert not child2.download.called
+    assert not child2.verify.called
+    assert not child3.download.called
+    assert not child3.verify.called
+    assert not child4.download.called
+    assert not child4.verify.called
+    assert not child5.download.called
+    assert not child5.verify.called
+    assert child6.download.called
+    assert not child6.verify.called
+
+    for job in (child1, child2, child3, child4, child5, child6):
+        for m in (job.download, job.verify):
+            m.reset_mock()
+
+    child6_dl_fut.set_result(None)
+    loop.run_briefly()
+
+    # verifying : child6
+    assert not child1.download.called
+    assert not child1.verify.called
+    assert not child2.download.called
+    assert not child2.verify.called
+    assert not child3.download.called
+    assert not child3.verify.called
+    assert not child4.download.called
+    assert not child4.verify.called
+    assert not child5.download.called
+    assert not child5.verify.called
+    assert not child6.download.called
+    assert child6.verify.called
+
+    for job in (child1, child2, child3, child4, child5, child6):
+        for m in (job.download, job.verify):
+            m.reset_mock()
+
+    child6_verify_fut.set_result(None)
+    loop.run_briefly()
+    assert_done(task)
+
+def test_build_job_graph_run_download_error_handling(app, loop):
+    app.config.f2lfs_max_connections = 5
+    app.config.f2lfs_max_connections_per_host = 1
+    app.config.f2lfs_mirrors = []
+
+    builder = F2LFSBuilder(app)
+    builder.set_environment(app.env)
+    builder.progress = mock.Mock()
+    builder.progress.additional_fields = {}
+
+    graph = BuildJobGraph()
+
+    child = MockDownloadJob(1, {
+        'type': 'http',
+        'url': 'http://host1/src',
+        'gpgsig': 'http://host2/sig'
+    })
+
+    src_dl_fut = loop.create_future()
+    sig_dl_hold_cancellation_fut = loop.create_future()
+    sig_cancelled = False
+
+    async def child_sig_dl():
+        nonlocal sig_cancelled
+        try:
+            await asyncio.sleep(999999)
+        except asyncio.CancelledError:
+            sig_cancelled = True
+            await sig_dl_hold_cancellation_fut
+            raise
+
+    child.download.side_effect = [src_dl_fut, child_sig_dl()]
+
+    graph.root.required_by(child)
+
+    task = asyncio.ensure_future(graph.run(builder))
+    loop.run_briefly()
+
+    assert child.download.call_count == 2
+    assert not child.verify.called
+
+    assert not sig_cancelled
+    src_dl_fut.set_exception(NotImplementedError('foo'))
+    loop.run_briefly()
+    loop.run_briefly()
+    assert sig_cancelled
+
+    loop.run_briefly()
+    assert not task.done()
+    sig_dl_hold_cancellation_fut.set_result(None)
+
+    loop.run_briefly()
+    loop.run_briefly()
+    assert task.done()
+    assert isinstance(task.exception(), NotImplementedError)
+
+def test_build_job_graph_run_verify_error_handling(app, loop):
+    app.config.f2lfs_max_connections = 5
+    app.config.f2lfs_max_connections_per_host = 1
+    app.config.f2lfs_mirrors = []
+
+    builder = F2LFSBuilder(app)
+    builder.set_environment(app.env)
+    builder.progress = mock.Mock()
+    builder.progress.additional_fields = {}
+
+    graph = BuildJobGraph()
+
+    child1 = MockDownloadJob(1, {
+        'type': 'http',
+        'url': 'http://host1/src'
+    })
+    child1.download.return_value = child1_dl_fut = loop.create_future()
+    child1.verify.return_value = child1_verify_fut = loop.create_future()
+
+    child2 = MockDownloadJob(1, {
+        'type': 'http',
+        'url': 'http://host2/src'
+    })
+    child2.download.return_value = child2_dl_fut = loop.create_future()
+    child2.verify.return_value = child2_verify_fut = loop.create_future()
+
+    graph.root.required_by(child1)
+    graph.root.required_by(child2)
+
+    task = asyncio.ensure_future(graph.run(builder))
+    loop.run_briefly()
+
+    child1_dl_fut.set_result(None)
+    child2_dl_fut.set_result(None)
+
+    loop.run_briefly()
+    assert child1.verify.called
+    assert child2.verify.called
+
+    assert not child2_verify_fut.cancelled()
+    child1_verify_fut.set_exception(NotImplementedError('foo'))
+    loop.run_briefly()
+    loop.run_briefly()
+
+    assert child2_verify_fut.cancelled()
+    assert task.done()
+    assert isinstance(task.exception(), NotImplementedError)
