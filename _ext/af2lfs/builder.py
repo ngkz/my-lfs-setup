@@ -161,7 +161,7 @@ class BuildJobGraph:
                         if task in done:
                             running_build_stack.remove(item)
                             await task # re-raise caught exception here
-                            # build completed
+                            # build succeeded
                             builder.progress.update()
                             job.schedule_children(runnable_build_queue)
 
