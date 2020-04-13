@@ -211,10 +211,11 @@ class BuildJobGraph:
                 )
 
                 for task in done:
-                    job = running_build_stack.pop(task, None)
+                    job = running_build_stack.pop(task, None) or \
+                          verifying_dl.pop(task, None)
                     if job:
                         await task # re-raise caught exception here
-                        # build succeeded
+                        # job succeeded
                         builder.progress.update()
                         job.schedule_children(queues)
 
@@ -228,16 +229,6 @@ class BuildJobGraph:
                         if job.download_count >= job.download_total:
                             verify_task = asyncio.ensure_future(job.verify(builder))
                             verifying_dl[verify_task] = job
-
-                        continue
-
-                    job = verifying_dl.pop(task, None)
-                    if job:
-                        await task # re-raise caught exception here
-
-                        # download job succeeded
-                        builder.progress.update()
-                        job.schedule_children(queues)
 
                         continue
         except:
