@@ -100,7 +100,7 @@ class BuildJobGraph:
         loop = asyncio.get_event_loop()
 
         runnable_build_queue = asyncio.PriorityQueue()
-        running_build_stack = collections.deque()
+        running_build_stack = collections.OrderedDict()
         paused_build_queue = collections.deque()
         waiting_dl_queue = [] # sorted list
         downloading = {}
@@ -133,7 +133,7 @@ class BuildJobGraph:
                 builder.progress.refresh()
 
                 # update spinner
-                for job, task in running_build_stack:
+                for task, job in running_build_stack.items():
                     job.update()
 
                 # schedule build jobs
@@ -146,14 +146,14 @@ class BuildJobGraph:
                         # resume first paused build job
                         job, task = paused_build_queue.popleft()
                         job.resume()
-                        running_build_stack.append((job, task))
+                        running_build_stack[task] = job
                         # wait for load median to respond to load change
                         next_scheduling = loop.time() + load_delay
                     elif not runnable_build_queue.empty():
                         # start highest priority build job
                         item = runnable_build_queue.get_nowait()
                         task = asyncio.ensure_future(item.job.run(builder))
-                        running_build_stack.append((item.job, task))
+                        running_build_stack[task] = item.job
                         # wait for load median to respond to load change
                         # avoid starting new job while single-threaded configure
                         # script running
@@ -164,7 +164,7 @@ class BuildJobGraph:
                         loop.time() >= next_scheduling:
                     # system overloaded
                     # pause last started build job
-                    job, task = running_build_stack.pop()
+                    task, job = running_build_stack.popitem()
                     job.pause()
                     paused_build_queue.append((job, task))
                     # wait for load median to respond to load change
@@ -203,24 +203,20 @@ class BuildJobGraph:
                             item.job.download(builder, freest_mirror_url))
                         downloading[task] = (freest_mirror_hostname, item.job)
 
-                tasks = [task for job, task in running_build_stack]
-                tasks += downloading.keys()
-                tasks += verifying_dl.keys()
                 done, pending = await asyncio.wait(
-                    tasks,
+                    set(itertools.chain(running_build_stack.keys(),
+                                        downloading.keys(), verifying_dl.keys())),
                     timeout = next_sampling - loop.time(),
                     return_when = asyncio.FIRST_COMPLETED
                 )
 
                 for task in done:
-                    for item in list(running_build_stack):
-                        job, running_task = item
-                        if task is running_task:
-                            running_build_stack.remove(item)
-                            await task # re-raise caught exception here
-                            # build succeeded
-                            builder.progress.update()
-                            job.schedule_children(queues)
+                    job = running_build_stack.pop(task, None)
+                    if job:
+                        await task # re-raise caught exception here
+                        # build succeeded
+                        builder.progress.update()
+                        job.schedule_children(queues)
 
                     hostname, job = downloading.pop(task, (None, None))
                     if job:
@@ -248,8 +244,8 @@ class BuildJobGraph:
             for paused_job, _ in paused_build_queue:
                 paused_job.resume()
 
-            running_tasks = [t for _, t in itertools.chain(running_build_stack,
-                                                           paused_build_queue)]
+            running_tasks = list(running_build_stack.keys())
+            running_tasks += [t for _, t in itertools.chain(paused_build_queue)]
             running_tasks += downloading.keys()
             running_tasks += verifying_dl.keys()
 
