@@ -171,7 +171,7 @@ class BuildJobGraph:
                     next_scheduling = loop.time() + load_delay
 
                 # schedule download jobs
-                for item in list(waiting_dl_queue):
+                for item in waiting_dl_queue[:]:
                     if sum(connection_counter.values()) >= \
                             builder.config.f2lfs_max_connections:
                         break
