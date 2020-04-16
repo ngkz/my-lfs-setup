@@ -132,10 +132,6 @@ class BuildJobGraph:
                 builder.progress.additional_fields['load'] = f' Load: {load}'
                 builder.progress.refresh()
 
-                # update spinner
-                for task, job in running_build_stack.items():
-                    job.update()
-
                 # schedule build jobs
                 if (not running_build_stack) or (
                         loop.time() >= next_scheduling and
@@ -337,9 +333,6 @@ class BuildJob(Job):
         raise NotImplementedError
 
     def resume(self):
-        raise NotImplementedError
-
-    def update(self):
         raise NotImplementedError
 
 class DownloadJob(Job):

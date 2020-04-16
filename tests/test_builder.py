@@ -508,7 +508,6 @@ class MockBuildJob(BuildJob):
         self.run = mock.Mock()
         self.pause = mock.Mock()
         self.resume = mock.Mock()
-        self.update = mock.Mock()
 
 @mock.patch("af2lfs.builder.get_load")
 def test_build_job_graph_run_build_job_scheduling(load, app, loop):
@@ -561,25 +560,11 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
 
     load.return_value = 1
 
-    assert child1.update.call_count == 0
-    assert child2.update.call_count == 0
-    assert child3.update.call_count == 0
-    assert child4.update.call_count == 0
-    assert child2_child.update.call_count == 0
-    assert child3_child.update.call_count == 0
-
     loop.advance_time(0.125)
     loop.run_briefly()
     # t = 0.125: [0, 0, 0, 0, 1] -> median: 0
     # .update() of running build job is called every load_sampling_period
     assert builder.progress.additional_fields['load'] == ' Load: 0'
-
-    assert child1.update.call_count == 1
-    assert child2.update.call_count == 0
-    assert child3.update.call_count == 0
-    assert child4.update.call_count == 0
-    assert child2_child.update.call_count == 0
-    assert child3_child.update.call_count == 0
 
     loop.advance_time(0.125)
     loop.run_briefly()
