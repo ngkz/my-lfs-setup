@@ -11,17 +11,13 @@ import statistics
 import itertools
 import bisect
 from urllib.parse import urlparse
+from af2lfs.utils import get_load
 
 PACKAGE_STORE = PurePath('usr', 'pkg')
 DEFAULT_CFLAGS = '-O2 -march=native -pipe -fstack-clash-protection -fno-plt '\
                  '-fexceptions -fasynchronous-unwind-tables -Wp,-D_FORTIFY_SOURCE=2'
 
 logger = logging.getLogger(__name__)
-
-def get_load():
-    with open('/proc/loadavg') as loadavg:
-        # number of runnable processes excluding caller
-        return int(loadavg.read().split()[3].split('/')[0]) - 1
 
 class BuildError(SphinxError):
     category = 'system build error'
