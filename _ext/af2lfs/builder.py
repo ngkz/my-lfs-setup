@@ -3,15 +3,15 @@ from sphinx.builders import Builder
 from sphinx.errors import SphinxError
 from sphinx.util import logging
 import collections
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 import shutil
 import asyncio
 import enlighten
 import statistics
 import itertools
 import bisect
-from urllib.parse import urlparse
-from af2lfs.utils import get_load
+from urllib import parse
+from af2lfs.utils import get_load, unquote_fssafe
 
 PACKAGE_STORE = PurePath('usr', 'pkg')
 DEFAULT_CFLAGS = '-O2 -march=native -pipe -fstack-clash-protection -fno-plt '\
@@ -176,7 +176,7 @@ class BuildJobGraph:
                     freest_mirror_hostname = None
 
                     for url in mirrors:
-                        hostname = urlparse(url).hostname
+                        hostname = parse.urlparse(url).hostname
                         conn_count = connection_counter[hostname]
 
                         if conn_count >= builder.config.f2lfs_max_connections_per_host:
@@ -590,6 +590,42 @@ class F2LFSBuilder(Builder):
             return mirrors
         else:
             return [url]
+
+    def download_path(self, url):
+        url = parse.urlparse(url)
+        netloc = unquote_fssafe(url.netloc)
+
+        if netloc == '..':
+            raise ValueError('illegal hostname')
+
+        download_path = Path(self.outdir) / 'sources' / netloc
+
+        components = []
+        directory = True
+        for component in url.path.split('/'):
+            component = unquote_fssafe(component)
+
+            if component == '' or component == '.':
+                directory = True
+                continue
+
+            if component == '..' and components:
+                components.pop()
+                continue
+
+            directory = False
+            components.append(component)
+
+        if directory:
+            components.append('index.html')
+
+        if url.query:
+            components[-1] += '?' + unquote_fssafe(url.query)
+
+        download_path = download_path.joinpath(*components)
+
+        print(download_path)
+        return download_path
 
     def write(self, *ignored):
         check_command('sudo', 'nsjail')

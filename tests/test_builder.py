@@ -1299,3 +1299,27 @@ def test_build_job_graph_run_verify_error_handling(app, loop):
     assert child2_verify_fut.cancelled()
     assert task.done()
     assert isinstance(task.exception(), NotImplementedError)
+
+def test_download_path(app):
+    builder = F2LFSBuilder(app)
+    assert builder.download_path('http://host/file') == \
+        Path(builder.outdir) / 'sources' / 'host' / 'file'
+    assert builder.download_path(
+        'http://hos%74%00:8080/dir%61/./dirb///../%2e%2e/%2e/fi%6ce%2e%00%2f?quer%79=value%00#fragment'
+    ) == Path(builder.outdir) / 'sources' / 'host%00:8080' / 'file.%00%2f?query=value%00'
+    assert builder.download_path('http://host/dir/') == \
+        Path(builder.outdir) / 'sources' / 'host' / 'dir' / 'index.html'
+    assert builder.download_path('http://host') == \
+        Path(builder.outdir) / 'sources' / 'host' / 'index.html'
+    assert builder.download_path('http://host/') == \
+        Path(builder.outdir) / 'sources' / 'host' / 'index.html'
+    assert builder.download_path('http://host/.') == \
+        Path(builder.outdir) / 'sources' / 'host' / 'index.html'
+    assert builder.download_path('http://host/dir/?query=value') == \
+        Path(builder.outdir) / 'sources' / 'host' / 'dir' / 'index.html?query=value'
+    assert builder.download_path(
+        'http://host/dira/dirb/../../../../../../file'
+    ) == Path(builder.outdir) / 'sources' / 'host' / 'file'
+
+    with pytest.raises(ValueError):
+        builder.download_path('http://..')
