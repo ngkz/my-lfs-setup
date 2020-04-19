@@ -632,9 +632,6 @@ class F2LFSBuilder(Builder):
         if not netloc or  netloc == '..':
             raise BuildError(f'illegal hostname: {netloc if netloc else "(empty)"}')
 
-        if url.scheme not in ('http', 'https'):
-            raise BuildError(f'unsupported scheme: {url.scheme}')
-
         download_path = Path(self.outdir) / 'sources' / netloc
 
         components = []
