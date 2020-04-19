@@ -1311,6 +1311,8 @@ def test_download_path(app):
     builder = F2LFSBuilder(app)
     assert builder.download_path('http://host/file') == \
         Path(builder.outdir) / 'sources' / 'host' / 'file'
+    assert builder.download_path('https://host/file') == \
+        Path(builder.outdir) / 'sources' / 'host' / 'file'
     assert builder.download_path(
         'http://hos%74%00:8080/dir%61/./dirb///../%2e%2e/%2e/fi%6ce%2e%00%2f?quer%79=value%00#fragment'
     ) == Path(builder.outdir) / 'sources' / 'host%00:8080' / 'file.%00%2f?query=value%00'
@@ -1328,5 +1330,17 @@ def test_download_path(app):
         'http://host/dira/dirb/../../../../../../file'
     ) == Path(builder.outdir) / 'sources' / 'host' / 'file'
 
-    with pytest.raises(ValueError):
+    with pytest.raises(BuildError) as excinfo:
         builder.download_path('http://..')
+
+    assert str(excinfo.value) == 'illegal hostname: ..'
+
+    with pytest.raises(BuildError) as excinfo:
+        builder.download_path('/foo/bar')
+
+    assert str(excinfo.value) == 'illegal hostname: (empty)'
+
+    with pytest.raises(BuildError) as excinfo:
+        builder.download_path('poop://foo/bar')
+
+    assert str(excinfo.value) == 'unsupported scheme: poop'

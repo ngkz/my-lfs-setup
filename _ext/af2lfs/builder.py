@@ -598,8 +598,11 @@ class F2LFSBuilder(Builder):
         url = parse.urlparse(url)
         netloc = unquote_fssafe(url.netloc)
 
-        if netloc == '..':
-            raise ValueError('illegal hostname')
+        if not netloc or  netloc == '..':
+            raise BuildError(f'illegal hostname: {netloc if netloc else "(empty)"}')
+
+        if url.scheme not in ('http', 'https'):
+            raise BuildError(f'unsupported scheme: {url.scheme}')
 
         download_path = Path(self.outdir) / 'sources' / netloc
 
