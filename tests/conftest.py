@@ -39,6 +39,12 @@ def testloop():
 
     loop = TestLoop()
     asyncio.set_event_loop(loop)
+
     yield loop
-    loop.close()
+
+    if not loop.is_closed():
+        loop.call_soon(loop.stop)
+        loop.run_forever()
+        loop.close()
+
     asyncio.set_event_loop(None)
