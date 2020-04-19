@@ -658,7 +658,6 @@ class F2LFSBuilder(Builder):
 
         download_path = download_path.joinpath(*components)
 
-        print(download_path)
         return download_path
 
     def write(self, *ignored):
