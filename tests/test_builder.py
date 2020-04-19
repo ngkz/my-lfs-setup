@@ -511,7 +511,7 @@ class MockBuildJob(BuildJob):
         self.resume = mock.Mock()
 
 @mock.patch("af2lfs.builder.get_load")
-def test_build_job_graph_run_build_job_scheduling(load, app, loop):
+def test_build_job_graph_run_build_job_scheduling(load, app, testloop):
     app.parallel = 3
     app.config.f2lfs_load_sampling_period = 0.125
     app.config.f2lfs_load_sample_size = 5
@@ -542,9 +542,9 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     task = asyncio.ensure_future(graph.run(builder))
 
     load.return_value = 0
-    child1_run_fut = loop.create_future()
+    child1_run_fut = testloop.create_future()
     child1.run.return_value = child1_run_fut
-    loop.run_briefly()
+    testloop.run_briefly()
     # t = 0
     # schedule root job
     # no running job -> start highest priority build job (child1)
@@ -561,33 +561,33 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
 
     load.return_value = 1
 
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # t = 0.125: [0, 0, 0, 0, 1] -> median: 0
     # .update() of running build job is called every load_sampling_period
     assert builder.progress.additional_fields['load'] == ' Load: 0'
 
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # t = 0.25:  [0, 0, 0, 1, 1] -> median: 0
     assert builder.progress.additional_fields['load'] == ' Load: 0'
 
-    loop.advance_time(0.0625)
+    testloop.advance_time(0.0625)
     # t = 0.3125: t < next_sampling
     assert builder.progress.additional_fields['load'] == ' Load: 0'
 
-    loop.advance_time(0.0625)
-    loop.run_briefly()
+    testloop.advance_time(0.0625)
+    testloop.run_briefly()
     # t = 0.375: [0, 0, 1, 1, 1] -> median: 1
     assert builder.progress.additional_fields['load'] == ' Load: 1'
 
     load.return_value = 2
     for i in range(41):
-        loop.advance_time(0.125)
-        loop.run_briefly()
-    assert loop.time() == 5.5 # next_scheduling - 0.125
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
+    assert testloop.time() == 5.5 # next_scheduling - 0.125
 
-    child2_run_fut = loop.create_future()
+    child2_run_fut = testloop.create_future()
     child2.run.return_value = child2_run_fut
 
     assert builder.progress.additional_fields['load'] == ' Load: 2'
@@ -597,13 +597,13 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     assert not child2_child.run.called
     assert not child3_child.run.called
 
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
 
     # load_delay (sample_size * sampling_period = 0.625s) + configure_delay(5) = 5.625s (next_scheduling) elapsed and
     # load median (2) < app.parallel (3) and number of running build jobs(1) < app.parallel (3)
     # child2 starts
-    assert loop.time() == 5.625
+    assert testloop.time() == 5.625
     assert child2.run.called
     assert not child3.run.called
     assert not child4.run.called
@@ -612,13 +612,13 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
 
     load.return_value = 3
     for i in range(45):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
     # 5.625s (next_scheduling) elapsed and number of running build jobs(2) < app.parallel (3)
     # but load median (3) >= app.parallel (3)
     # nothing happens
-    assert loop.time() == 11.25
+    assert testloop.time() == 11.25
     assert builder.progress.additional_fields['load'] == ' Load: 3'
     assert not child3.run.called
     assert not child4.run.called
@@ -627,10 +627,10 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
 
     load.return_value = 2
     for i in range(2):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
-    child3_run_fut = loop.create_future()
+    child3_run_fut = testloop.create_future()
     child3.run.return_value = child3_run_fut
 
     assert builder.progress.additional_fields['load'] == ' Load: 3'
@@ -638,11 +638,11 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     assert not child4.run.called
     assert not child2_child.run.called
     assert not child3_child.run.called
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # load median decreases to 2
     # child3 starts
-    assert loop.time() == 11.625
+    assert testloop.time() == 11.625
     assert builder.progress.additional_fields['load'] == ' Load: 2'
     assert child3.run.called
     assert not child4.run.called
@@ -650,23 +650,23 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     assert not child3_child.run.called
 
     for i in range(45):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
     # 5.625s (next_scheduling) elapsed and load median (2) < app.parallel (3)
     # but number of running build jobs(3) >= app.parallel (3)
     # nothing happens
-    assert loop.time() == 17.25
+    assert testloop.time() == 17.25
     assert builder.progress.additional_fields['load'] == ' Load: 2'
     assert not child4.run.called
     assert not child2_child.run.called
     assert not child3_child.run.called
 
-    child4_run_fut = loop.create_future()
+    child4_run_fut = testloop.create_future()
     child4.run.return_value = child4_run_fut
     child1_run_fut.set_result(None) # finish child1
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # number of running build jobs decreases to 2
     # child4 starts
     assert child4.run.called
@@ -675,15 +675,15 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
 
     load.return_value = 6
     for i in range(44):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
     assert builder.progress.additional_fields['load'] == ' Load: 6'
     assert not child2.pause.called
     assert not child3.pause.called
     assert not child4.pause.called
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # 5.625s (next_scheduling) elapsed and number of running build jobs(3) >= 2
     # and load median (6) >= max_load (6)
     # child4 pauses
@@ -693,13 +693,13 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     assert child4.pause.called
 
     for i in range(4):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
     assert not child2.pause.called
     assert not child3.pause.called
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # 0.625s (next_scheduling) elapsed and number of running build jobs(2) >= 2
     # and load median (6) >= max_load (6)
     # child3 pauses
@@ -707,8 +707,8 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     assert child3.pause.called
 
     for i in range(5):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
     # 0.625s (next_scheduling) elapsed and load median (6) >= max_load (6)
     # but number of running build jobs(1) < 2
@@ -717,14 +717,14 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
 
     load.return_value = 1
     for i in range(2):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
     assert builder.progress.additional_fields['load'] == ' Load: 6'
     assert not child3.resume.called
     assert not child4.resume.called
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
     # number of running build jobs(1) < app.parallel (3)
     # child4 resumes
@@ -735,18 +735,18 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
 
     # finish child2.run
     child2_run_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
     # child2_child is added to runnable_build_queue
 
     for i in range(4):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
     assert not child3.resume.called
     assert not child2_child.run.called
     assert not child3_child.run.called
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
     # number of running build jobs(1) < app.parallel (3)
     # child3 resumes
@@ -755,59 +755,59 @@ def test_build_job_graph_run_build_job_scheduling(load, app, loop):
     assert not child3_child.run.called
 
     for i in range(4):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
-    child2_child_run_fut = loop.create_future()
+    child2_child_run_fut = testloop.create_future()
     child2_child.run.return_value = child2_child_run_fut
     assert not child2_child.run.called
     assert not child3_child.run.called
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
     # 0.625s (next_scheduling) elapsed and load median (2) < app.parallel (3) and
     # number of running build jobs (2) < app.parallel (3)
     # child2_child starts
-    assert loop.time() == 25.875
+    assert testloop.time() == 25.875
     assert child2_child.run.called
     assert not child3_child.run.called
 
     # finish child4.run
     child4_run_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
 
     for i in range(45):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
 
     # 5.625s (next_scheduling) elapsed and load median (2) < app.parallel (3)
     # and number of running build jobs (2) < app.parallel (3)
     # but nothing happens because there is no runnable jobs
-    assert loop.time() == 31.5
+    assert testloop.time() == 31.5
     assert not child3_child.run.called
 
     # finish child3.run and child2_child.run
     child3_run_fut.set_result(None)
     child2_child_run_fut.set_result(None)
 
-    child3_child_run_fut = loop.create_future()
+    child3_child_run_fut = testloop.create_future()
     child3_child.run.return_value = child3_child_run_fut
     # child3_child is added to runnable_build_queue
     assert not child3_child.run.called
-    loop.run_briefly()
+    testloop.run_briefly()
     # child3_child starts immediately because there is no running task
     assert child3_child.run.called
 
     assert not task.done()
     child3_child_run_fut.set_result(None)
     prev_refresh_call_count = builder.progress.refresh.call_count
-    loop.run_briefly()
+    testloop.run_briefly()
     # all build jobs completed, graph.run() hides load median and returns
     assert_done(task)
     assert builder.progress.additional_fields['load'] == ''
     assert builder.progress.refresh.call_count == prev_refresh_call_count + 1
 
 @mock.patch("af2lfs.builder.get_load")
-def test_build_job_graph_run_build_job_error_handling(load, app, loop):
+def test_build_job_graph_run_build_job_error_handling(load, app, testloop):
     app.parallel = 4
     app.config.f2lfs_load_sampling_period = 0.125
     app.config.f2lfs_load_sample_size = 5
@@ -834,24 +834,24 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
     load.return_value = 0
 
     # start child1
-    child1_run_fut = loop.create_future()
+    child1_run_fut = testloop.create_future()
     child1.run.return_value = child1_run_fut
-    loop.run_briefly()
+    testloop.run_briefly()
     assert child1.run.called
 
-    loop.advance_time(0.125)
-    loop.run_briefly()
+    testloop.advance_time(0.125)
+    testloop.run_briefly()
 
     # start child2
-    child2_run_fut = loop.create_future()
+    child2_run_fut = testloop.create_future()
     child2.run.return_value = child2_run_fut
     for i in range(45):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
     assert child2.run.called
 
     # start child3
-    child3_hold_cancellation_fut = loop.create_future()
+    child3_hold_cancellation_fut = testloop.create_future()
 
     async def child3_run():
         try:
@@ -862,28 +862,28 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
 
     child3.run.return_value = child3_run()
     for i in range(45):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
     assert child3.run.called
 
     # start child4
-    child4_run_fut = loop.create_future()
+    child4_run_fut = testloop.create_future()
     child4.run.return_value = child4_run_fut
     for i in range(45):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
     assert child4.run.called
 
     # pause child4
     load.return_value = 99
     for i in range(45):
-        loop.advance_time(0.125)
-        loop.run_briefly()
+        testloop.advance_time(0.125)
+        testloop.run_briefly()
     assert child4.pause.called
 
     # make child1 fail
     child1_run_fut.set_exception(NotImplementedError())
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # cancel running build jobs
     assert not child2.resume.called
@@ -894,11 +894,11 @@ def test_build_job_graph_run_build_job_error_handling(load, app, loop):
     assert child4_run_fut.cancelled()
 
     # wait for cancelled build jobs to finish
-    loop.run_briefly()
+    testloop.run_briefly()
     assert not task.done()
     child3_hold_cancellation_fut.set_result(None) # finish child3 cancellation
-    loop.run_briefly()
-    loop.run_briefly()
+    testloop.run_briefly()
+    testloop.run_briefly()
 
     # propagates child1 exception
     assert task.done()
@@ -925,7 +925,7 @@ class MockDownloadJob(DownloadJob):
         self.verify = mock.Mock()
         self.priority = priority
 
-def test_build_job_graph_run_download_job_scheduling(app, loop):
+def test_build_job_graph_run_download_job_scheduling(app, testloop):
     app.config.f2lfs_max_connections = 5
     app.config.f2lfs_max_connections_per_host = 2
     app.config.f2lfs_mirrors = [
@@ -943,49 +943,49 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
         'type': 'http',
         'url': 'http://main1/src'
     })
-    child1.download.return_value = child1_dl_fut = loop.create_future()
-    child1.verify.return_value = child1_verify_fut = loop.create_future()
+    child1.download.return_value = child1_dl_fut = testloop.create_future()
+    child1.verify.return_value = child1_verify_fut = testloop.create_future()
 
     child2 = MockDownloadJob(4, {
         'type': 'http',
         'url': 'http://main1/src2',
         'gpgsig': 'http://main1/sig2'
     })
-    child2_src_dl_fut = loop.create_future()
-    child2_sig_dl_fut = loop.create_future()
+    child2_src_dl_fut = testloop.create_future()
+    child2_sig_dl_fut = testloop.create_future()
     child2.download.side_effect = [child2_src_dl_fut, child2_sig_dl_fut]
-    child2.verify.return_value = child2_verify_fut = loop.create_future()
+    child2.verify.return_value = child2_verify_fut = testloop.create_future()
 
     child3 = MockDownloadJob(3, {
         'type': 'http',
         'url': 'http://main1/src3',
         'gpgsig': 'http://main1/sig3'
     })
-    child3_src_dl_fut = loop.create_future()
-    child3_sig_dl_fut = loop.create_future()
+    child3_src_dl_fut = testloop.create_future()
+    child3_sig_dl_fut = testloop.create_future()
     child3.download.side_effect = [child3_src_dl_fut, child3_sig_dl_fut]
-    child3.verify.return_value = child3_verify_fut = loop.create_future()
+    child3.verify.return_value = child3_verify_fut = testloop.create_future()
 
     child4 = MockDownloadJob(2, {
         'type': 'git',
         'url': 'git://nomirror/src4'
     })
-    child4.download.return_value = child4_dl_fut = loop.create_future()
-    child4.verify.return_value = child4_verify_fut = loop.create_future()
+    child4.download.return_value = child4_dl_fut = testloop.create_future()
+    child4.verify.return_value = child4_verify_fut = testloop.create_future()
 
     child5 = MockDownloadJob(1, {
         'type': 'http',
         'url': 'http://nomirror/src5'
     })
-    child5.download.return_value = child5_dl_fut = loop.create_future()
-    child5.verify.return_value = child5_verify_fut = loop.create_future()
+    child5.download.return_value = child5_dl_fut = testloop.create_future()
+    child5.verify.return_value = child5_verify_fut = testloop.create_future()
 
     child6 = MockDownloadJob(0, {
         'type': 'http',
         'url': 'http://nomirror2/src6'
     })
-    child6.download.return_value = child6_dl_fut = loop.create_future()
-    child6.verify.return_value = child6_verify_fut = loop.create_future()
+    child6.download.return_value = child6_dl_fut = testloop.create_future()
+    child6.verify.return_value = child6_verify_fut = testloop.create_future()
 
     graph.root.required_by(child1)
     graph.root.required_by(child4)
@@ -995,7 +995,7 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
     child1.required_by(child6)
 
     task = asyncio.ensure_future(graph.run(builder))
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # waiting:     http://main1/sig3 (child3, prio 3)
     #              http://nomirror/src5 (child5, prio 1)
@@ -1030,7 +1030,7 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
             m.reset_mock()
 
     child1_dl_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # waiting:     http://nomirror/src5 (child5, prio 1)
     # downloading: http://main1-mirror2/src2 (child2, prio 4),
@@ -1058,7 +1058,7 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
             m.reset_mock()
 
     child2_src_dl_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # downloading: http://main1-mirror1/sig2 (child2, prio 4)
     #              http://main1-mirror2/src3 (child3, prio 3)
@@ -1085,7 +1085,7 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
             m.reset_mock()
 
     child2_sig_dl_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # downloading: http://main1-mirror2/src3 (child3, prio 3)
     #              http://nomirror/src4 (child4, prio 2)
@@ -1113,7 +1113,7 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
     child3_sig_dl_fut.set_result(None)
     child4_dl_fut.set_result(None)
     child5_dl_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # verifying:   child1, child2, child3 (NEW), child4 (NEW), child5 (NEW)
     assert not child1.download.called
@@ -1137,7 +1137,7 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
     child3_verify_fut.set_result(None)
     child4_verify_fut.set_result(None)
     child5_verify_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # verifying:   child1
     assert not child1.download.called
@@ -1158,7 +1158,7 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
             m.reset_mock()
 
     child1_verify_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # downloading: child6
     assert not child1.download.called
@@ -1179,7 +1179,7 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
             m.reset_mock()
 
     child6_dl_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
 
     # verifying : child6
     assert not child1.download.called
@@ -1200,10 +1200,10 @@ def test_build_job_graph_run_download_job_scheduling(app, loop):
             m.reset_mock()
 
     child6_verify_fut.set_result(None)
-    loop.run_briefly()
+    testloop.run_briefly()
     assert_done(task)
 
-def test_build_job_graph_run_download_error_handling(app, loop):
+def test_build_job_graph_run_download_error_handling(app, testloop):
     app.config.f2lfs_max_connections = 5
     app.config.f2lfs_max_connections_per_host = 1
     app.config.f2lfs_mirrors = []
@@ -1221,8 +1221,8 @@ def test_build_job_graph_run_download_error_handling(app, loop):
         'gpgsig': 'http://host2/sig'
     })
 
-    src_dl_fut = loop.create_future()
-    sig_dl_hold_cancellation_fut = loop.create_future()
+    src_dl_fut = testloop.create_future()
+    sig_dl_hold_cancellation_fut = testloop.create_future()
     sig_cancelled = False
 
     async def child_sig_dl():
@@ -1239,27 +1239,27 @@ def test_build_job_graph_run_download_error_handling(app, loop):
     graph.root.required_by(child)
 
     task = asyncio.ensure_future(graph.run(builder))
-    loop.run_briefly()
+    testloop.run_briefly()
 
     assert child.download.call_count == 2
     assert not child.verify.called
 
     assert not sig_cancelled
     src_dl_fut.set_exception(NotImplementedError('foo'))
-    loop.run_briefly()
-    loop.run_briefly()
+    testloop.run_briefly()
+    testloop.run_briefly()
     assert sig_cancelled
 
-    loop.run_briefly()
+    testloop.run_briefly()
     assert not task.done()
     sig_dl_hold_cancellation_fut.set_result(None)
 
-    loop.run_briefly()
-    loop.run_briefly()
+    testloop.run_briefly()
+    testloop.run_briefly()
     assert task.done()
     assert isinstance(task.exception(), NotImplementedError)
 
-def test_build_job_graph_run_verify_error_handling(app, loop):
+def test_build_job_graph_run_verify_error_handling(app, testloop):
     app.config.f2lfs_max_connections = 5
     app.config.f2lfs_max_connections_per_host = 1
     app.config.f2lfs_mirrors = []
@@ -1275,33 +1275,33 @@ def test_build_job_graph_run_verify_error_handling(app, loop):
         'type': 'http',
         'url': 'http://host1/src'
     })
-    child1.download.return_value = child1_dl_fut = loop.create_future()
-    child1.verify.return_value = child1_verify_fut = loop.create_future()
+    child1.download.return_value = child1_dl_fut = testloop.create_future()
+    child1.verify.return_value = child1_verify_fut = testloop.create_future()
 
     child2 = MockDownloadJob(1, {
         'type': 'http',
         'url': 'http://host2/src'
     })
-    child2.download.return_value = child2_dl_fut = loop.create_future()
-    child2.verify.return_value = child2_verify_fut = loop.create_future()
+    child2.download.return_value = child2_dl_fut = testloop.create_future()
+    child2.verify.return_value = child2_verify_fut = testloop.create_future()
 
     graph.root.required_by(child1)
     graph.root.required_by(child2)
 
     task = asyncio.ensure_future(graph.run(builder))
-    loop.run_briefly()
+    testloop.run_briefly()
 
     child1_dl_fut.set_result(None)
     child2_dl_fut.set_result(None)
 
-    loop.run_briefly()
+    testloop.run_briefly()
     assert child1.verify.called
     assert child2.verify.called
 
     assert not child2_verify_fut.cancelled()
     child1_verify_fut.set_exception(NotImplementedError('foo'))
-    loop.run_briefly()
-    loop.run_briefly()
+    testloop.run_briefly()
+    testloop.run_briefly()
 
     assert child2_verify_fut.cancelled()
     assert task.done()

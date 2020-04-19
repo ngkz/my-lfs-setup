@@ -16,7 +16,7 @@ def rootdir():
     return path(__file__).parent.abspath() / 'roots'
 
 @pytest.fixture()
-def loop():
+def testloop():
     loop = TestLoop()
     asyncio.set_event_loop(loop)
     yield loop
