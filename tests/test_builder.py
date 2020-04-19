@@ -1353,7 +1353,7 @@ async def test_download_job_http_download(aiohttp_client, app):
 
     with mock.patch('af2lfs.builder.logger') as logger:
         await job.download(builder, client, 'http://orig/dir/sr%63?quer%79=value%00',
-                           f'/dir/sr%63?quer%79=value%00')
+                           '/dir/sr%63?quer%79=value%00')
         assert  (builder.outdir / 'sources' / 'orig' / 'dir' / 'src?query=value%00') \
             .text() == 'src-content'
         assert logger.info.mock_calls == [
