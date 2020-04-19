@@ -348,7 +348,38 @@ class DownloadJob(Job):
         return f"DownloadJob({self.source['url']})"
 
     async def download(self, builder, client, orig_url, mirror_url):
-        raise NotImplementedError
+        dest = builder.download_path(orig_url)
+
+        if self.source['type'] != 'http':
+            raise NotImplementedError
+
+        if dest.is_file():
+            # already downloaded
+            logger.info('skip download: %s', dest.name)
+            return
+
+        if dest.exists() or dest.is_symlink():
+            # not a regular file
+            logger.info('deleting: %s', dest.name)
+
+            if dest.is_symlink() or (not dest.is_dir()):
+                dest.unlink()
+            else:
+                shutil.rmtree(dest)
+
+        logger.info('downloading: %s', dest.name)
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        async with client.get(mirror_url) as resp:
+            with open(dest, 'wb') as fd:
+                while True:
+                    chunk = await resp.content.read(65536)
+                    if not chunk:
+                        break
+                    fd.write(chunk)
+
+        logger.info('download succeeded: %s', dest.name)
 
     async def verify(self, builder):
         raise NotImplementedError

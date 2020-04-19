@@ -11,6 +11,7 @@ from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
                            BuildJobGraph, BuildJob, DownloadJob
 from af2lfs.testing import assert_done
+from aiohttp import web
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -1344,3 +1345,74 @@ def test_download_path(app):
         builder.download_path('poop://foo/bar')
 
     assert str(excinfo.value) == 'unsupported scheme: poop'
+
+async def test_download_job_http_download(aiohttp_client, app):
+    job = DownloadJob({'type': 'http'})
+
+    builder = F2LFSBuilder(app)
+
+    async def src(request):
+        return web.Response(text='src-content')
+
+    webapp = web.Application()
+    webapp.router.add_get('/dir/src', src)
+    client = await aiohttp_client(webapp)
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, client, 'http://orig/dir/sr%63?quer%79=value%00',
+                           f'/dir/sr%63?quer%79=value%00')
+        assert  (builder.outdir / 'sources' / 'orig' / 'dir' / 'src?query=value%00') \
+            .text() == 'src-content'
+        assert logger.info.mock_calls == [
+            mock.call('downloading: %s', 'src?query=value%00'),
+            mock.call('download succeeded: %s', 'src?query=value%00')
+        ]
+
+async def test_download_job_http_download_skip_if_already_downloaded(app):
+    job = DownloadJob({'type': 'http'})
+
+    builder = F2LFSBuilder(app)
+    client = mock.Mock()
+
+    (builder.outdir / 'sources' / 'orig' / 'src2').write_text('foo')
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, client, 'http://orig/src2', 'fail://fail/src2')
+        assert not client.get.called
+        logger.info.assert_called_once_with('skip download: %s', 'src2')
+
+async def test_download_job_http_download_remove_existing_node(aiohttp_client, app):
+    job = DownloadJob({'type': 'http'})
+
+    builder = F2LFSBuilder(app)
+
+    async def src(request):
+        return web.Response(text='src-content')
+
+    webapp = web.Application()
+    webapp.router.add_get('/src', src)
+    client = await aiohttp_client(webapp)
+
+    (builder.outdir / 'sources' / 'orig' / 'src').makedirs()
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, client, 'http://orig/src', f'/src')
+        assert (builder.outdir / 'sources' / 'orig' / 'src').text() == 'src-content'
+        assert logger.info.mock_calls == [
+            mock.call('deleting: %s', 'src'),
+            mock.call('downloading: %s', 'src'),
+            mock.call('download succeeded: %s', 'src')
+        ]
+
+    src_path = Path(builder.outdir / 'sources' / 'orig' / 'src')
+    src_path.unlink()
+    src_path.symlink_to('brokenlink')
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, client, 'http://orig/src', f'/src')
+        assert (builder.outdir / 'sources' / 'orig' / 'src').text() == 'src-content'
+        assert logger.info.mock_calls == [
+            mock.call('deleting: %s', 'src'),
+            mock.call('downloading: %s', 'src'),
+            mock.call('download succeeded: %s', 'src')
+        ]
