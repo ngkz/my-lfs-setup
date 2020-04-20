@@ -1351,6 +1351,8 @@ async def test_download_job_http_download(aiohttp_client, app):
     webapp.router.add_get('/dir/src', src)
     client = await aiohttp_client(webapp)
 
+    (builder.outdir / 'sources').rmtree(True)
+
     with mock.patch('af2lfs.builder.logger') as logger:
         await job.download(builder, client, 'http://orig/dir/sr%63?quer%79=value%00',
                            '/dir/sr%63?quer%79=value%00')
@@ -1367,6 +1369,8 @@ async def test_download_job_http_download_skip_if_already_downloaded(app):
     builder = F2LFSBuilder(app)
     client = mock.Mock()
 
+    (builder.outdir / 'sources').rmtree(True)
+    (builder.outdir / 'sources' / 'orig').makedirs()
     (builder.outdir / 'sources' / 'orig' / 'src2').write_text('foo')
 
     with mock.patch('af2lfs.builder.logger') as logger:
@@ -1386,6 +1390,7 @@ async def test_download_job_http_download_remove_existing_node(aiohttp_client, a
     webapp.router.add_get('/src', src)
     client = await aiohttp_client(webapp)
 
+    (builder.outdir / 'sources').rmtree(True)
     (builder.outdir / 'sources' / 'orig' / 'src').makedirs()
 
     with mock.patch('af2lfs.builder.logger') as logger:
