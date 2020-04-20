@@ -1414,3 +1414,34 @@ async def test_download_job_http_download_remove_existing_node(aiohttp_client, a
             mock.call('downloading: %s', 'src'),
             mock.call('download succeeded: %s', 'src')
         ]
+
+async def test_download_job_http_download_http_error_handling(aiohttp_client, app, aiohttp_unused_port):
+    job = DownloadJob({'type': 'http'})
+
+    builder = F2LFSBuilder(app)
+
+    (builder.outdir / 'sources').rmtree(True)
+
+    # conneciton error
+    port = aiohttp_unused_port()
+    async with aiohttp.ClientSession() as client:
+        with pytest.raises(BuildError) as excinfo:
+            await job.download(builder, client, 'http://orig/src',
+                               f'http://127.0.0.1:{port}/src')
+
+    assert str(excinfo.value) == f"couldn't download http://127.0.0.1:{port}/src: " \
+        f"Cannot connect to host 127.0.0.1:{port} ssl:default [Connect call " \
+        f"failed ('127.0.0.1', {port})]"
+
+    # http error response
+    async def src(request):
+        return web.Response(status=418, reason="I'm a teapot")
+
+    webapp = web.Application()
+    webapp.router.add_get('/src', src)
+    client = await aiohttp_client(webapp)
+
+    with pytest.raises(BuildError) as excinfo:
+        await job.download(builder, client, 'http://orig/src', '/src')
+
+    assert str(excinfo.value) == "couldn't download /src: 418 I'm a teapot"

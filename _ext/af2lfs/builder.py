@@ -371,15 +371,21 @@ class DownloadJob(Job):
 
         dest.parent.mkdir(parents=True, exist_ok=True)
 
-        async with client.get(mirror_url) as resp:
-            with open(dest, 'wb') as fd:
-                while True:
-                    chunk = await resp.content.read(65536)
-                    if not chunk:
-                        break
-                    fd.write(chunk)
+        try:
+            async with client.get(mirror_url) as resp:
+                if resp.status >= 400:
+                    raise BuildError(f"couldn't download {mirror_url}: "\
+                                     f"{resp.status} {resp.reason}")
+                with open(dest, 'wb') as fd:
+                    while True:
+                        chunk = await resp.content.read(65536)
+                        if not chunk:
+                            break
+                        fd.write(chunk)
 
-        logger.info('download succeeded: %s', dest.name)
+            logger.info('download succeeded: %s', dest.name)
+        except aiohttp.ClientError as e:
+            raise BuildError(f"couldn't download {mirror_url}: {str(e)}")
 
     async def verify(self, builder):
         raise NotImplementedError
