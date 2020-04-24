@@ -3,15 +3,6 @@ import asyncio
 import weakref
 import collections
 import selectors
-"""
-This file contains a code derived from Python.
-
-Python and its documentation is:
-Copyright © 2001-2020 Python Software Foundation. All rights reserved.
-Copyright © 2000 BeOpen.com. All rights reserved.
-Copyright © 1995-2000 Corporation for National Research Initiatives. All rights reserved.
-Copyright © 1991-1995 Stichting Mathematisch Centrum. All rights reserved.
-"""
 
 class TestSelector(selectors.BaseSelector):
     def __init__(self):

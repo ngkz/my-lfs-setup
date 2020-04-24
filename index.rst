@@ -10,7 +10,11 @@ Welcome to F²LFS's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+.. toctree::
+   :caption: Appendices
+   :maxdepth: 2
 
+   licenses.rst
 
 Indices and tables
 ==================
