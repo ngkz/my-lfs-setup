@@ -7,14 +7,14 @@
 alabaster==0.7.12         # via sphinx
 argh==0.26.2              # via sphinx-autobuild
 babel==2.8.0              # via sphinx
-blessed==1.17.4           # via enlighten
+blessed==1.17.5           # via enlighten
 certifi==2020.4.5.1       # via requests
 chardet==3.0.4            # via requests
 docutils==0.16            # via sphinx
 enlighten==1.5.1          # via -r requirements.in
 idna==2.9                 # via requests
 imagesize==1.2.0          # via sphinx
-jinja2==2.11.1            # via sphinx
+jinja2==2.11.2            # via sphinx
 livereload==2.6.1         # via sphinx-autobuild
 markupsafe==1.1.1         # via jinja2
 packaging==20.3           # via sphinx
@@ -28,7 +28,7 @@ requests==2.23.0          # via sphinx
 six==1.14.0               # via blessed, livereload, packaging
 snowballstemmer==2.0.0    # via sphinx
 sphinx-autobuild==0.7.1   # via -r requirements.in
-sphinx==3.0.1             # via -r requirements.in
+sphinx==3.0.3             # via -r requirements.in
 sphinxcontrib-applehelp==1.0.2  # via sphinx
 sphinxcontrib-devhelp==1.0.2  # via sphinx
 sphinxcontrib-htmlhelp==1.0.3  # via sphinx
@@ -36,7 +36,7 @@ sphinxcontrib-jsmath==1.0.1  # via sphinx
 sphinxcontrib-qthelp==1.0.3  # via sphinx
 sphinxcontrib-serializinghtml==1.1.4  # via sphinx
 tornado==6.0.4            # via livereload, sphinx-autobuild
-urllib3==1.25.8           # via requests
+urllib3==1.25.9           # via requests
 watchdog==0.10.2          # via sphinx-autobuild
 wcwidth==0.1.9            # via blessed
 
