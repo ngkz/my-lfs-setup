@@ -9,7 +9,7 @@ sys.path.insert(0, path(__file__).parent.parent.abspath() / '_ext')
 
 from af2lfs.testing import TestLoop
 
-pytest_plugins = ['sphinx.testing.fixtures', 'aiohttp.pytest_plugin']
+pytest_plugins = 'sphinx.testing.fixtures'
 
 # Code by the Sphinx team
 @pytest.fixture(scope='session')

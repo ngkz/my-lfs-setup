@@ -2,4 +2,3 @@ Sphinx
 sphinx-autobuild
 PyYAML
 enlighten
-aiohttp
