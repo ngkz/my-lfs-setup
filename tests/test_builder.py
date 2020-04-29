@@ -5,6 +5,7 @@ import os
 import asyncio
 from pathlib import Path
 from unittest import mock
+from unittest.mock import call
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
@@ -1008,8 +1009,8 @@ def test_build_job_graph_run_download_job_scheduling(app, testloop):
                                             'http://main1-mirror1/src')
     assert not child1.verify.called
     assert child2.download.mock_calls == [
-        mock.call(builder, 'http://main1/src2', 'http://main1-mirror2/src2'),
-        mock.call(builder, 'http://main1/sig2', 'http://main1-mirror1/sig2')
+        call(builder, 'http://main1/src2', 'http://main1-mirror2/src2'),
+        call(builder, 'http://main1/sig2', 'http://main1-mirror1/sig2')
     ]
     assert not child2.verify.called
     child3.download.assert_called_once_with(builder, 'http://main1/src3',
