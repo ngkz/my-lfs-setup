@@ -9,8 +9,9 @@ from unittest.mock import call
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
-                           BuildJobGraph, BuildJob, DownloadJob
+                           BuildJobGraph, BuildJob, DownloadJob, run
 from af2lfs.testing import assert_done
+import logging
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -1336,6 +1337,42 @@ def test_download_path(app):
         builder.download_path('/foo/bar')
 
     assert str(excinfo.value) == 'illegal hostname: (empty)'
+
+@pytest.mark.asyncio
+async def test_run():
+    logger = mock.Mock()
+
+    assert await run(logger, 'sh', '-c', 'echo "foo"; echo -n "bar"; echo "baz" >&2') == (0, '')
+    assert logger.mock_calls == [
+        call.info('$ %s', 'sh -c \'echo "foo"; echo -n "bar"; echo "baz" >&2\''),
+        call.info('%s', 'foo'),
+        call.info('%s', 'bar'),
+        call.warning('%s', 'baz')
+    ]
+    logger.reset_mock()
+
+    with pytest.raises(BuildError) as excinfo:
+        await run(logger, 'false')
+
+    assert str(excinfo.value) == 'command "false" failed'
+    assert logger.mock_calls == [
+        call.info('$ %s', 'false'),
+        call.log(logging.ERROR, 'the process finished with code %d', 1)
+    ]
+    logger.reset_mock()
+
+    assert await run(
+        logger, 'sh', '-c', 'echo "foo"; echo -n "bar"; echo "baz" >&2; exit 42',
+        check=False, capture_stdout=True
+    ) == (42, 'foo\nbar')
+    assert logger.mock_calls == [
+        call.info('$ %s', 'sh -c \'echo "foo"; echo -n "bar"; echo "baz" >&2; exit 42\''),
+        call.info('%s', 'foo'),
+        call.info('%s', 'bar'),
+        call.warning('%s', 'baz'),
+        call.log(logging.INFO, 'the process finished with code %d', 42)
+    ]
+    logger.reset_mock()
 
 """
 async def test_download_job_http_download(aiohttp_client, app):

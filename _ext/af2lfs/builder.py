@@ -12,6 +12,9 @@ import itertools
 import bisect
 from urllib import parse
 from af2lfs.utils import get_load, unquote_fssafe
+import shlex
+import subprocess
+import logging as logging_
 
 PACKAGE_STORE = PurePath('usr', 'pkg')
 DEFAULT_CFLAGS = '-O2 -march=native -pipe -fstack-clash-protection -fno-plt '\
@@ -427,6 +430,51 @@ def resolve_deps(target, packages, include_deps):
         visit(package, None)
 
     return result
+
+def shlex_join(split_command):
+    return ' '.join(map(shlex.quote, map(str, split_command)))
+
+async def run(logger, *args, cwd=None, check=True, capture_stdout=False):
+    command = shlex_join(args)
+    logger.info('$ %s', command)
+
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=cwd
+    )
+
+    stdout = []
+
+    async def read_stdout():
+        while True:
+            line = (await proc.stdout.readline()).decode(errors='replace')
+            if not line:
+                break
+            logger.info('%s', line.rstrip('\n'))
+            if capture_stdout:
+                stdout.append(line)
+
+    async def read_stderr():
+        while True:
+            line = (await proc.stderr.readline()).decode(errors='replace')
+            if not line:
+                break
+            logger.warning('%s', line.rstrip('\n'))
+
+    await asyncio.gather(read_stdout(), read_stderr())
+    await proc.wait()
+
+    if proc.returncode != 0:
+        logger.log(logging_.ERROR if check else logging_.INFO,
+                   'the process finished with code %d', proc.returncode)
+        if check:
+            raise BuildError(f'command "{command}" failed')
+
+    return (proc.returncode, ''.join(stdout))
+
 
 class F2LFSBuilder(Builder):
     name = 'system'
