@@ -431,15 +431,15 @@ def resolve_deps(target, packages, include_deps):
 
     return result
 
-def shlex_join(split_command):
+def shlex_join(*split_command):
     return ' '.join(map(shlex.quote, map(str, split_command)))
 
-async def run(logger, *args, cwd=None, check=True, capture_stdout=False):
-    command = shlex_join(args)
+async def run(logger, program, *args, cwd=None, check=True, capture_stdout=False):
+    command = shlex_join(program, *args)
     logger.info('$ %s', command)
 
     proc = await asyncio.create_subprocess_exec(
-        *args,
+        program, *args,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
