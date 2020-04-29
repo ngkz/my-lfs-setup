@@ -439,7 +439,7 @@ async def run(logger, program, *args, cwd=None, check=True, capture_stdout=False
     logger.info('$ %s', command)
 
     proc = await asyncio.create_subprocess_exec(
-        program, *args,
+        str(program), *map(str, args),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

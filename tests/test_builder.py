@@ -1374,6 +1374,8 @@ async def test_run():
     ]
     logger.reset_mock()
 
+    assert await run(logger, Path('sh'), '-c', 'exit 0') == (0, '')
+
 """
 async def test_download_job_http_download(aiohttp_client, app):
     job = DownloadJob({'type': 'http'})
