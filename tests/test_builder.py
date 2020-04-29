@@ -3,13 +3,14 @@ import pytest
 import textwrap
 import os
 import asyncio
+import subprocess
+import mock
+from mock import call
 from pathlib import Path
-from unittest import mock
-from unittest.mock import call
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
-                           BuildJobGraph, BuildJob, DownloadJob, run
+                           BuildJobGraph, BuildJob, DownloadJob, run, Sandbox
 from af2lfs.testing import assert_done
 import logging
 
@@ -1375,6 +1376,64 @@ async def test_run():
     logger.reset_mock()
 
     assert await run(logger, Path('sh'), '-c', 'exit 0') == (0, '')
+
+@pytest.mark.asyncio
+@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
+async def test_sandbox(run, app):
+    logger = mock.Mock()
+    run.return_value = (0, 'foo')
+    sandbox = Sandbox()
+    sandbox.env('envvar', 'envvar-value')
+    sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False)
+    sandbox.shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True)
+    rc, stdout = await sandbox.run(app.config, logger, 'program', 'args1', 'args2',
+        check=False, capture_stdout=True)
+    assert (rc, stdout) == run.return_value
+
+    extroot = (Path(__file__).parent.parent / '_ext' / 'af2lfs').resolve()
+    assert run.call_args_list == [
+        call(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
+                     '/shiftfs-host', '/shiftfs-host'),
+        call(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
+                     '/shiftfs-rw-host', '/shiftfs-rw-host'),
+        call(logger, 'sudo', 'nsjail',
+                     '--config', extroot / 'sandbox-cfg' / 'chroot.cfg',
+                     '--user', '0:100000:65536',
+                     '--group', '0:100000:65536',
+                     '--env', 'envvar=envvar-value',
+                     '--mount', '/shiftfs-host:/shiftfs-target:shiftfs:ro',
+                     '--mount', '/shiftfs-rw-host:/shiftfs-rw-target:shiftfs',
+                     '--', '/bin/sh', '-c', 'umask 022 && program args1 args2',
+             check=False, capture_stdout=True),
+        call(logger, 'sudo', 'umount', '/shiftfs-rw-host', check=False),
+        call(logger, 'sudo', 'umount', '/shiftfs-host', check=False)
+    ]
+
+    run.reset_mock()
+    sandbox = Sandbox()
+    sandbox.cwd = '/cwd'
+    sandbox.bind_host_system = True
+    sandbox.umask = None
+    await sandbox.run(app.config, logger, 'program')
+    assert run.call_args_list == [
+        call(logger, 'sudo', 'nsjail',
+                     '--config', extroot / 'sandbox-cfg' / 'bind-host-system.cfg',
+                     '--user', '0:100000:65536',
+                     '--group', '0:100000:65536',
+                     '--cwd', '/cwd',
+                     '--', '/bin/sh', '-c', 'program',
+             check=True, capture_stdout=False)
+    ]
+
+    run.reset_mock()
+    run.return_value = (42, '')
+    sandbox = Sandbox()
+    sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False)
+
+    with pytest.raises(BuildError) as excinfo:
+        await sandbox.run(app.config, logger, 'program')
+
+    assert str(excinfo.value) == 'shiftfs cleanup failed'
 
 """
 async def test_download_job_http_download(aiohttp_client, app):
