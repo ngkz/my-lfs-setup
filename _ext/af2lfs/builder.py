@@ -477,12 +477,36 @@ async def run(logger, program, *args, cwd=None, check=True, capture_stdout=False
     return (proc.returncode, ''.join(stdout))
 
 class Sandbox:
-    def __init__(self):
-        self.bind_host_system = False
-        self.cwd = None
-        self.umask = 0o022
+    def __init__(self, config, logger):
+        self.config = config
+        self.logger = logger
+        self._bind_host = False
+        self._cwd = None
+        self._umask = 0o022
+        self._check = True
+        self._capture_stdout = False
         self.options = []
-        self.shiftfs_mark = []
+        self._shiftfs_mark = []
+
+    def bind_host(self, bind_host):
+        self._bind_host = bind_host
+        return self
+
+    def cwd(self, cwd):
+        self._cwd = cwd
+        return self
+
+    def umask(self, umask):
+        self._umask = umask
+        return self
+
+    def check(self, check):
+        self._check = check
+        return self
+
+    def capture_stdout(self, capture_stdout):
+        self._capture_stdout = capture_stdout
+        return self
 
     def env(self, name, value):
         self.options += ['--env', name + '=' + value]
@@ -490,42 +514,40 @@ class Sandbox:
 
     def shiftfs_bind(self, host_path, target_path, rw=False):
         self.options += ['--mount', f'{host_path}:{target_path}:shiftfs{"" if rw else ":ro"}']
-        self.shiftfs_mark.append(host_path)
+        self._shiftfs_mark.append(host_path)
         return self
 
-    async def run(self, config, logger, program, *args, check=True, capture_stdout=False):
+    async def run(self, program, *args):
         nsjail_args = ['nsjail']
 
         nsjail_args.append('--config')
-        if self.bind_host_system:
+        if self._bind_host:
             nsjail_args.append(SANDBOX_CFGS / 'bind-host-system.cfg')
         else:
             nsjail_args.append(SANDBOX_CFGS / 'chroot.cfg')
 
-        nsjail_args += ['--user', config.f2lfs_uidmap]
-        nsjail_args += ['--group', config.f2lfs_gidmap]
+        nsjail_args += ['--user', self.config.f2lfs_uidmap]
+        nsjail_args += ['--group', self.config.f2lfs_gidmap]
 
-        if self.cwd:
-            nsjail_args += ['--cwd', self.cwd]
+        if self._cwd:
+            nsjail_args += ['--cwd', self._cwd]
 
         nsjail_args += self.options
 
-        command = shlex_join(program, *args)
-        if self.umask is not None:
-            command = f'umask {self.umask:03o} && ' + command
-        nsjail_args += ['--', '/bin/sh', '-c', command]
+        nsjail_args += ['--', '/bin/sh', '-c',
+                        f'umask {self._umask:03o} && {shlex_join(program, *args)}']
 
-        for path in self.shiftfs_mark:
-            await run(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
+        for path in self._shiftfs_mark:
+            await run(self.logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
                       path, path)
 
         try:
-            return await run(logger, 'sudo', *nsjail_args, check=check,
-                             capture_stdout=capture_stdout)
+            return await run(self.logger, 'sudo', *nsjail_args, check=self._check,
+                             capture_stdout=self._capture_stdout)
         finally:
             ok = 0
-            for path in reversed(self.shiftfs_mark):
-                rc, _ = await run(logger, 'sudo', 'umount', path, check=False)
+            for path in reversed(self._shiftfs_mark):
+                rc, _ = await run(self.logger, 'sudo', 'umount', path, check=False)
                 ok += rc
             if ok != 0:
                 raise BuildError('shiftfs cleanup failed')
