@@ -1383,9 +1383,9 @@ async def test_sandbox(run, app):
     logger = mock.Mock()
     run.return_value = (0, 'foo')
     sandbox = Sandbox()
-    assert sandbox.env('envvar', 'envvar-value') is sandbox
-    assert sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False) is sandbox
-    sandbox.shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True)
+    sandbox.env('envvar', 'envvar-value') \
+           .shiftfs_bind('/shiftfs-host', '/shiftfs-target', False) \
+           .shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True)
     rc, stdout = await sandbox.run(app.config, logger, 'program', 'args1', 'args2',
         check=False, capture_stdout=True)
     assert (rc, stdout) == run.return_value
@@ -1409,7 +1409,36 @@ async def test_sandbox(run, app):
         call(logger, 'sudo', 'umount', '/shiftfs-host', check=False)
     ]
 
-    run.reset_mock()
+    run.reset_mock(return_value=True)
+    run.side_effect = [(0, ''), (0, ''), (0, ''), (1, ''), (0, '')]
+
+    sandbox = Sandbox()
+    sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False) \
+           .shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True)
+
+    with pytest.raises(BuildError) as excinfo:
+        await sandbox.run(app.config, logger, 'program')
+
+    assert str(excinfo.value) == 'shiftfs cleanup failed'
+    assert run.call_args_list == [
+        call(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
+                     '/shiftfs-host', '/shiftfs-host'),
+        call(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
+                     '/shiftfs-rw-host', '/shiftfs-rw-host'),
+        call(logger, 'sudo', 'nsjail',
+                     '--config', extroot / 'sandbox-cfg' / 'chroot.cfg',
+                     '--user', '0:100000:65536',
+                     '--group', '0:100000:65536',
+                     '--mount', '/shiftfs-host:/shiftfs-target:shiftfs:ro',
+                     '--mount', '/shiftfs-rw-host:/shiftfs-rw-target:shiftfs',
+                     '--', '/bin/sh', '-c', 'umask 022 && program',
+             check=True, capture_stdout=False),
+        call(logger, 'sudo', 'umount', '/shiftfs-rw-host', check=False),
+        call(logger, 'sudo', 'umount', '/shiftfs-host', check=False)
+    ]
+
+    run.reset_mock(side_effect=True)
+    run.return_value = (0, '')
     sandbox = Sandbox()
     sandbox.cwd = '/cwd'
     sandbox.bind_host_system = True
@@ -1424,16 +1453,6 @@ async def test_sandbox(run, app):
                      '--', '/bin/sh', '-c', 'program',
              check=True, capture_stdout=False)
     ]
-
-    run.reset_mock()
-    run.return_value = (42, '')
-    sandbox = Sandbox()
-    sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False)
-
-    with pytest.raises(BuildError) as excinfo:
-        await sandbox.run(app.config, logger, 'program')
-
-    assert str(excinfo.value) == 'shiftfs cleanup failed'
 
 """
 async def test_download_job_http_download(aiohttp_client, app):
