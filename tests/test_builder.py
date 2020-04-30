@@ -1383,8 +1383,8 @@ async def test_sandbox(run, app):
     logger = mock.Mock()
     run.return_value = (0, 'foo')
     sandbox = Sandbox()
-    sandbox.env('envvar', 'envvar-value')
-    sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False)
+    assert sandbox.env('envvar', 'envvar-value') is sandbox
+    assert sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False) is sandbox
     sandbox.shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True)
     rc, stdout = await sandbox.run(app.config, logger, 'program', 'args1', 'args2',
         check=False, capture_stdout=True)

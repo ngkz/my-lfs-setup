@@ -486,10 +486,12 @@ class Sandbox:
 
     def env(self, name, value):
         self.options += ['--env', name + '=' + value]
+        return self
 
     def shiftfs_bind(self, host_path, target_path, rw=False):
         self.options += ['--mount', f'{host_path}:{target_path}:shiftfs{"" if rw else ":ro"}']
         self.shiftfs_mark.append(host_path)
+        return self
 
     async def run(self, config, logger, program, *args, check=True, capture_stdout=False):
         nsjail_args = ['nsjail']
