@@ -1380,28 +1380,34 @@ async def test_run():
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_run(run, app):
+async def test_sandbox_run(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:200000:65536'
+    config.f2lfs_gidmap = '0:300000:65536'
     logger = mock.Mock()
     run.return_value = (0, '')
-    rc, stdout = await Sandbox(app.config, logger).run('program', 'args1', 'args2')
+    rc, stdout = await Sandbox(config, logger).run('program', 'args1', 'args2')
     assert rc == 0
     assert stdout == ''
 
     assert run.call_args_list == [
         call(logger, 'sudo', 'nsjail',
                      '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
+                     '--user', '0:200000:65536',
+                     '--group', '0:300000:65536',
                      '--', '/bin/sh', '-c', 'umask 022 && program args1 args2',
              check=True, capture_stdout=False)
     ]
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_bind_host_system(run, app):
+async def test_sandbox_bind_host_system(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:100000:65536'
+    config.f2lfs_gidmap = '0:100000:65536'
     logger = mock.Mock()
     run.return_value = (0, '')
-    await Sandbox(app.config, logger).bind_host(True).run('program')
+    await Sandbox(config, logger).bind_host(True).run('program')
 
     assert run.call_args_list == [
         call(logger, 'sudo', 'nsjail',
@@ -1414,10 +1420,13 @@ async def test_sandbox_bind_host_system(run, app):
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_cwd(run, app):
+async def test_sandbox_cwd(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:100000:65536'
+    config.f2lfs_gidmap = '0:100000:65536'
     logger = mock.Mock()
     run.return_value = (0, '')
-    await Sandbox(app.config, logger).cwd('/foobar').run('program')
+    await Sandbox(config, logger).cwd('/foobar').run('program')
 
     assert run.call_args_list == [
         call(logger, 'sudo', 'nsjail',
@@ -1431,10 +1440,13 @@ async def test_sandbox_cwd(run, app):
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_umask(run, app):
+async def test_sandbox_umask(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:100000:65536'
+    config.f2lfs_gidmap = '0:100000:65536'
     logger = mock.Mock()
     run.return_value = (0, '')
-    await Sandbox(app.config, logger).umask(0o754).run('program')
+    await Sandbox(config, logger).umask(0o754).run('program')
 
     assert run.call_args_list == [
         call(logger, 'sudo', 'nsjail',
@@ -1447,10 +1459,13 @@ async def test_sandbox_umask(run, app):
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_check(run, app):
+async def test_sandbox_check(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:100000:65536'
+    config.f2lfs_gidmap = '0:100000:65536'
     logger = mock.Mock()
     run.return_value = (0, '')
-    await Sandbox(app.config, logger).check(False).run('program')
+    await Sandbox(config, logger).check(False).run('program')
 
     assert run.call_args_list == [
         call(logger, 'sudo', 'nsjail',
@@ -1463,10 +1478,13 @@ async def test_sandbox_check(run, app):
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_capture_stdout(run, app):
+async def test_sandbox_capture_stdout(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:100000:65536'
+    config.f2lfs_gidmap = '0:100000:65536'
     logger = mock.Mock()
     run.return_value = (0, '')
-    await Sandbox(app.config, logger).capture_stdout(True).run('program')
+    await Sandbox(config, logger).capture_stdout(True).run('program')
 
     assert run.call_args_list == [
         call(logger, 'sudo', 'nsjail',
@@ -1479,10 +1497,13 @@ async def test_sandbox_capture_stdout(run, app):
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_env(run, app):
+async def test_sandbox_env(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:100000:65536'
+    config.f2lfs_gidmap = '0:100000:65536'
     logger = mock.Mock()
     run.return_value = (0, '')
-    await Sandbox(app.config, logger).env('FOO', 'BAR').run('program')
+    await Sandbox(config, logger).env('FOO', 'BAR').run('program')
 
     assert run.call_args_list == [
         call(logger, 'sudo', 'nsjail',
@@ -1496,10 +1517,13 @@ async def test_sandbox_env(run, app):
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_shiftfs_bind(run, app):
+async def test_sandbox_shiftfs_bind(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:100000:65536'
+    config.f2lfs_gidmap = '0:100000:65536'
     logger = mock.Mock()
     run.return_value = (0, '')
-    sandbox = Sandbox(app.config, logger)
+    sandbox = Sandbox(config, logger)
     await sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False) \
                  .shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True) \
                  .run('program')
@@ -1524,10 +1548,13 @@ async def test_sandbox_shiftfs_bind(run, app):
 
 @pytest.mark.asyncio
 @mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_shiftfs_bind_cleanup(run, app):
+async def test_sandbox_shiftfs_bind_cleanup(run):
+    config = mock.Mock()
+    config.f2lfs_uidmap = '0:100000:65536'
+    config.f2lfs_gidmap = '0:100000:65536'
     logger = mock.Mock()
     run.side_effect = [(0, ''), (0, ''), (0, ''), (1, ''), (0, '')]
-    sandbox = Sandbox(app.config, logger)
+    sandbox = Sandbox(config, logger)
     sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False) \
            .shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True)
 
