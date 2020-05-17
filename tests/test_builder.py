@@ -11,7 +11,7 @@ from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
                            BuildJobGraph, BuildJob, DownloadJob, run
 from af2lfs.testing import assert_done
-import logging
+import logging
 
 @pytest.fixture()
 def rootfs(app, tempdir):
