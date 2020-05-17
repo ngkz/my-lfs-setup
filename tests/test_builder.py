@@ -3,6 +3,7 @@ import pytest
 import textwrap
 import os
 import asyncio
+import aiohttp
 from pathlib import Path
 from unittest import mock
 from unittest.mock import call
@@ -11,6 +12,7 @@ from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
                            BuildJobGraph, BuildJob, DownloadJob, run
 from af2lfs.testing import assert_done
+from aiohttp import web
 import logging as logging_
 from sphinx.util import logging
 
@@ -1003,18 +1005,19 @@ def test_build_job_graph_run_download_job_scheduling(app, testloop):
     #              http://main1-mirror2/src3 (child3, prio 3)
     #              http://nomirror/src4 (child4, prio 2)
     # verifying:
-    child1.download.assert_called_once_with(builder, 'http://main1/src',
+    child1.download.assert_called_once_with(builder, mock.ANY, 'http://main1/src',
                                             'http://main1-mirror1/src')
+    isinstance(child1.download.call_args[0][1], aiohttp.ClientSession)
     assert not child1.verify.called
     assert child2.download.mock_calls == [
-        call(builder, 'http://main1/src2', 'http://main1-mirror2/src2'),
-        call(builder, 'http://main1/sig2', 'http://main1-mirror1/sig2')
+        call(builder, mock.ANY, 'http://main1/src2', 'http://main1-mirror2/src2'),
+        call(builder, mock.ANY, 'http://main1/sig2', 'http://main1-mirror1/sig2')
     ]
     assert not child2.verify.called
-    child3.download.assert_called_once_with(builder, 'http://main1/src3',
+    child3.download.assert_called_once_with(builder, mock.ANY, 'http://main1/src3',
                                             'http://main1-mirror2/src3')
     assert not child3.verify.called
-    child4.download.assert_called_once_with(builder, 'git://nomirror/src4',
+    child4.download.assert_called_once_with(builder, mock.ANY, 'git://nomirror/src4',
                                             'git://nomirror/src4')
     assert not child4.verify.called
     assert not child5.download.called
@@ -1040,7 +1043,7 @@ def test_build_job_graph_run_download_job_scheduling(app, testloop):
     assert child1.verify.called
     assert not child2.download.called
     assert not child2.verify.called
-    child3.download.assert_called_once_with(builder, 'http://main1/sig3',
+    child3.download.assert_called_once_with(builder, mock.ANY, 'http://main1/sig3',
                                             'http://main1-mirror1/sig3')
     assert not child3.verify.called
     assert not child4.download.called
@@ -1071,7 +1074,7 @@ def test_build_job_graph_run_download_job_scheduling(app, testloop):
     assert not child3.verify.called
     assert not child4.download.called
     assert not child4.verify.called
-    child5.download.assert_called_once_with(builder, 'http://nomirror/src5',
+    child5.download.assert_called_once_with(builder, mock.ANY, 'http://nomirror/src5',
                                             'http://nomirror/src5')
     assert not child5.verify.called
     assert not child6.download.called
@@ -1335,7 +1338,7 @@ def test_download_path(app):
 
     assert str(excinfo.value) == 'illegal hostname: (empty)'
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio # aiohttp issue 3360
 async def test_run():
     logger = mock.Mock()
 
@@ -1376,7 +1379,6 @@ async def test_run():
 
     assert await run(logger, Path('sh'), '-c', 'exit 0') == (0, '')
 
-"""
 async def test_download_job_http_download(aiohttp_client, app):
     job = DownloadJob({'type': 'http'})
 
@@ -1397,8 +1399,8 @@ async def test_download_job_http_download(aiohttp_client, app):
         assert  (builder.outdir / 'sources' / 'orig' / 'dir' / 'src?query=value%00') \
             .text() == 'src-content'
         assert logger.info.mock_calls == [
-            mock.call('downloading: %s', 'src?query=value%00'),
-            mock.call('download succeeded: %s', 'src?query=value%00')
+            call('downloading: %s', 'src?query=value%00'),
+            call('download succeeded: %s', 'src?query=value%00')
         ]
 
 async def test_download_job_http_download_skip_if_already_downloaded(app):
@@ -1435,9 +1437,9 @@ async def test_download_job_http_download_remove_existing_node(aiohttp_client, a
         await job.download(builder, client, 'http://orig/src', f'/src')
         assert (builder.outdir / 'sources' / 'orig' / 'src').text() == 'src-content'
         assert logger.info.mock_calls == [
-            mock.call('deleting: %s', 'src'),
-            mock.call('downloading: %s', 'src'),
-            mock.call('download succeeded: %s', 'src')
+            call('deleting: %s', 'src'),
+            call('downloading: %s', 'src'),
+            call('download succeeded: %s', 'src')
         ]
 
     src_path = Path(builder.outdir / 'sources' / 'orig' / 'src')
@@ -1448,9 +1450,9 @@ async def test_download_job_http_download_remove_existing_node(aiohttp_client, a
         await job.download(builder, client, 'http://orig/src', f'/src')
         assert (builder.outdir / 'sources' / 'orig' / 'src').text() == 'src-content'
         assert logger.info.mock_calls == [
-            mock.call('deleting: %s', 'src'),
-            mock.call('downloading: %s', 'src'),
-            mock.call('download succeeded: %s', 'src')
+            call('deleting: %s', 'src'),
+            call('downloading: %s', 'src'),
+            call('download succeeded: %s', 'src')
         ]
 
 async def test_download_job_http_download_http_error_handling(aiohttp_client, app, aiohttp_unused_port):
@@ -1483,4 +1485,3 @@ async def test_download_job_http_download_http_error_handling(aiohttp_client, ap
         await job.download(builder, client, 'http://orig/src', '/src')
 
     assert str(excinfo.value) == "couldn't download /src: 418 I'm a teapot"
-"""

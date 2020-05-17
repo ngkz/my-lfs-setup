@@ -12,6 +12,7 @@ import itertools
 import bisect
 from urllib import parse
 from af2lfs.utils import get_load, unquote_fssafe
+import aiohttp
 import shlex
 import subprocess
 import logging as logging_
@@ -116,116 +117,118 @@ class BuildJobGraph:
         next_sampling = loop.time() + builder.config.f2lfs_load_sampling_period
 
         try:
-            while (not runnable_build_queue.empty()) or running_build_stack or \
-                    paused_build_queue or waiting_dl_queue or downloading or \
-                    verifying_dl:
-                if loop.time() >= next_sampling:
-                    # sample load
-                    load_samples[:-1] = load_samples[1:]
-                    load_samples[-1] = get_load()
-                    next_sampling = loop.time() + builder.config.f2lfs_load_sampling_period
+            async with aiohttp.ClientSession() as client:
+                while (not runnable_build_queue.empty()) or running_build_stack or \
+                        paused_build_queue or waiting_dl_queue or downloading or \
+                        verifying_dl:
+                    if loop.time() >= next_sampling:
+                        # sample load
+                        load_samples[:-1] = load_samples[1:]
+                        load_samples[-1] = get_load()
+                        next_sampling = loop.time() + builder.config.f2lfs_load_sampling_period
 
-                load = statistics.median(load_samples) # moving median of load
+                    load = statistics.median(load_samples) # moving median of load
 
-                # show load median and update elapsed time
-                builder.progress.additional_fields['load'] = f' Load: {load}'
-                builder.progress.refresh()
+                    # show load median and update elapsed time
+                    builder.progress.additional_fields['load'] = f' Load: {load}'
+                    builder.progress.refresh()
 
-                # schedule build jobs
-                if (not running_build_stack) or (
-                        loop.time() >= next_scheduling and
-                        len(running_build_stack) < builder.app.parallel and
-                        load < builder.app.parallel
-                ):
-                    if paused_build_queue:
-                        # resume first paused build job
-                        job, task = paused_build_queue.popleft()
-                        job.resume()
-                        running_build_stack[task] = job
+                    # schedule build jobs
+                    if (not running_build_stack) or (
+                            loop.time() >= next_scheduling and
+                            len(running_build_stack) < builder.app.parallel and
+                            load < builder.app.parallel
+                    ):
+                        if paused_build_queue:
+                            # resume first paused build job
+                            job, task = paused_build_queue.popleft()
+                            job.resume()
+                            running_build_stack[task] = job
+                            # wait for load median to respond to load change
+                            next_scheduling = loop.time() + load_delay
+                        elif not runnable_build_queue.empty():
+                            # start highest priority build job
+                            item = runnable_build_queue.get_nowait()
+                            task = asyncio.ensure_future(item.job.run(builder))
+                            running_build_stack[task] = item.job
+                            # wait for load median to respond to load change
+                            # avoid starting new job while single-threaded configure
+                            # script running
+                            next_scheduling = loop.time() + load_delay + \
+                                              builder.config.f2lfs_configure_delay
+                    elif load >= builder.config.f2lfs_max_load and \
+                            len(running_build_stack) >= 2 and \
+                            loop.time() >= next_scheduling:
+                        # system overloaded
+                        # pause last started build job
+                        task, job = running_build_stack.popitem()
+                        job.pause()
+                        paused_build_queue.append((job, task))
                         # wait for load median to respond to load change
                         next_scheduling = loop.time() + load_delay
-                    elif not runnable_build_queue.empty():
-                        # start highest priority build job
-                        item = runnable_build_queue.get_nowait()
-                        task = asyncio.ensure_future(item.job.run(builder))
-                        running_build_stack[task] = item.job
-                        # wait for load median to respond to load change
-                        # avoid starting new job while single-threaded configure
-                        # script running
-                        next_scheduling = loop.time() + load_delay + \
-                                          builder.config.f2lfs_configure_delay
-                elif load >= builder.config.f2lfs_max_load and \
-                        len(running_build_stack) >= 2 and \
-                        loop.time() >= next_scheduling:
-                    # system overloaded
-                    # pause last started build job
-                    task, job = running_build_stack.popitem()
-                    job.pause()
-                    paused_build_queue.append((job, task))
-                    # wait for load median to respond to load change
-                    next_scheduling = loop.time() + load_delay
 
-                # schedule download jobs
-                for item in waiting_dl_queue[:]:
-                    if sum(connection_counter.values()) >= \
-                            builder.config.f2lfs_max_connections:
-                        break
+                    # schedule download jobs
+                    for item in waiting_dl_queue[:]:
+                        if sum(connection_counter.values()) >= \
+                                builder.config.f2lfs_max_connections:
+                            break
 
-                    # find usable freest mirror
-                    mirrors = builder.find_mirrors(item.url)
+                        # find usable freest mirror
+                        mirrors = builder.find_mirrors(item.url)
 
-                    freest_mirror_conn = None
-                    freest_mirror_url = None
-                    freest_mirror_hostname = None
+                        freest_mirror_conn = None
+                        freest_mirror_url = None
+                        freest_mirror_hostname = None
 
-                    for url in mirrors:
-                        hostname = parse.urlparse(url).hostname
-                        conn_count = connection_counter[hostname]
+                        for url in mirrors:
+                            hostname = parse.urlparse(url).hostname
+                            conn_count = connection_counter[hostname]
 
-                        if conn_count >= builder.config.f2lfs_max_connections_per_host:
-                            continue
+                            if conn_count >= builder.config.f2lfs_max_connections_per_host:
+                                continue
 
-                        if freest_mirror_conn is None or conn_count < freest_mirror_conn:
-                            freest_mirror_conn = conn_count
-                            freest_mirror_hostname = hostname
-                            freest_mirror_url = url
+                            if freest_mirror_conn is None or \
+                                    conn_count < freest_mirror_conn:
+                                freest_mirror_conn = conn_count
+                                freest_mirror_hostname = hostname
+                                freest_mirror_url = url
 
-                    if freest_mirror_conn is not None:
-                        # start download
-                        waiting_dl_queue.remove(item)
-                        connection_counter[freest_mirror_hostname] += 1
-                        task = asyncio.ensure_future(
-                            item.job.download(builder, item.url, freest_mirror_url))
-                        downloading[task] = (freest_mirror_hostname, item.job)
+                        if freest_mirror_conn is not None:
+                            # start download
+                            waiting_dl_queue.remove(item)
+                            connection_counter[freest_mirror_hostname] += 1
+                            task = asyncio.ensure_future(item.job.download(
+                                builder, client, item.url, freest_mirror_url))
+                            downloading[task] = (freest_mirror_hostname, item.job)
 
-                done, pending = await asyncio.wait(
-                    set(itertools.chain(running_build_stack.keys(),
-                                        downloading.keys(), verifying_dl.keys())),
-                    timeout = next_sampling - loop.time(),
-                    return_when = asyncio.FIRST_COMPLETED
-                )
+                    done, pending = await asyncio.wait(
+                        set(itertools.chain(running_build_stack.keys(),
+                                            downloading.keys(),
+                                            verifying_dl.keys())),
+                        timeout = next_sampling - loop.time(),
+                        return_when = asyncio.FIRST_COMPLETED
+                    )
 
-                for task in done:
-                    job = running_build_stack.pop(task, None) or \
-                          verifying_dl.pop(task, None)
-                    if job:
-                        await task # re-raise caught exception here
-                        # job succeeded
-                        builder.progress.update()
-                        job.schedule_children(queues)
+                    for task in done:
+                        job = running_build_stack.pop(task, None) or \
+                              verifying_dl.pop(task, None)
+                        if job:
+                            await task # re-raise caught exception here
+                            # job succeeded
+                            builder.progress.update()
+                            job.schedule_children(queues)
 
-                    hostname, job = downloading.pop(task, (None, None))
-                    if job:
-                        await task # re-raise caught exception here
+                        hostname, job = downloading.pop(task, (None, None))
+                        if job:
+                            await task # re-raise caught exception here
 
-                        connection_counter[hostname] -= 1
-                        job.download_count += 1
+                            connection_counter[hostname] -= 1
+                            job.download_count += 1
 
-                        if job.download_count >= job.download_total:
-                            verify_task = asyncio.ensure_future(job.verify(builder))
-                            verifying_dl[verify_task] = job
-
-                        continue
+                            if job.download_count >= job.download_total:
+                                verify_task = asyncio.ensure_future(
+                                    job.verify(builder))
+                                verifying_dl[verify_task] = job
         except:
             for paused_job, _ in paused_build_queue:
                 paused_job.resume()
@@ -347,8 +350,45 @@ class DownloadJob(Job):
     def dump_name(self):
         return f"DownloadJob({self.source['url']})"
 
-    async def download(self, builder, orig_url, mirror_url):
-        raise NotImplementedError
+    async def download(self, builder, client, orig_url, mirror_url):
+        dest = builder.download_path(orig_url)
+
+        if self.source['type'] != 'http':
+            raise NotImplementedError
+
+        if dest.is_file():
+            # already downloaded
+            logger.info('skip download: %s', dest.name)
+            return
+
+        if dest.exists() or dest.is_symlink():
+            # not a regular file
+            logger.info('deleting: %s', dest.name)
+
+            if dest.is_symlink() or (not dest.is_dir()):
+                dest.unlink()
+            else:
+                shutil.rmtree(dest)
+
+        logger.info('downloading: %s', dest.name)
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            async with client.get(mirror_url) as resp:
+                if resp.status >= 400:
+                    raise BuildError(f"couldn't download {mirror_url}: "\
+                                     f"{resp.status} {resp.reason}")
+                with open(dest, 'wb') as fd:
+                    while True:
+                        chunk = await resp.content.read(65536)
+                        if not chunk:
+                            break
+                        fd.write(chunk)
+
+            logger.info('download succeeded: %s', dest.name)
+        except aiohttp.ClientError as e:
+            raise BuildError(f"couldn't download {mirror_url}: {str(e)}")
 
     async def verify(self, builder):
         raise NotImplementedError
