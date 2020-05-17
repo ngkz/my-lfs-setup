@@ -436,7 +436,7 @@ def shlex_join(*split_command):
 
 async def run(logger, program, *args, cwd=None, check=True, capture_stdout=False):
     command = shlex_join(program, *args)
-    logger.info('$ %s', command)
+    logger.verbose('$ %s', command)
 
     proc = await asyncio.create_subprocess_exec(
         str(program), *map(str, args),
@@ -453,7 +453,7 @@ async def run(logger, program, *args, cwd=None, check=True, capture_stdout=False
             line = (await proc.stdout.readline()).decode(errors='replace')
             if not line:
                 break
-            logger.info('%s', line.rstrip('\n'))
+            logger.verbose('%s', line.rstrip('\n'))
             if capture_stdout:
                 stdout.append(line)
 
@@ -468,13 +468,12 @@ async def run(logger, program, *args, cwd=None, check=True, capture_stdout=False
     await proc.wait()
 
     if proc.returncode != 0:
-        logger.log(logging_.ERROR if check else logging_.INFO,
+        logger.log(logging_.ERROR if check else logging.VERBOSE,
                    'the process finished with code %d', proc.returncode)
         if check:
             raise BuildError(f'command "{command}" failed')
 
     return (proc.returncode, ''.join(stdout))
-
 
 class F2LFSBuilder(Builder):
     name = 'system'

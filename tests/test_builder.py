@@ -11,7 +11,8 @@ from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
                            BuildJobGraph, BuildJob, DownloadJob, run
 from af2lfs.testing import assert_done
-import logging
+import logging as logging_
+from sphinx.util import logging
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -1339,12 +1340,13 @@ async def test_run():
     logger = mock.Mock()
 
     assert await run(logger, 'sh', '-c', 'echo "foo"; echo -n "bar"; echo "baz" >&2') == (0, '')
-    assert logger.mock_calls == [
-        call.info('$ %s', 'sh -c \'echo "foo"; echo -n "bar"; echo "baz" >&2\''),
-        call.info('%s', 'foo'),
-        call.info('%s', 'bar'),
-        call.warning('%s', 'baz')
-    ]
+    assert len(logger.mock_calls) == 4
+    assert logger.mock_calls[0] == call.verbose(
+        '$ %s', 'sh -c \'echo "foo"; echo -n "bar"; echo "baz" >&2\''
+    )
+    assert logger.mock_calls.index(call.verbose('%s', 'foo')) < \
+           logger.mock_calls.index(call.verbose('%s', 'bar'))
+    assert call.warning('%s', 'baz') in logger.mock_calls
     logger.reset_mock()
 
     with pytest.raises(BuildError) as excinfo:
@@ -1352,8 +1354,8 @@ async def test_run():
 
     assert str(excinfo.value) == 'command "false" failed'
     assert logger.mock_calls == [
-        call.info('$ %s', 'false'),
-        call.log(logging.ERROR, 'the process finished with code %d', 1)
+        call.verbose('$ %s', 'false'),
+        call.log(logging_.ERROR, 'the process finished with code %d', 1)
     ]
     logger.reset_mock()
 
@@ -1361,13 +1363,15 @@ async def test_run():
         logger, 'sh', '-c', 'echo "foo"; echo -n "bar"; echo "baz" >&2; exit 42',
         check=False, capture_stdout=True
     ) == (42, 'foo\nbar')
-    assert logger.mock_calls == [
-        call.info('$ %s', 'sh -c \'echo "foo"; echo -n "bar"; echo "baz" >&2; exit 42\''),
-        call.info('%s', 'foo'),
-        call.info('%s', 'bar'),
-        call.warning('%s', 'baz'),
-        call.log(logging.INFO, 'the process finished with code %d', 42)
-    ]
+    assert len(logger.mock_calls) == 5
+    assert logger.mock_calls[0] == call.verbose(
+        '$ %s', 'sh -c \'echo "foo"; echo -n "bar"; echo "baz" >&2; exit 42\'')
+    assert logger.mock_calls.index(call.verbose('%s', 'foo')) < \
+        logger.mock_calls.index(call.verbose('%s', 'bar'))
+    assert call.warning('%s', 'baz') in logger.mock_calls
+    assert logger.mock_calls[-1] == call.log(
+        logging.VERBOSE, 'the process finished with code %d', 42
+    )
     logger.reset_mock()
 
     assert await run(logger, Path('sh'), '-c', 'exit 0') == (0, '')
