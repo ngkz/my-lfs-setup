@@ -3,15 +3,13 @@ import pytest
 import textwrap
 import os
 import asyncio
-import subprocess
-import mock
-from mock import call
 from pathlib import Path
+from unittest import mock
+from unittest.mock import call
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
-                           BuildJobGraph, BuildJob, DownloadJob, run, Sandbox, \
-                           SANDBOX_CFGS
+                           BuildJobGraph, BuildJob, DownloadJob, run
 from af2lfs.testing import assert_done
 import logging
 
@@ -390,10 +388,6 @@ def test_prebuild_check(app, tempdir):
 
     with pytest.raises(BuildError) as excinfo:
         app_build_with_path(tmpbin)
-
-    assert str(excinfo.value) == "command 'nsjail' not available"
-
-    Path(tmpbin / 'nsjail').touch(mode=0o755)
 
     with pytest.raises(BuildError) as excinfo:
         app_build_with_path(tmpbin)
@@ -1378,206 +1372,6 @@ async def test_run():
 
     assert await run(logger, Path('sh'), '-c', 'exit 0') == (0, '')
 
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_run(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:200000:65536'
-    config.f2lfs_gidmap = '0:300000:65536'
-    logger = mock.Mock()
-    run.return_value = (0, '')
-    rc, stdout = await Sandbox(config, logger).run('program', 'args1', 'args2')
-    assert rc == 0
-    assert stdout == ''
-
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:200000:65536',
-                     '--group', '0:300000:65536',
-                     '--', '/bin/sh', '-c', 'umask 022 && program args1 args2',
-             check=True, capture_stdout=False)
-    ]
-
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_bind_host_system(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:100000:65536'
-    config.f2lfs_gidmap = '0:100000:65536'
-    logger = mock.Mock()
-    run.return_value = (0, '')
-    await Sandbox(config, logger).bind_host(True).run('program')
-
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'bind-host-system.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
-                     '--', '/bin/sh', '-c', 'umask 022 && program',
-             check=True, capture_stdout=False)
-    ]
-
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_cwd(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:100000:65536'
-    config.f2lfs_gidmap = '0:100000:65536'
-    logger = mock.Mock()
-    run.return_value = (0, '')
-    await Sandbox(config, logger).cwd('/foobar').run('program')
-
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
-                     '--cwd', '/foobar',
-                     '--', '/bin/sh', '-c', 'umask 022 && program',
-             check=True, capture_stdout=False)
-    ]
-
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_umask(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:100000:65536'
-    config.f2lfs_gidmap = '0:100000:65536'
-    logger = mock.Mock()
-    run.return_value = (0, '')
-    await Sandbox(config, logger).umask(0o754).run('program')
-
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
-                     '--', '/bin/sh', '-c', 'umask 754 && program',
-             check=True, capture_stdout=False)
-    ]
-
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_check(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:100000:65536'
-    config.f2lfs_gidmap = '0:100000:65536'
-    logger = mock.Mock()
-    run.return_value = (0, '')
-    await Sandbox(config, logger).check(False).run('program')
-
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
-                     '--', '/bin/sh', '-c', 'umask 022 && program',
-             check=False, capture_stdout=False)
-    ]
-
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_capture_stdout(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:100000:65536'
-    config.f2lfs_gidmap = '0:100000:65536'
-    logger = mock.Mock()
-    run.return_value = (0, '')
-    await Sandbox(config, logger).capture_stdout(True).run('program')
-
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
-                     '--', '/bin/sh', '-c', 'umask 022 && program',
-             check=True, capture_stdout=True)
-    ]
-
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_env(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:100000:65536'
-    config.f2lfs_gidmap = '0:100000:65536'
-    logger = mock.Mock()
-    run.return_value = (0, '')
-    await Sandbox(config, logger).env('FOO', 'BAR').run('program')
-
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
-                     '--env', 'FOO=BAR',
-                     '--', '/bin/sh', '-c', 'umask 022 && program',
-             check=True, capture_stdout=False)
-    ]
-
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_shiftfs_bind(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:100000:65536'
-    config.f2lfs_gidmap = '0:100000:65536'
-    logger = mock.Mock()
-    run.return_value = (0, '')
-    sandbox = Sandbox(config, logger)
-    await sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False) \
-                 .shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True) \
-                 .run('program')
-
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
-                     '/shiftfs-host', '/shiftfs-host'),
-        call(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
-                     '/shiftfs-rw-host', '/shiftfs-rw-host'),
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
-                     '--mount', '/shiftfs-host:/shiftfs-target:shiftfs:ro',
-                     '--mount', '/shiftfs-rw-host:/shiftfs-rw-target:shiftfs',
-                     '--', '/bin/sh', '-c', 'umask 022 && program',
-             check=True, capture_stdout=False),
-        call(logger, 'sudo', 'umount', '/shiftfs-rw-host', check=False),
-        call(logger, 'sudo', 'umount', '/shiftfs-host', check=False)
-    ]
-
-
-@pytest.mark.asyncio
-@mock.patch('af2lfs.builder.run', new_callable=mock.AsyncMock)
-async def test_sandbox_shiftfs_bind_cleanup(run):
-    config = mock.Mock()
-    config.f2lfs_uidmap = '0:100000:65536'
-    config.f2lfs_gidmap = '0:100000:65536'
-    logger = mock.Mock()
-    run.side_effect = [(0, ''), (0, ''), (0, ''), (1, ''), (0, '')]
-    sandbox = Sandbox(config, logger)
-    sandbox.shiftfs_bind('/shiftfs-host', '/shiftfs-target', False) \
-           .shiftfs_bind('/shiftfs-rw-host', '/shiftfs-rw-target', True)
-
-    with pytest.raises(BuildError) as excinfo:
-        await sandbox.run('program')
-
-    assert str(excinfo.value) == 'shiftfs cleanup failed'
-    assert run.call_args_list == [
-        call(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
-                     '/shiftfs-host', '/shiftfs-host'),
-        call(logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
-                     '/shiftfs-rw-host', '/shiftfs-rw-host'),
-        call(logger, 'sudo', 'nsjail',
-                     '--config', SANDBOX_CFGS / 'chroot.cfg',
-                     '--user', '0:100000:65536',
-                     '--group', '0:100000:65536',
-                     '--mount', '/shiftfs-host:/shiftfs-target:shiftfs:ro',
-                     '--mount', '/shiftfs-rw-host:/shiftfs-rw-target:shiftfs',
-                     '--', '/bin/sh', '-c', 'umask 022 && program',
-             check=True, capture_stdout=False),
-        call(logger, 'sudo', 'umount', '/shiftfs-rw-host', check=False),
-        call(logger, 'sudo', 'umount', '/shiftfs-host', check=False)
-    ]
 """
 async def test_download_job_http_download(aiohttp_client, app):
     job = DownloadJob({'type': 'http'})

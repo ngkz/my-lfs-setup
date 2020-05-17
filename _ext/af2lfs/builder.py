@@ -19,7 +19,6 @@ import logging as logging_
 PACKAGE_STORE = PurePath('usr', 'pkg')
 DEFAULT_CFLAGS = '-O2 -march=native -pipe -fstack-clash-protection -fno-plt '\
                  '-fexceptions -fasynchronous-unwind-tables -Wp,-D_FORTIFY_SOURCE=2'
-SANDBOX_CFGS = Path(__file__).parent.joinpath('sandbox-cfg').resolve()
 
 logger = logging.getLogger(__name__)
 
@@ -476,81 +475,6 @@ async def run(logger, program, *args, cwd=None, check=True, capture_stdout=False
 
     return (proc.returncode, ''.join(stdout))
 
-class Sandbox:
-    def __init__(self, config, logger):
-        self.config = config
-        self.logger = logger
-        self._bind_host = False
-        self._cwd = None
-        self._umask = 0o022
-        self._check = True
-        self._capture_stdout = False
-        self.options = []
-        self._shiftfs_mark = []
-
-    def bind_host(self, bind_host):
-        self._bind_host = bind_host
-        return self
-
-    def cwd(self, cwd):
-        self._cwd = cwd
-        return self
-
-    def umask(self, umask):
-        self._umask = umask
-        return self
-
-    def check(self, check):
-        self._check = check
-        return self
-
-    def capture_stdout(self, capture_stdout):
-        self._capture_stdout = capture_stdout
-        return self
-
-    def env(self, name, value):
-        self.options += ['--env', name + '=' + value]
-        return self
-
-    def shiftfs_bind(self, host_path, target_path, rw=False):
-        self.options += ['--mount', f'{host_path}:{target_path}:shiftfs{"" if rw else ":ro"}']
-        self._shiftfs_mark.append(host_path)
-        return self
-
-    async def run(self, program, *args):
-        nsjail_args = ['nsjail']
-
-        nsjail_args.append('--config')
-        if self._bind_host:
-            nsjail_args.append(SANDBOX_CFGS / 'bind-host-system.cfg')
-        else:
-            nsjail_args.append(SANDBOX_CFGS / 'chroot.cfg')
-
-        nsjail_args += ['--user', self.config.f2lfs_uidmap]
-        nsjail_args += ['--group', self.config.f2lfs_gidmap]
-
-        if self._cwd:
-            nsjail_args += ['--cwd', self._cwd]
-
-        nsjail_args += self.options
-
-        nsjail_args += ['--', '/bin/sh', '-c',
-                        f'umask {self._umask:03o} && {shlex_join(program, *args)}']
-
-        for path in self._shiftfs_mark:
-            await run(self.logger, 'sudo', 'mount', '-t', 'shiftfs', '-o', 'mark',
-                      path, path)
-
-        try:
-            return await run(self.logger, 'sudo', *nsjail_args, check=self._check,
-                             capture_stdout=self._capture_stdout)
-        finally:
-            ok = 0
-            for path in reversed(self._shiftfs_mark):
-                rc, _ = await run(self.logger, 'sudo', 'umount', path, check=False)
-                ok += rc
-            if ok != 0:
-                raise BuildError('shiftfs cleanup failed')
 
 class F2LFSBuilder(Builder):
     name = 'system'
@@ -751,7 +675,7 @@ class F2LFSBuilder(Builder):
         return download_path
 
     def write(self, *ignored):
-        check_command('sudo', 'nsjail')
+        check_command('sudo')
 
         if not self.config.f2lfs_target_triplet:
             raise BuildError("f2lfs_target_triplet is not set")
@@ -781,8 +705,6 @@ def setup(app):
     app.add_config_value('f2lfs_final_cppflags', '-D_GLIBCXX_ASSERTIONS', '')
     app.add_config_value('f2lfs_final_ldflags',
                          '-Wl,-O1,--sort-common,--as-needed,-z,now', '')
-    app.add_config_value('f2lfs_uidmap', '0:100000:65536', '')
-    app.add_config_value('f2lfs_gidmap', '0:100000:65536', '')
     app.add_config_value('f2lfs_load_sampling_period', 0.125, '')
     app.add_config_value('f2lfs_load_sample_size', 15, '')
     app.add_config_value('f2lfs_configure_delay', 5, '')
