@@ -370,25 +370,42 @@ class DownloadJob(Job):
             else:
                 shutil.rmtree(dest)
 
-        logger.info('downloading: %s', dest.name)
-
         dest.parent.mkdir(parents=True, exist_ok=True)
 
+        dest_tmp = dest.parent / (dest.name + '.download')
+
+        headers = {}
+
+        if not dest_tmp.is_file():
+            logger.info('downloading: %s', dest.name)
+        else:
+            logger.info('resuming download: %s', dest.name)
+            headers['Range'] = 'bytes={}-'.format(dest_tmp.stat().st_size)
+
         try:
-            async with client.get(mirror_url) as resp:
+            async with client.get(mirror_url, headers=headers) as resp:
                 if resp.status >= 400:
                     raise BuildError(f"couldn't download {mirror_url}: "\
                                      f"{resp.status} {resp.reason}")
-                with open(dest, 'wb') as fd:
+
+                if resp.status == 206:
+                    # server sent back the range
+                    mode = 'ab'
+                else:
+                    # server ignored the range
+                    mode = 'wb'
+
+                with open(dest_tmp, mode) as fd:
                     while True:
                         chunk = await resp.content.read(65536)
                         if not chunk:
                             break
                         fd.write(chunk)
-
-            logger.info('download succeeded: %s', dest.name)
         except aiohttp.ClientError as e:
             raise BuildError(f"couldn't download {mirror_url}: {str(e)}")
+
+        dest_tmp.rename(dest)
+        logger.info('download succeeded: %s', dest.name)
 
     async def verify(self, builder):
         raise NotImplementedError

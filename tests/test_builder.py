@@ -1485,3 +1485,63 @@ async def test_download_job_http_download_http_error_handling(aiohttp_client, ap
         await job.download(builder, client, 'http://orig/src', '/src')
 
     assert str(excinfo.value) == "couldn't download /src: 418 I'm a teapot"
+
+async def test_download_job_resuming_http_download(aiohttp_client, app):
+    job = DownloadJob({'type': 'http'})
+
+    builder = F2LFSBuilder(app)
+
+    async def src(request):
+        stream = web.StreamResponse()
+        assert not 'Range' in request.headers
+        await stream.prepare(request)
+        await stream.write(b'foo')
+        raise RuntimeError('hoge')
+
+    webapp = web.Application()
+    webapp.router.add_get('/src', src)
+    interrupt_dl_client = await aiohttp_client(webapp)
+
+    (builder.outdir / 'sources').rmtree(True)
+
+    with pytest.raises(BuildError):
+        await job.download(builder, interrupt_dl_client, 'http://orig/src', '/src')
+    assert (builder.outdir / 'sources' / 'orig' / 'src.download').text() == 'foo'
+    assert not (builder.outdir / 'sources' / 'orig' / 'src').exists()
+
+    async def src(request):
+        assert request.headers['Range'] == 'bytes=3-'
+        return web.Response(status=206, body='bar')
+    webapp = web.Application()
+    webapp.router.add_get('/src', src)
+    resume_client = await aiohttp_client(webapp)
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, resume_client, 'http://orig/src', '/src')
+        assert not (builder.outdir / 'sources' / 'orig' / 'src.download').exists()
+        assert (builder.outdir / 'sources' / 'orig' / 'src').text() == 'foobar'
+        assert logger.info.mock_calls == [
+            call('resuming download: %s', 'src'),
+            call('download succeeded: %s', 'src')
+        ]
+
+    (builder.outdir / 'sources').rmtree(True)
+
+    with pytest.raises(BuildError):
+        await job.download(builder, interrupt_dl_client, 'http://orig/src', '/src')
+
+    async def src(request):
+        assert request.headers['Range'] == 'bytes=3-'
+        return web.Response(status=200, body='range request ignored')
+    webapp = web.Application()
+    webapp.router.add_get('/src', src)
+    ignore_range_client = await aiohttp_client(webapp)
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, ignore_range_client, 'http://orig/src', '/src')
+        assert not (builder.outdir / 'sources' / 'orig' / 'src.download').exists()
+        assert (builder.outdir / 'sources' / 'orig' / 'src').text() == 'range request ignored'
+        assert logger.info.mock_calls == [
+            call('resuming download: %s', 'src'),
+            call('download succeeded: %s', 'src')
+        ]
