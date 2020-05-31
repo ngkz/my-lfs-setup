@@ -673,7 +673,6 @@ Sphinx Extension License
 
   - `Apache License Version 2.0`_
 
-
 * ``_ext/af2lfs/testing.py`` contains a code derived from Python 3.8:
 
   .. code-block:: text
@@ -685,6 +684,20 @@ Sphinx Extension License
       Copyright © 1991-1995 Stichting Mathematisch Centrum. All rights reserved.
 
   - `PSF License Agreement for Python 3.8.2`_
+
+* ``_ext/af2lfs/builder.py`` and ``_ext/af2lfs/checkout`` contain code derived from concourse:
+
+  .. code-block:: text
+
+    Copyright 2014-2016 Alex Suraci, Chris Brown, and Pivotal Software, Inc.
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+  - `Apache License Version 2.0`_
 
 GNU General Public License Version 3
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

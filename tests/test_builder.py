@@ -4,17 +4,18 @@ import textwrap
 import os
 import asyncio
 import aiohttp
+import mock
 from pathlib import Path
-from unittest import mock
 from unittest.mock import call
 from sphinx.testing import restructuredtext
 from af2lfs.builder import F2LFSBuilder, BuiltPackage, DependencyCycleError, \
                            BuildError, check_command, tmp_triplet, resolve_deps, \
-                           BuildJobGraph, BuildJob, DownloadJob, run
+                           BuildJobGraph, BuildJob, DownloadJob, run, CHECKOUT
 from af2lfs.testing import assert_done
 from aiohttp import web
 import logging as logging_
 from sphinx.util import logging
+import subprocess
 
 @pytest.fixture()
 def rootfs(app, tempdir):
@@ -1545,3 +1546,192 @@ async def test_download_job_resuming_http_download(aiohttp_client, app):
             call('resuming download: %s', 'src'),
             call('download succeeded: %s', 'src')
         ]
+
+@pytest.mark.asyncio # aiohttp issue 3360
+async def test_download_job_git_clone(app, tempdir):
+    subprocess.run(['git', 'init'], cwd=tempdir, check=True)
+
+    commits = []
+    for i in range(129):
+        (tempdir / 'file').write_text(f'commit {i}')
+        subprocess.run(['git', 'add', 'file'], cwd=tempdir, check=True)
+        subprocess.run(['git', 'commit', '-m', f'commit {i}'], cwd=tempdir, check=True)
+        commit = subprocess.run(['git', 'rev-parse', 'HEAD'], check=True, cwd=tempdir,
+                                stdout=subprocess.PIPE).stdout.decode().strip()
+        commits.append(commit)
+
+    subprocess.run(['git', 'tag', 'tag-commit3', commits[3]], cwd=tempdir, check=True)
+    subprocess.run(['git', 'branch', 'branch-commit9', commits[9]], cwd=tempdir, check=True)
+
+    def head(repo):
+        return subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=repo, check=True,
+                              stdout=subprocess.PIPE).stdout.decode().strip()
+
+    builder = F2LFSBuilder(app)
+    (builder.outdir / 'sources').rmtree(True)
+
+    # fetch a tag
+    job = DownloadJob({'type': 'git', 'tag': 'tag-commit3'})
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, None, 'http://orig/repo.git', 'file://' + tempdir)
+        assert head(builder.outdir / 'sources' / 'orig' / 'repo.git') == commits[3]
+        assert logger.mock_calls == [
+            call.info('downloading: %s', 'repo.git'),
+            call.verbose('$ %s', f"git init --quiet {builder.outdir / 'sources' / 'orig' / 'repo.git'}"),
+            call.verbose('$ %s', f'git remote add origin file://' + tempdir),
+            call.verbose('$ %s', 'git checkout --quiet tag-commit3'),
+            call.warning('%s', "error: pathspec 'tag-commit3' did not match any file(s) known to git"),
+            call.log(15, 'the process finished with code %d', 1),
+            call.verbose('$ %s', 'git fetch --depth=1 --quiet origin +refs/tags/tag-commit3:refs/tags/tag-commit3'),
+            call.verbose('$ %s', 'git checkout --quiet tag-commit3'),
+            call.info('download succeeded: %s', 'repo.git')
+        ]
+
+    # fetch a commit by id
+    subprocess.run(['git', 'config', '--local', 'uploadpack.allowAnySHA1InWant',
+                    'true'], cwd=tempdir, check=True)
+
+    job = DownloadJob({'type': 'git', 'commit': commits[2]})
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, None, 'http://orig/repo.git', 'file://' + tempdir)
+        assert head(builder.outdir / 'sources' / 'orig' / 'repo.git') == commits[2]
+        assert logger.mock_calls == [
+            call.info('downloading: %s', 'repo.git'),
+            call.verbose('$ %s', 'git remote set-url origin file://' + tempdir),
+            call.verbose('$ %s', f"{CHECKOUT} {commits[2]} ''"),
+            call.verbose('%s', 'fetched the commit by id'),
+            call.info('download succeeded: %s', 'repo.git')
+        ]
+
+    subprocess.run(['git', 'config', '--local', 'uploadpack.allowAnySHA1InWant',
+                    'false'], cwd=tempdir, check=True)
+
+    # fetch a already-fetched tag
+    job = DownloadJob({'type': 'git', 'tag': 'tag-commit3'})
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, None, 'http://orig/repo.git', 'file://' + tempdir)
+        assert head(builder.outdir / 'sources' / 'orig' / 'repo.git') == commits[3]
+        assert logger.mock_calls == [
+            call.info('downloading: %s', 'repo.git'),
+            call.verbose('$ %s', 'git remote set-url origin file://' + tempdir),
+            call.verbose('$ %s', 'git checkout --quiet tag-commit3'),
+            call.info('download succeeded: %s', 'repo.git')
+        ]
+
+    # shallow clone
+    job = DownloadJob({'type': 'git', 'commit': commits[123]})
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, None, 'http://orig/repo.git', 'file://' + tempdir)
+        assert head(builder.outdir / 'sources' / 'orig' / 'repo.git') == commits[123]
+        assert logger.mock_calls == [
+            call.info('downloading: %s', 'repo.git'),
+            call.verbose('$ %s', f'git remote set-url origin file://{tempdir}'),
+            call.verbose('$ %s', f"{CHECKOUT} {commits[123]} ''"),
+            call.verbose('%s', 'requesting default branch name'),
+            call.verbose('%s', 'creating a shallow clone with depth 1...'),
+            call.verbose('%s', f'could not find commit {commits[123]} in a shallow clone of branch master of depth 1'),
+            call.verbose('%s', 'deepening the shallow clone to depth 2...'),
+            call.verbose('%s', f'could not find commit {commits[123]} in a shallow clone of branch master of depth 2'),
+            call.verbose('%s', 'deepening the shallow clone to depth 4...'),
+            call.verbose('%s', f'could not find commit {commits[123]} in a shallow clone of branch master of depth 4'),
+            call.verbose('%s', 'deepening the shallow clone to depth 8...'),
+            call.info('download succeeded: %s', 'repo.git')
+        ]
+
+    # checkout already-fetched commit
+    job = DownloadJob({'type': 'git', 'commit': commits[124]})
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, None, 'http://orig/repo.git', 'file://' + tempdir)
+        assert head(builder.outdir / 'sources' / 'orig' / 'repo.git') == commits[124]
+        assert logger.mock_calls == [
+            call.info('downloading: %s', 'repo.git'),
+            call.verbose('$ %s', 'git remote set-url origin file://' + tempdir),
+            call.verbose('$ %s', f"{CHECKOUT} {commits[124]} ''"),
+            call.info('download succeeded: %s', 'repo.git')
+        ]
+
+    # branch
+    job = DownloadJob({'type': 'git', 'branch': 'branch-commit9', 'commit': commits[8]})
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, None, 'http://orig/repo.git', 'file://' + tempdir)
+        assert head(builder.outdir / 'sources' / 'orig' / 'repo.git') == commits[8]
+        assert logger.mock_calls == [
+            call.info('downloading: %s', 'repo.git'),
+            call.verbose('$ %s', f'git remote set-url origin file://{tempdir}'),
+            call.verbose('$ %s', f"{CHECKOUT} {commits[8]} branch-commit9"),
+            call.verbose('%s', 'creating a shallow clone with depth 1...'),
+            call.verbose('%s', f'could not find commit {commits[8]} in a shallow clone of branch branch-commit9 of depth 1'),
+            call.verbose('%s', 'deepening the shallow clone to depth 2...'),
+            call.info('download succeeded: %s', 'repo.git')
+        ]
+
+    # exceeds depth limit
+    job = DownloadJob({'type': 'git', 'commit': commits[0]})
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        await job.download(builder, None, 'http://orig/repo.git', 'file://' + tempdir)
+        assert head(builder.outdir / 'sources' / 'orig' / 'repo.git') == commits[0]
+        assert logger.mock_calls == [
+            call.info('downloading: %s', 'repo.git'),
+             call.verbose('$ %s', 'git remote set-url origin file://' + tempdir),
+             call.verbose('$ %s', f"{CHECKOUT} {commits[0]} ''"),
+             call.verbose('%s', 'requesting default branch name'),
+             call.verbose('%s', 'creating a shallow clone with depth 1...'),
+             call.verbose('%s', f'could not find commit {commits[0]} in a shallow clone of branch master of depth 1'),
+             call.verbose('%s', 'deepening the shallow clone to depth 2...'),
+             call.verbose('%s', f'could not find commit {commits[0]} in a shallow clone of branch master of depth 2'),
+             call.verbose('%s', 'deepening the shallow clone to depth 4...'),
+             call.verbose('%s', f'could not find commit {commits[0]} in a shallow clone of branch master of depth 4'),
+             call.verbose('%s', 'deepening the shallow clone to depth 8...'),
+             call.verbose('%s', f'could not find commit {commits[0]} in a shallow clone of branch master of depth 8'),
+             call.verbose('%s', 'deepening the shallow clone to depth 16...'),
+             call.verbose('%s', f'could not find commit {commits[0]} in a shallow clone of branch master of depth 16'),
+             call.verbose('%s', 'deepening the shallow clone to depth 32...'),
+             call.verbose('%s', f'could not find commit {commits[0]} in a shallow clone of branch master of depth 32'),
+             call.verbose('%s', 'deepening the shallow clone to depth 64...'),
+             call.verbose('%s', f'could not find commit {commits[0]} in a shallow clone of branch master of depth 64'),
+             call.verbose('%s', 'deepening the shallow clone to depth 128...'),
+             call.verbose('%s', f'could not find commit {commits[0]} in a shallow clone of branch master of depth 128'),
+             call.verbose('%s', 'Reached depth threshold 128, falling back to deep clone...'),
+             call.info('download succeeded: %s', 'repo.git')
+        ]
+
+
+async def test_download_job_git_clone_remove_existing_node(app):
+    builder = F2LFSBuilder(app)
+
+    (builder.outdir / 'sources').rmtree(True)
+    (builder.outdir / 'sources' / 'orig').makedirs()
+
+    job = DownloadJob({'type': 'git', 'commit': 'noexistent'})
+
+    src_path = Path(builder.outdir / 'sources' / 'orig' / 'src')
+    src_path.write_text('')
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        with mock.patch('af2lfs.builder.run', return_value=(0, None)) as run:
+            await job.download(builder, None, 'http://orig/src', 'http://orig/src')
+            print(logger.mock_calls)
+            assert logger.info.mock_calls == [
+                call('deleting: %s', 'src'),
+                call('downloading: %s', 'src'),
+                call('download succeeded: %s', 'src')
+            ]
+
+    src_path.symlink_to('brokenlink')
+
+    with mock.patch('af2lfs.builder.logger') as logger:
+        with mock.patch('af2lfs.builder.run', return_value=(0, None)) as run:
+            await job.download(builder, None, 'http://orig/src', 'http://orig/src')
+            print(logger.mock_calls)
+            assert logger.info.mock_calls == [
+                call('deleting: %s', 'src'),
+                call('downloading: %s', 'src'),
+                call('download succeeded: %s', 'src')
+            ]

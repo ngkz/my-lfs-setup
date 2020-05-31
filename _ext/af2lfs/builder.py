@@ -15,11 +15,13 @@ from af2lfs.utils import get_load, unquote_fssafe
 import aiohttp
 import shlex
 import subprocess
+import re
 import logging as logging_
 
 PACKAGE_STORE = PurePath('usr', 'pkg')
 DEFAULT_CFLAGS = '-O2 -march=native -pipe -fstack-clash-protection -fno-plt '\
                  '-fexceptions -fasynchronous-unwind-tables -Wp,-D_FORTIFY_SOURCE=2'
+CHECKOUT = Path(__file__).parent / 'checkout'
 
 logger = logging.getLogger(__name__)
 
@@ -353,58 +355,91 @@ class DownloadJob(Job):
     async def download(self, builder, client, orig_url, mirror_url):
         dest = builder.download_path(orig_url)
 
-        if self.source['type'] != 'http':
-            raise NotImplementedError
+        if self.source['type'] == 'http':
+            if dest.is_file():
+                # already downloaded
+                logger.info('skip download: %s', dest.name)
+                return
 
-        if dest.is_file():
-            # already downloaded
-            logger.info('skip download: %s', dest.name)
-            return
+            if dest.exists() or dest.is_symlink():
+                # not a regular file
+                logger.info('deleting: %s', dest.name)
 
-        if dest.exists() or dest.is_symlink():
-            # not a regular file
-            logger.info('deleting: %s', dest.name)
-
-            if dest.is_symlink() or (not dest.is_dir()):
+                if dest.is_symlink() or (not dest.is_dir()):
+                    dest.unlink()
+                else:
+                    shutil.rmtree(dest)
+        else:
+            # git
+            if dest.is_symlink() or (dest.exists() and (not dest.is_dir())):
+                # not a directory
+                logger.info('deleting: %s', dest.name)
                 dest.unlink()
-            else:
-                shutil.rmtree(dest)
 
         dest.parent.mkdir(parents=True, exist_ok=True)
 
-        dest_tmp = dest.parent / (dest.name + '.download')
+        if self.source['type'] == 'http':
+            dest_tmp = dest.parent / (dest.name + '.download')
 
-        headers = {}
+            headers = {}
 
-        if not dest_tmp.is_file():
-            logger.info('downloading: %s', dest.name)
+            if not dest_tmp.is_file():
+                logger.info('downloading: %s', dest.name)
+            else:
+                logger.info('resuming download: %s', dest.name)
+                headers['Range'] = 'bytes={}-'.format(dest_tmp.stat().st_size)
+
+            try:
+                async with client.get(mirror_url, headers=headers) as resp:
+                    if resp.status >= 400:
+                        raise BuildError(f"couldn't download {mirror_url}: "\
+                                         f"{resp.status} {resp.reason}")
+
+                    if resp.status == 206:
+                        # server sent back the range
+                        mode = 'ab'
+                    else:
+                        # server ignored the range
+                        mode = 'wb'
+
+                    with open(dest_tmp, mode) as fd:
+                        while True:
+                            chunk = await resp.content.read(65536)
+                            if not chunk:
+                                break
+                            fd.write(chunk)
+            except aiohttp.ClientError as e:
+                raise BuildError(f"couldn't download {mirror_url}: {str(e)}")
+
+            dest_tmp.rename(dest)
         else:
-            logger.info('resuming download: %s', dest.name)
-            headers['Range'] = 'bytes={}-'.format(dest_tmp.stat().st_size)
+            # git
+            logger.info('downloading: %s', dest.name)
 
-        try:
-            async with client.get(mirror_url, headers=headers) as resp:
-                if resp.status >= 400:
-                    raise BuildError(f"couldn't download {mirror_url}: "\
-                                     f"{resp.status} {resp.reason}")
+            if not dest.is_dir():
+                await run(logger, 'git', 'init', '--quiet', dest)
+                await run(logger, 'git', 'remote', 'add', 'origin', mirror_url,
+                          cwd=dest)
+            else:
+                await run(logger, 'git', 'remote', 'set-url', 'origin', mirror_url,
+                          cwd=dest)
 
-                if resp.status == 206:
-                    # server sent back the range
-                    mode = 'ab'
-                else:
-                    # server ignored the range
-                    mode = 'wb'
+            tag = self.source.get('tag')
+            commit = self.source.get('commit')
+            branch = self.source.get('branch')
 
-                with open(dest_tmp, mode) as fd:
-                    while True:
-                        chunk = await resp.content.read(65536)
-                        if not chunk:
-                            break
-                        fd.write(chunk)
-        except aiohttp.ClientError as e:
-            raise BuildError(f"couldn't download {mirror_url}: {str(e)}")
+            if tag:
+                if (await run(logger, 'git', 'checkout', '--quiet', tag, cwd=dest,
+                              check=False))[0] != 0:
+                    # retrieve tag
+                    await run(logger, 'git', 'fetch', '--depth=1', '--quiet',
+                              'origin', f'+refs/tags/{tag}:refs/tags/{tag}',
+                              cwd=dest)
+                    await run(logger, 'git', 'checkout', '--quiet', tag, cwd=dest)
+            else:
+                await run(logger, CHECKOUT, commit, "" if branch is None else branch,
+                          cwd=dest)
 
-        dest_tmp.rename(dest)
         logger.info('download succeeded: %s', dest.name)
 
     async def verify(self, builder):

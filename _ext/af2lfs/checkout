@@ -1,0 +1,68 @@
+#!/bin/bash
+# vim: set ft=sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+set -e
+
+readonly max_depth=128
+readonly ref="$1"
+readonly git_dir="$(git rev-parse --git-dir)"
+
+if git checkout -q "$ref" &>/dev/null; then
+    exit
+fi
+
+# If uploadpack.allowReachableSHA1InWant is turned on on server, we can fetch
+# commit by id.
+# create a branch because next fetches won't speed up if the fetched commit is
+# unreachable from local refs
+if git fetch --depth=1 origin "$ref:fetch-${ref}" 2>/dev/null; then
+    echo "fetched the commit by id"
+    git checkout -q "$ref"
+    exit
+fi
+
+branch=
+if [ "$#" -ge 2 ]; then
+    branch="$2"
+    # limit branches to fetch
+    if [ -z "$branch" ]; then
+        echo "requesting default branch name"
+        branch=$(git ls-remote --symref origin HEAD | sed -n 's|^ref: refs/heads/\(.*\)\tHEAD|\1|p')
+    fi
+    git remote set-branches origin "$branch"
+fi
+
+# deepen the shallow clone until we find $ref
+depth=1
+while :; do
+    # once the depth of a shallow clone reaches the max depth of the origin
+    # repo, Git silenty turns it into a deep clone
+    if [ "$depth" -gt 1 ] && [ ! -e "$git_dir"/shallow ]; then
+        echo "reached max depth of the origin repo while deepening the shallow clone, it's a deep clone now"
+        break
+    fi
+
+    if [ "$depth" -eq 1 ]; then
+        echo "creating a shallow clone with depth ${depth}..."
+    else
+        echo "deepening the shallow clone to depth ${depth}..."
+    fi
+    git fetch --quiet --depth "$depth" origin
+
+    if git checkout -q "$ref" &>/dev/null; then
+        exit
+    fi
+
+    echo "could not find commit ${ref} in a shallow clone of branch ${branch} of depth ${depth}"
+
+    ((depth *= 2))
+
+    if [ "$depth" -gt "$max_depth" ]; then
+        echo "Reached depth threshold ${max_depth}, falling back to deep clone..."
+        git fetch --unshallow origin
+        break
+    fi
+done
+
+git checkout -q "$ref"
